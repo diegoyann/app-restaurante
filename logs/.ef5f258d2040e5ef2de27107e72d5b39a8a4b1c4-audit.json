@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\.ef5f258d2040e5ef2de27107e72d5b39a8a4b1c4-audit.json",
+    "files": [
+        {
+            "date": 1775780184852,
+            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-04-09.log",
+            "hash": "5aef14167b7563b960528074dd86a3c1045b1357855f13941172117b075601a5"
+        }
+    ],
+    "hashType": "sha256"
+}

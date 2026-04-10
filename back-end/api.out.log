@@ -1,0 +1,7 @@
+
+> rei-das-esfihas-backend@1.0.0 dev
+> node --watch src/server.js
+
+Backend rodando em http://localhost:3001
+Restarting 'src/server.js'
+Failed running 'src/server.js'. Waiting for file changes before restarting...
