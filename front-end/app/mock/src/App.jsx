@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './App.css';
 import {
     LayoutDashboard,
     Receipt,
     TrendingUp,
     DollarSign,
     Plus,
+    Copy,
     Trash2,
     PieChart,
     LogOut,
@@ -29,15 +31,65 @@ import {
     List,
     Circle,
     Check,
-    Menu
+    Menu,
+    ChefHat,
+    ImagePlus,
+    Camera,
+    Search,
+    Link2,
+    Eye,
+    Sparkles,
+    Star,
+    Bot
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
     AreaChart, Area, Legend
 } from 'recharts';
+import {
+    ComboEditorModal,
+    MenuCategoryManager,
+    MenuCategoryModal,
+    MenuItemFormPanel,
+    MenuItemModal
+} from './features/menu/MenuComponents.jsx';
+import {
+    createEmptyCategoryForm,
+    createEmptyComboForm,
+    createEmptyComboGroup,
+    createEmptyComboOption,
+    createEmptyMenuItemForm,
+    createId,
+    createInitialMenuCategories,
+    getComponentTagLabel,
+    getMenuStatusMeta,
+    menuStatusOptions,
+    resolveLinkedComponentMeta,
+    summarizeComboGroups
+} from './features/menu/menuModel.js';
+import { ReviewManagementPage } from './features/reviews/ReviewManagement.jsx';
+import AiBehaviorSettingsPage from './features/settings/AiBehaviorSettings.jsx';
 
 // --- CONFIGURAÇÃO ---
-const LOGO_URL = "https://media.discordapp.net/attachments/1116226671356432525/1491817940389990491/Logo_Sem_Fundo_Sem_nome.png?ex=69d91339&is=69d7c1b9&hm=880b1a54c2502532f72efd5b8648ae5152be22c38d01e69cc70b1b290c76f7de&=&format=webp&quality=lossless&width=1008&height=1008";
+const LOGO_URL = "/hero-logo.png";
+const USE_REVENUE_CHART_MOCK = true;
+const MONTHLY_REVENUE_CHART_MOCK = [
+    { day: '01', bruto: 4200, liquido: 3610, pedidos: 32 },
+    { day: '02', bruto: 5100, liquido: 4380, pedidos: 39 },
+    { day: '03', bruto: 3900, liquido: 3340, pedidos: 28 },
+    { day: '04', bruto: 6800, liquido: 5860, pedidos: 47 },
+    { day: '05', bruto: 7200, liquido: 6230, pedidos: 51 },
+    { day: '06', bruto: 6100, liquido: 5270, pedidos: 43 },
+    { day: '07', bruto: 4700, liquido: 4060, pedidos: 34 },
+    { day: '08', bruto: 5300, liquido: 4580, pedidos: 38 },
+    { day: '09', bruto: 4900, liquido: 4230, pedidos: 35 },
+    { day: '10', bruto: 7600, liquido: 6570, pedidos: 55 },
+    { day: '11', bruto: 8400, liquido: 7260, pedidos: 61 },
+    { day: '12', bruto: 7900, liquido: 6820, pedidos: 58 },
+    { day: '13', bruto: 5600, liquido: 4840, pedidos: 41 },
+    { day: '14', bruto: 6000, liquido: 5180, pedidos: 44 },
+    { day: '15', bruto: 8700, liquido: 7520, pedidos: 63 }
+];
 
 // --- COMPONENTES UI ---
 const Logo = ({ className = "w-10 h-10" }) => {
@@ -68,76 +120,452 @@ const CustomInput = ({ label, icon: Icon, ...props }) => (
     </div>
 );
 
-// --- MODAL DE CATEGORIAS (EDIÇÃO EM LINHA) ---
-const CategoryModal = ({ isOpen, onClose, categories, setCategories }) => {
-    const [newCatName, setNewCatName] = useState('');
-    const [editingId, setEditingId] = useState(null);
-    const [editingValue, setEditingValue] = useState('');
 
+const LegacyMenuCategoryManager = ({
+    categories,
+    categoryForm,
+    editingCategoryId,
+    onCategoryFormChange,
+    onSubmitCategory,
+    onEditCategory,
+    onDeleteCategory,
+    onCancelEdit,
+    isModalContent = false
+}) => (
+    <div className={isModalContent ? 'space-y-5' : 'bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-5'}>
+        {!isModalContent && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Categorias</p>
+                    <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Organização do cardápio</h3>
+                </div>
+                {editingCategoryId && (
+                    <button type="button" onClick={onCancelEdit} className="text-[10px] font-black text-[#696965] border border-gray-200 px-4 py-2 rounded-full uppercase hover:border-[#5c1f20] hover:text-[#5c1f20] transition-all w-full sm:w-auto">
+                        Cancelar edição
+                    </button>
+                )}
+            </div>
+        )}
+
+        <form onSubmit={onSubmitCategory} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_220px] gap-3">
+            <CustomInput label="Nome da categoria" value={categoryForm.name} onChange={(e) => onCategoryFormChange('name', e.target.value)} required />
+            <button type="submit" className="bg-[#5c1f20] text-[#c5a04a] h-11 mt-auto rounded-xl font-black uppercase text-[10px] shadow-md">
+                {editingCategoryId ? 'Salvar categoria' : 'Cadastrar categoria'}
+            </button>
+        </form>
+
+        <div className="menu-category-manager-list">
+            {categories.map((category) => (
+                <div key={category.id} className="menu-category-manager-item">
+                    <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight">{category.name}</p>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => onEditCategory(category)} className="menu-action-button menu-action-button--edit">
+                            <Edit size={14} /> Editar
+                        </button>
+                        <button type="button" onClick={() => onDeleteCategory(category.id)} className="menu-action-button menu-action-button--delete">
+                            <Trash2 size={14} /> Excluir
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+const LegacyMenuItemFormPanel = ({
+    menuItemForm,
+    editingMenuItemId,
+    categoryOptions,
+    menuComponentSearch,
+    filteredMenuComponentOptions,
+    onMenuItemFormChange,
+    onSubmitMenuItem,
+    onResetMenuItemForm,
+    onMenuItemPhotoChange,
+    onMenuComponentSearchChange,
+    onToggleMenuComponent,
+    isModalContent = false
+}) => (
+    <div className={isModalContent ? 'space-y-6' : 'bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6'}>
+        {!isModalContent && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Itens</p>
+                    <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Cadastro de item</h3>
+                </div>
+                {editingMenuItemId && (
+                    <button type="button" onClick={onResetMenuItemForm} className="text-[10px] font-black text-[#696965] border border-gray-200 px-4 py-2 rounded-full uppercase hover:border-[#5c1f20] hover:text-[#5c1f20] transition-all w-full sm:w-auto">
+                        Cancelar edição
+                    </button>
+                )}
+            </div>
+        )}
+
+        <form onSubmit={onSubmitMenuItem} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <CustomInput label="Nome do item" value={menuItemForm.name} onChange={(e) => onMenuItemFormChange('name', e.target.value)} required />
+                <CustomInput label="Preço" type="number" step="0.01" value={menuItemForm.salePrice} onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)} required />
+                <div className="space-y-1">
+                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
+                    <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]" required>
+                        <option value="">Selecione</option>
+                        {categoryOptions.map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Visibilidade</label>
+                    <select value={menuItemForm.status} onChange={(e) => onMenuItemFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
+                        {menuStatusOptions.map((status) => (
+                            <option key={status.value} value={status.value}>{status.label}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Descrição</label>
+                <textarea value={menuItemForm.description} onChange={(e) => onMenuItemFormChange('description', e.target.value)} rows={4} className="w-full px-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium resize-none" placeholder="Descreva sabor, recheio, acompanhamentos ou diferenciais do item." required />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
+                <div className="space-y-3">
+                    <div className="menu-photo-dropzone">
+                        {menuItemForm.photoPreview ? (
+                            <img src={menuItemForm.photoPreview} alt={menuItemForm.name || 'Preview do item'} className="menu-photo-preview" />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center text-center gap-2 px-6">
+                                <ImagePlus size={28} className="text-[#c5a04a]" />
+                                <p className="text-xs font-black text-[#5c1f20] uppercase tracking-widest">Foto do item</p>
+                                <p className="text-[11px] text-[#696965] font-semibold">Imagem ilustrativa para o cardápio digital.</p>
+                            </div>
+                        )}
+                    </div>
+                    <label className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md flex items-center justify-center gap-2 cursor-pointer">
+                        <Camera size={15} /> Selecionar foto
+                        <input type="file" accept="image/*" className="hidden" onChange={onMenuItemPhotoChange} />
+                    </label>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-black text-[#5c1f20] uppercase">Receitas vinculadas</p>
+                            <p className="text-[11px] text-[#696965] font-semibold">Aqui entram só os produtos finais do catálogo. Insumo e base interna não pertencem a essa etapa.</p>
+                        </div>
+                        <div className="menu-link-counter">{menuItemForm.linkedComponentIds.length} selecionado(s)</div>
+                    </div>
+
+                    <div className="relative">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#696965]" />
+                        <input type="text" value={menuComponentSearch} onChange={(e) => onMenuComponentSearchChange(e.target.value)} placeholder="Buscar produto final para vincular..." className="w-full pl-10 pr-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#c5a04a]" />
+                    </div>
+
+                    <div className="menu-component-list custom-scrollbar">
+                        {filteredMenuComponentOptions.map((component) => {
+                            const selected = menuItemForm.linkedComponentIds.includes(component.key);
+
+                            return (
+                                <button key={component.key} type="button" onClick={() => onToggleMenuComponent(component.key)} className={`menu-component-option ${selected ? 'menu-component-option--selected' : ''}`}>
+                                    <div className="flex items-start gap-3 min-w-0">
+                                        <div className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${selected ? 'bg-[#5c1f20] border-[#5c1f20] text-white' : 'border-gray-300 text-transparent'}`}>
+                                            <Check size={12} />
+                                        </div>
+                                        <div className="min-w-0 text-left">
+                                            <p className="text-xs font-black text-[#5c1f20] uppercase truncate">{component.name}</p>
+                                            <p className="text-[11px] text-[#696965] font-semibold leading-relaxed">{component.subtitle}</p>
+                                        </div>
+                                    </div>
+                                    <span className="menu-component-tag">{component.tag}</span>
+                                </button>
+                            );
+                        })}
+
+                        {filteredMenuComponentOptions.length === 0 && (
+                            <div className="menu-empty-state">
+                                <Sparkles size={16} className="text-[#c5a04a]" />
+                                <span>Nenhum relacionamento encontrado para o filtro informado.</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                {editingMenuItemId ? 'Salvar item' : 'Cadastrar item'}
+            </button>
+        </form>
+    </div>
+);
+
+const LegacyMenuCategoryModal = ({
+    isOpen,
+    onClose,
+    categories,
+    categoryForm,
+    editingCategoryId,
+    onCategoryFormChange,
+    onSubmitCategory,
+    onEditCategory,
+    onDeleteCategory,
+    onCancelEdit
+}) => {
     if (!isOpen) return null;
-
-    const handleAddNew = () => {
-        if (!newCatName.trim()) return;
-        setCategories(prev => [...prev, { id: Date.now(), name: newCatName.trim() }]);
-        setNewCatName('');
-    };
-
-    const handleSaveEdit = (id) => {
-        if (!editingValue.trim()) return;
-        setCategories(prev => prev.map(c => c.id === id ? { ...c, name: editingValue.trim() } : c));
-        setEditingId(null);
-    };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100">
-                <div className="flex justify-between items-center mb-6 font-sans italic">
-                    <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter flex items-center gap-2">
-                        <List size={20} /> Categorias
-                    </h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
+            <div className="bg-white w-full max-w-3xl rounded-[2.5rem] p-5 sm:p-7 shadow-2xl border border-gray-100 max-h-[92vh] overflow-y-auto custom-scrollbar">
+                <div className="flex items-start justify-between gap-4 mb-5">
+                    <div>
+                        <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Categorias</p>
+                        <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">Organização do cardápio</h3>
+                        <p className="text-xs font-semibold text-[#7a6262] mt-2">Cadastre, renomeie ou limpe categorias sem deixar esse formulário aberto ocupando a tela inteira.</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
                 </div>
 
-                <div className="flex gap-2 mb-6">
-                    <input
-                        type="text"
-                        value={newCatName}
-                        onChange={(e) => setNewCatName(e.target.value)}
-                        placeholder="Nova categoria..."
-                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#c5a04a] text-sm font-bold"
-                    />
-                    <button onClick={handleAddNew} className="bg-[#5c1f20] text-white px-4 rounded-xl hover:bg-[#c5a04a] transition-all flex items-center justify-center">
-                        <Plus size={18} />
-                    </button>
+                <MenuCategoryManager
+                    categories={categories}
+                    categoryForm={categoryForm}
+                    editingCategoryId={editingCategoryId}
+                    onCategoryFormChange={onCategoryFormChange}
+                    onSubmitCategory={onSubmitCategory}
+                    onEditCategory={onEditCategory}
+                    onDeleteCategory={onDeleteCategory}
+                    onCancelEdit={onCancelEdit}
+                    isModalContent
+                />
+            </div>
+        </div>
+    );
+};
+
+const LegacyMenuItemModal = ({
+    isOpen,
+    onClose,
+    menuItemForm,
+    editingMenuItemId,
+    categoryOptions,
+    menuComponentSearch,
+    filteredMenuComponentOptions,
+    onMenuItemFormChange,
+    onSubmitMenuItem,
+    onResetMenuItemForm,
+    onMenuItemPhotoChange,
+    onMenuComponentSearchChange,
+    onToggleMenuComponent
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-5xl rounded-[2.5rem] p-5 sm:p-7 shadow-2xl border border-gray-100 max-h-[92vh] overflow-y-auto custom-scrollbar">
+                <div className="flex items-start justify-between gap-4 mb-5">
+                    <div>
+                        <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Itens</p>
+                        <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">Cadastro de item</h3>
+                        <p className="text-xs font-semibold text-[#7a6262] mt-2">Abra, preencha, salva e sai. Muito melhor do que deixar o formulário plantado na página o tempo todo.</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
                 </div>
 
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                    {categories.map(cat => (
-                        <div key={cat.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group border border-transparent hover:border-[#c5a04a]/30">
-                            {editingId === cat.id ? (
-                                <div className="flex items-center gap-2 w-full">
-                                    <input
-                                        type="text"
-                                        value={editingValue}
-                                        onChange={(e) => setEditingValue(e.target.value)}
-                                        className="flex-1 p-1 bg-white border border-[#c5a04a] rounded-md outline-none text-xs font-bold uppercase"
-                                        autoFocus
-                                    />
-                                    <button onClick={() => handleSaveEdit(cat.id)} className="p-1 text-green-600"><Check size={16} /></button>
-                                    <button onClick={() => setEditingId(null)} className="p-1 text-gray-400"><X size={16} /></button>
-                                </div>
-                            ) : (
-                                <>
-                                    <span className="font-bold text-[#696965] uppercase text-xs truncate mr-2">{cat.name}</span>
-                                    <div className="flex gap-2 shrink-0">
-                                        <button onClick={() => { setEditingId(cat.id); setEditingValue(cat.name); }} className="text-blue-600 hover:scale-110 transition-transform"><Edit size={14} /></button>
-                                        <button onClick={() => setCategories(prev => prev.filter(c => c.id !== cat.id))} className="text-red-600 hover:scale-110 transition-transform"><Trash2 size={14} /></button>
+                <MenuItemFormPanel
+                    menuItemForm={menuItemForm}
+                    editingMenuItemId={editingMenuItemId}
+                    categoryOptions={categoryOptions}
+                    menuComponentSearch={menuComponentSearch}
+                    filteredMenuComponentOptions={filteredMenuComponentOptions}
+                    onMenuItemFormChange={onMenuItemFormChange}
+                    onSubmitMenuItem={onSubmitMenuItem}
+                    onResetMenuItemForm={onResetMenuItemForm}
+                    onMenuItemPhotoChange={onMenuItemPhotoChange}
+                    onMenuComponentSearchChange={onMenuComponentSearchChange}
+                    onToggleMenuComponent={onToggleMenuComponent}
+                    isModalContent
+                />
+            </div>
+        </div>
+    );
+};
+
+const LegacyComboEditorModal = ({
+    isOpen,
+    onClose,
+    comboForm,
+    editingComboId,
+    categoryOptions,
+    menuComponentOptions,
+    catalogMetrics,
+    ingredients,
+    onComboFormChange,
+    onComboPhotoChange,
+    onSubmitCombo,
+    onAddComboGroup,
+    onDuplicateComboGroup,
+    onRemoveComboGroup,
+    onComboGroupChange,
+    onAddComboOption,
+    onRemoveComboOption,
+    onComboOptionChange
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-6xl rounded-[2.5rem] p-5 sm:p-7 shadow-2xl border border-gray-100 max-h-[94vh] overflow-y-auto custom-scrollbar">
+                <div className="flex items-start justify-between gap-4 mb-6">
+                    <div>
+                        <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Combos</p>
+                        <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">{editingComboId ? 'Editar combo' : 'Novo combo'}</h3>
+                        <p className="text-xs font-semibold text-[#7a6262] mt-2">Editor por grupos, com preço base, adicionais por opção e controle direto de disponibilidade.</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
+                </div>
+
+                <form onSubmit={onSubmitCombo} className="space-y-6">
+                    <div className="combo-editor-shell">
+                        <div className="combo-editor-shell__media">
+                            <div className="menu-photo-dropzone">
+                                {comboForm.photoPreview ? (
+                                    <img src={comboForm.photoPreview} alt={comboForm.name || 'Preview do combo'} className="menu-photo-preview" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-center gap-2 px-6">
+                                        <ImagePlus size={28} className="text-[#c5a04a]" />
+                                        <p className="text-xs font-black text-[#5c1f20] uppercase tracking-widest">Foto do combo</p>
+                                        <p className="text-[11px] text-[#696965] font-semibold">Use uma capa forte. Combo sem cara de produto vende pior.</p>
                                     </div>
-                                </>
-                            )}
+                                )}
+                            </div>
+                            <label className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md flex items-center justify-center gap-2 cursor-pointer">
+                                <Camera size={15} /> Selecionar foto
+                                <input type="file" accept="image/*" className="hidden" onChange={onComboPhotoChange} />
+                            </label>
+                            <div className="combo-editor-shell__summary">
+                                <span className="combo-editor-shell__summary-label">Resumo</span>
+                                <strong>{summarizeComboGroups(comboForm.comboGroups)}</strong>
+                                <span>{comboForm.comboGroups.reduce((acc, group) => acc + group.options.length, 0)} opção(ões) configurada(s)</span>
+                            </div>
                         </div>
-                    ))}
-                </div>
+
+                        <div className="space-y-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <CustomInput label="Nome do combo" value={comboForm.name} onChange={(e) => onComboFormChange('name', e.target.value)} required />
+                                <CustomInput label="Preço base" type="number" step="0.01" value={comboForm.basePrice} onChange={(e) => onComboFormChange('basePrice', e.target.value)} required />
+                                <div className="space-y-1">
+                                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
+                                    <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]" required>
+                                        {categoryOptions.map((category) => (
+                                            <option key={category} value={category}>{category}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Visibilidade</label>
+                                    <select value={comboForm.status} onChange={(e) => onComboFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
+                                        {menuStatusOptions.map((status) => (
+                                            <option key={status.value} value={status.value}>{status.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Descrição</label>
+                                <textarea value={comboForm.description} onChange={(e) => onComboFormChange('description', e.target.value)} rows={4} className="w-full px-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium resize-none" placeholder="Explique a lógica do combo, quantidade, proposta e percepção de valor." required />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="combo-editor-groups">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Grupos do combo</p>
+                                <h4 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter">Monte a estrutura como na operação real</h4>
+                            </div>
+                            <button type="button" onClick={onAddComboGroup} className="menu-compact-action">
+                                <Plus size={14} />
+                                <span>Novo grupo</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {comboForm.comboGroups.map((group) => (
+                                <div key={group.id} className="combo-group-card">
+                                    <div className="combo-group-card__header">
+                                        <div className="combo-group-card__grid">
+                                            <CustomInput label="Nome do grupo" value={group.name} onChange={(e) => onComboGroupChange(group.id, 'name', e.target.value)} required />
+                                            <CustomInput label="Mínimo" type="number" min="0" step="1" value={group.minSelect} onChange={(e) => onComboGroupChange(group.id, 'minSelect', e.target.value)} required />
+                                            <CustomInput label="Máximo" type="number" min="1" step="1" value={group.maxSelect} onChange={(e) => onComboGroupChange(group.id, 'maxSelect', e.target.value)} required />
+                                        </div>
+                                        <div className="combo-group-card__actions">
+                                            <span className="combo-group-card__range">De {group.minSelect || 0} a {group.maxSelect || 0}</span>
+                                            <button type="button" onClick={() => onDuplicateComboGroup(group.id)} className="menu-action-button menu-action-button--edit">
+                                                <Copy size={14} /> Duplicar
+                                            </button>
+                                            <button type="button" onClick={() => onRemoveComboGroup(group.id)} className="menu-action-button menu-action-button--delete" disabled={comboForm.comboGroups.length === 1}>
+                                                <Trash2 size={14} /> Remover
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {group.options.map((option) => {
+                                            const linkedMeta = resolveLinkedComponentMeta(option.linkedComponentRef, catalogMetrics, ingredients, formatMoney);
+
+                                            return (
+                                            <div key={option.id} className="combo-option-row">
+                                                <div className="combo-option-row__main">
+                                                    <CustomInput label="Opção" value={option.name} onChange={(e) => onComboOptionChange(group.id, option.id, 'name', e.target.value)} required />
+                                                    <div className="space-y-1">
+                                                        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Vínculo técnico</label>
+                                                        <select value={option.linkedComponentRef} onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
+                                                            <option value="">Manual / sem vínculo</option>
+                                                            {menuComponentOptions.map((component) => (
+                                                                <option key={component.key} value={component.key}>{component.name} · {component.tag}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="combo-option-row__pricing">
+                                                    <CustomInput label="Adicional" type="number" min="0" step="0.01" value={option.extraPrice} onChange={(e) => onComboOptionChange(group.id, option.id, 'extraPrice', e.target.value)} />
+                                                    <CustomInput label="Máx." type="number" min="1" step="1" value={option.maxQty} onChange={(e) => onComboOptionChange(group.id, option.id, 'maxQty', e.target.value)} />
+                                                    <label className="combo-option-row__toggle">
+                                                        <span>Esgotar</span>
+                                                        <button type="button" onClick={() => onComboOptionChange(group.id, option.id, 'isAvailable', !option.isAvailable)} className={`combo-option-row__switch ${option.isAvailable ? 'combo-option-row__switch--active' : ''}`}>
+                                                            <span className="combo-option-row__switch-knob" />
+                                                        </button>
+                                                    </label>
+                                                    <button type="button" onClick={() => onRemoveComboOption(group.id, option.id)} className="menu-action-button menu-action-button--delete">
+                                                        <Trash2 size={14} /> Excluir
+                                                    </button>
+                                                </div>
+                                                {linkedMeta && (
+                                                    <div className="combo-option-row__link">
+                                                        <span className="menu-component-tag">{linkedMeta.tag}</span>
+                                                        <span className="combo-option-row__link-text">{linkedMeta.name}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <button type="button" onClick={() => onAddComboOption(group.id)} className="menu-compact-action menu-compact-action--ghost">
+                                            <Plus size={14} />
+                                            <span>Nova opção</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-12 rounded-xl font-black uppercase text-[11px] shadow-md">
+                        {editingComboId ? 'Salvar combo' : 'Cadastrar combo'}
+                    </button>
+                </form>
             </div>
         </div>
     );
@@ -810,6 +1238,74 @@ const formatDateBr = (date) => {
     return date.toLocaleDateString('pt-BR');
 };
 
+const normalizeDate = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+const parseIsoDate = (value) => {
+    if (!value) return null;
+    const [year, month, day] = String(value).split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+};
+
+const toIsoDate = (date) => {
+    const normalized = normalizeDate(date);
+    if (!normalized) return '';
+    const year = normalized.getFullYear();
+    const month = String(normalized.getMonth() + 1).padStart(2, '0');
+    const day = String(normalized.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+/**
+ * Resolve o intervalo do extrato financeiro a partir do tipo de filtro selecionado.
+ */
+const buildClosingRange = (filterType, referenceDate, rangeStart, rangeEnd) => {
+    const baseReference = normalizeDate(parseIsoDate(referenceDate) || new Date()) || new Date();
+
+    if (filterType === 'dia') {
+        return {
+            start: baseReference,
+            end: baseReference,
+            label: `Fechamento do dia ${formatDateBr(baseReference)}`
+        };
+    }
+
+    if (filterType === 'mes') {
+        const start = new Date(baseReference.getFullYear(), baseReference.getMonth(), 1);
+        const end = new Date(baseReference.getFullYear(), baseReference.getMonth() + 1, 0);
+        return {
+            start,
+            end,
+            label: `Fechamento de ${baseReference.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
+        };
+    }
+
+    if (filterType === 'quinzena') {
+        const end = baseReference;
+        const start = new Date(baseReference);
+        start.setDate(start.getDate() - 14);
+        return {
+            start: normalizeDate(start),
+            end,
+            label: `Fechamento quinzenal até ${formatDateBr(end)}`
+        };
+    }
+
+    const startCandidate = normalizeDate(parseIsoDate(rangeStart) || baseReference) || baseReference;
+    const endCandidate = normalizeDate(parseIsoDate(rangeEnd) || baseReference) || baseReference;
+    const start = startCandidate <= endCandidate ? startCandidate : endCandidate;
+    const end = endCandidate >= startCandidate ? endCandidate : startCandidate;
+
+    return {
+        start,
+        end,
+        label: `Período de ${formatDateBr(start)} até ${formatDateBr(end)}`
+    };
+};
+
 const isWeekend = (date) => {
     const day = date.getDay();
     return day === 0 || day === 6;
@@ -1008,6 +1504,8 @@ export default function App({ tenantSlug = 'default' }) {
     const [loginError, setLoginError] = useState('');
     const [settingsError, setSettingsError] = useState('');
     const [settingsSuccess, setSettingsSuccess] = useState('');
+    const [aiBehaviorError, setAiBehaviorError] = useState('');
+    const [aiBehaviorSuccess, setAiBehaviorSuccess] = useState('');
     const [settingsCapsLockOn, setSettingsCapsLockOn] = useState(false);
     const [dismissedAlerts, setDismissedAlerts] = useState([]);
     const [highlightedCostIds, setHighlightedCostIds] = useState([]);
@@ -1034,6 +1532,12 @@ export default function App({ tenantSlug = 'default' }) {
         passwordReminder: 'A senha padrão é "admin".',
         businessName: 'Rei das Esfihas',
         alertDaysBefore: 3
+    });
+    const [aiBehaviorSettings, setAiBehaviorSettings] = useState({
+        positiveTone: 'friendly',
+        crisisStrategy: 'whatsapp',
+        additionalInstructions: '',
+        autoPublishPositive: true
     });
 
     // Categorias
@@ -1159,6 +1663,11 @@ export default function App({ tenantSlug = 'default' }) {
         packageCost: ''
     });
     const [financeFormType, setFinanceFormType] = useState('receita');
+    const todayIsoDate = toIsoDate(new Date());
+    const [closingFilterType, setClosingFilterType] = useState('mes');
+    const [closingReferenceDate, setClosingReferenceDate] = useState(todayIsoDate);
+    const [closingRangeStart, setClosingRangeStart] = useState(todayIsoDate);
+    const [closingRangeEnd, setClosingRangeEnd] = useState(todayIsoDate);
 
     const [preparationForm, setPreparationForm] = useState({
         name: '',
@@ -1206,6 +1715,95 @@ export default function App({ tenantSlug = 'default' }) {
             ]
         }
     ]);
+
+    const [menuCategories, setMenuCategories] = useState(createInitialMenuCategories());
+    const [menuItems, setMenuItems] = useState([
+        {
+            id: 1,
+            itemType: 'regular',
+            name: 'Esfiha Premium de Carne',
+            category: 'Esfiha',
+            description: 'Massa leve com recheio bem temperado, toque de limão e apresentação individual.',
+            status: 'active',
+            salePrice: 11.9,
+            photoPreview: '',
+            linkedComponents: [
+                { type: 'product', id: 1 },
+                { type: 'ingredient', id: 5 }
+            ],
+            comboGroups: [],
+            basePrice: null,
+            createdAt: '2026-04-01T12:00:00.000Z'
+        },
+        {
+            id: 2,
+            itemType: 'regular',
+            name: 'Pizza Brotinho Casa',
+            category: 'Pizza',
+            description: 'Massa artesanal, molho da casa, queijo derretido e sabor clássico para compartilhar.',
+            status: 'seasonal',
+            salePrice: 29.9,
+            photoPreview: '',
+            linkedComponents: [
+                { type: 'product', id: 2 },
+                { type: 'preparation', id: 1 }
+            ],
+            comboGroups: [],
+            basePrice: null,
+            createdAt: '2026-04-05T18:30:00.000Z'
+        },
+        {
+            id: 3,
+            itemType: 'combo',
+            name: 'Banquete Real',
+            category: 'Combo',
+            description: 'Combo grande com sabores clássicos e uma bebida obrigatória, inspirado no fluxo operacional de marketplaces.',
+            status: 'active',
+            salePrice: null,
+            basePrice: 80,
+            photoPreview: '',
+            linkedComponents: [],
+            comboGroups: [
+                {
+                    id: createId(),
+                    name: 'Clássicas',
+                    minSelect: 15,
+                    maxSelect: 15,
+                    options: [
+                        { id: createId(), name: 'Carne', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: 'product:1' },
+                        { id: createId(), name: 'Calabresa', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: '' },
+                        { id: createId(), name: 'Queijo', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: '' },
+                        { id: createId(), name: 'Frango', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: false, linkedComponentRef: '' }
+                    ]
+                },
+                {
+                    id: createId(),
+                    name: 'Bebidas',
+                    minSelect: 1,
+                    maxSelect: 1,
+                    options: [
+                        { id: createId(), name: 'Kuat 2L', photoPreview: '', extraPrice: 0, maxQty: 1, isAvailable: true, linkedComponentRef: '' },
+                        { id: createId(), name: 'Fanta Laranja 2L', photoPreview: '', extraPrice: 0, maxQty: 1, isAvailable: true, linkedComponentRef: '' },
+                        { id: createId(), name: 'Coca-Cola Original 2L', photoPreview: '','extraPrice': 6, maxQty: 1, isAvailable: false, linkedComponentRef: '' }
+                    ]
+                }
+            ],
+            createdAt: '2026-04-05T18:30:00.000Z'
+        }
+    ]);
+    const [menuItemForm, setMenuItemForm] = useState(createEmptyMenuItemForm('Esfiha'));
+    const [comboForm, setComboForm] = useState(createEmptyComboForm('Combo'));
+    const [menuCategoryForm, setMenuCategoryForm] = useState(createEmptyCategoryForm());
+    const [menuSearchTerm, setMenuSearchTerm] = useState('');
+    const [menuComponentSearch, setMenuComponentSearch] = useState('');
+    const [editingMenuItemId, setEditingMenuItemId] = useState(null);
+    const [editingComboId, setEditingComboId] = useState(null);
+    const [editingMenuCategoryId, setEditingMenuCategoryId] = useState(null);
+    const [isMenuCategoryModalOpen, setIsMenuCategoryModalOpen] = useState(false);
+    const [isMenuItemModalOpen, setIsMenuItemModalOpen] = useState(false);
+    const [isComboModalOpen, setIsComboModalOpen] = useState(false);
+    const [expandedMenuCategories, setExpandedMenuCategories] = useState({ Esfiha: true, Pizza: true });
+    const [expandedMenuItems, setExpandedMenuItems] = useState({ 1: false, 2: false, 3: true });
 
     const [productRecipeDraft, setProductRecipeDraft] = useState([
         { id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }
@@ -1310,6 +1908,120 @@ export default function App({ tenantSlug = 'default' }) {
             averageMarkupPercent
         };
     }, [products, ingredients, preparations]);
+
+    const menuComponentOptions = useMemo(() => {
+        const productOptions = catalogMetrics.productSummaries.map((product) => ({
+            key: `product:${product.id}`,
+            type: 'product',
+            id: product.id,
+            name: product.name,
+            subtitle: `Preço base ${formatMoney(product.metrics.salePrice)}`,
+            tag: 'Produto final'
+        }));
+
+        return productOptions;
+    }, [catalogMetrics.productSummaries]);
+
+    const filteredMenuComponentOptions = useMemo(() => {
+        const normalizedSearch = menuComponentSearch.trim().toLowerCase();
+
+        if (!normalizedSearch) return menuComponentOptions;
+
+        return menuComponentOptions.filter((component) => (
+            component.name.toLowerCase().includes(normalizedSearch)
+            || component.tag.toLowerCase().includes(normalizedSearch)
+            || component.subtitle.toLowerCase().includes(normalizedSearch)
+        ));
+    }, [menuComponentOptions, menuComponentSearch]);
+
+    const menuDashboard = useMemo(() => {
+        const activeCount = menuItems.filter((item) => item.status === 'active').length;
+        const highlightedCount = menuItems.filter((item) => item.status === 'seasonal').length;
+        const itemsWithPhoto = menuItems.filter((item) => item.photoPreview).length;
+        const visibleCount = menuItems.filter((item) => item.status !== 'inactive').length;
+
+        return {
+            activeCount,
+            highlightedCount,
+            itemsWithPhoto,
+            visibleCount
+        };
+    }, [menuItems]);
+
+    const filteredMenuItems = useMemo(() => {
+        const normalizedSearch = menuSearchTerm.trim().toLowerCase();
+
+        if (!normalizedSearch) return menuItems;
+
+        return menuItems.filter((item) => (
+            item.name.toLowerCase().includes(normalizedSearch)
+            || item.category.toLowerCase().includes(normalizedSearch)
+            || item.description.toLowerCase().includes(normalizedSearch)
+            || item.comboGroups?.some((group) =>
+                group.name.toLowerCase().includes(normalizedSearch)
+                || group.options.some((option) => option.name.toLowerCase().includes(normalizedSearch))
+            )
+        ));
+    }, [menuItems, menuSearchTerm]);
+
+    const menuCategoryOptions = useMemo(() => menuCategories.map((category) => category.name), [menuCategories]);
+
+    const menuItemsByCategory = useMemo(() => {
+        const grouped = menuCategories.map((category) => ({
+            id: category.id,
+            name: category.name,
+            items: filteredMenuItems.filter((item) => item.category === category.name)
+        }));
+
+        const uncategorizedItems = filteredMenuItems.filter((item) => !menuCategoryOptions.includes(item.category));
+
+        if (uncategorizedItems.length > 0) {
+            grouped.push({
+                id: 'uncategorized',
+                name: 'Sem categoria',
+                items: uncategorizedItems
+            });
+        }
+
+        return grouped.filter((group) => group.items.length > 0 || menuSearchTerm.trim() === '');
+    }, [filteredMenuItems, menuCategories, menuCategoryOptions, menuSearchTerm]);
+
+    const menuOperationalSummary = useMemo(() => {
+        const totalItems = menuItems.length;
+        const emptyCategories = menuCategories.filter((category) => !menuItems.some((item) => item.category === category.name)).length;
+        const draftCount = menuItems.filter((item) => item.status === 'draft').length;
+        const inactiveCount = menuItems.filter((item) => item.status === 'inactive').length;
+        const linkedItems = menuItems.filter((item) => item.linkedComponents?.length > 0).length;
+        const comboCount = menuItems.filter((item) => item.itemType === 'combo').length;
+        const comboOptionsCount = menuItems.filter((item) => item.itemType === 'combo').reduce((acc, item) => acc + item.comboGroups.reduce((groupAcc, group) => groupAcc + group.options.length, 0), 0);
+        const photoCoverage = totalItems > 0 ? Math.round((menuDashboard.itemsWithPhoto / totalItems) * 100) : 0;
+        const visibilityCoverage = totalItems > 0 ? Math.round((menuDashboard.visibleCount / totalItems) * 100) : 0;
+
+        return {
+            totalItems,
+            emptyCategories,
+            draftCount,
+            inactiveCount,
+            linkedItems,
+            comboCount,
+            comboOptionsCount,
+            photoCoverage,
+            visibilityCoverage,
+            categoryHealth: menuCategories.map((category) => {
+                const items = menuItems.filter((item) => item.category === category.name);
+                const visibleItems = items.filter((item) => item.status !== 'inactive').length;
+                const highlightedItems = items.filter((item) => item.status === 'seasonal').length;
+
+                return {
+                    id: category.id,
+                    name: category.name,
+                    itemsCount: items.length,
+                    visibleItems,
+                    highlightedItems
+                };
+            })
+        };
+    }, [menuCategories, menuDashboard.itemsWithPhoto, menuDashboard.visibleCount, menuItems]);
 
     const payrollSummary = useMemo(() => {
         const today = new Date();
@@ -1446,7 +2158,7 @@ export default function App({ tenantSlug = 'default' }) {
             title: 'Vencimento',
             label: `${alert.desc} (DIA ${alert.dueDay})`,
             amount: alert.amount,
-            targetTab: 'costs',
+            targetTab: 'financeiro',
             targetRhView: null,
             targetEmployeeId: null,
             rawId: alert.id
@@ -1468,6 +2180,114 @@ export default function App({ tenantSlug = 'default' }) {
 
     const primaryAlert = unifiedAlerts[0] || null;
     const additionalAlertsCount = Math.max(unifiedAlerts.length - 1, 0);
+
+    const closingRange = useMemo(() => (
+        buildClosingRange(
+            closingFilterType,
+            closingReferenceDate,
+            closingRangeStart,
+            closingRangeEnd
+        )
+    ), [closingFilterType, closingReferenceDate, closingRangeStart, closingRangeEnd]);
+
+    const closingSummary = useMemo(() => {
+        const isInsideClosingRange = (date) => {
+            const normalized = normalizeDate(date);
+            if (!normalized) return false;
+            return normalized >= closingRange.start && normalized <= closingRange.end;
+        };
+
+        const filteredTransactions = transactions
+            .map((transaction) => ({
+                ...transaction,
+                parsedDate: normalizeDate(parseIsoDate(transaction.date))
+            }))
+            .filter((transaction) => isInsideClosingRange(transaction.parsedDate));
+
+        const recurringCostEntries = recurringCosts
+            .filter((cost) => cost.lastPaidMonth)
+            .map((cost) => {
+                const [year, month] = String(cost.lastPaidMonth).split('-').map(Number);
+                if (!year || !month) return null;
+                const safeDay = Math.min(
+                    Number(cost.dueDay) || 1,
+                    new Date(year, month, 0).getDate()
+                );
+                const paymentDate = new Date(year, month - 1, safeDay);
+                return {
+                    id: `fixed-${cost.id}-${cost.lastPaidMonth}`,
+                    kind: 'custo_fixo',
+                    title: cost.desc,
+                    category: 'Custo Fixo',
+                    date: normalizeDate(paymentDate),
+                    amount: Number(cost.amount) || 0,
+                    note: 'Custo fixo marcado como pago'
+                };
+            })
+            .filter((entry) => entry && isInsideClosingRange(entry.date));
+
+        const payrollEntries = payrollAlerts
+            .filter((alert) => alert.date && isInsideClosingRange(alert.date))
+            .map((alert) => ({
+                id: `payroll-${alert.id}`,
+                kind: 'folha',
+                title: alert.title,
+                category: 'Folha / RH',
+                date: normalizeDate(alert.date),
+                amount: Number(alert.amount) || 0,
+                note: alert.description
+            }));
+
+        const ledgerEntries = [
+            ...filteredTransactions.map((transaction) => ({
+                id: `transaction-${transaction.id}`,
+                kind: transaction.type,
+                title: transaction.type === 'receita' ? 'Entrada' : 'Saída',
+                category: transaction.category,
+                date: transaction.parsedDate,
+                amount: Number(transaction.amount) || 0,
+                net: Number(transaction.net) || 0,
+                payment: transaction.payment,
+                platform: transaction.platform,
+                note: transaction.note || ''
+            })),
+            ...recurringCostEntries,
+            ...payrollEntries
+        ].sort((a, b) => b.date - a.date);
+
+        const receitaBruta = filteredTransactions
+            .filter((transaction) => transaction.type === 'receita')
+            .reduce((acc, transaction) => acc + (Number(transaction.amount) || 0), 0);
+
+        const receitaLiquida = filteredTransactions
+            .filter((transaction) => transaction.type === 'receita')
+            .reduce((acc, transaction) => acc + (Number(transaction.net) || 0), 0);
+
+        const taxasCanais = filteredTransactions
+            .filter((transaction) => transaction.type === 'receita')
+            .reduce((acc, transaction) => acc + ((Number(transaction.amount) || 0) - (Number(transaction.net) || 0)), 0);
+
+        const saidasLancadas = filteredTransactions
+            .filter((transaction) => transaction.type === 'despesa')
+            .reduce((acc, transaction) => acc + (Number(transaction.amount) || 0), 0);
+
+        const custosFixos = recurringCostEntries.reduce((acc, entry) => acc + entry.amount, 0);
+        const folhaSalarial = payrollEntries.reduce((acc, entry) => acc + entry.amount, 0);
+        const saldoPeriodo = receitaLiquida - saidasLancadas - custosFixos - folhaSalarial;
+
+        return {
+            ledgerEntries,
+            receitasCount: filteredTransactions.filter((transaction) => transaction.type === 'receita').length,
+            despesasCount: filteredTransactions.filter((transaction) => transaction.type === 'despesa').length,
+            receitaBruta,
+            receitaLiquida,
+            taxasCanais,
+            saidasLancadas,
+            custosFixos,
+            folhaSalarial,
+            saldoPeriodo
+        };
+    }, [closingRange, payrollAlerts, recurringCosts, transactions]);
 
     // Analytics
     const stats = useMemo(() => {
@@ -1501,13 +2321,13 @@ export default function App({ tenantSlug = 'default' }) {
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-        const dailyRevenue = [];
+        const realDailyRevenue = [];
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const dayTransactions = transactions.filter(t => t.type === 'receita' && t.date === dateStr);
             const dayBruto = dayTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
             const dayLiquido = dayTransactions.reduce((acc, t) => acc + (t.net || 0), 0);
-            dailyRevenue.push({
+            realDailyRevenue.push({
                 day: String(day).padStart(2, '0'),
                 bruto: dayBruto,
                 liquido: dayLiquido,
@@ -1534,7 +2354,7 @@ export default function App({ tenantSlug = 'default' }) {
             catalogAverageMarkup: catalogMetrics.averageMarkupPercent,
             totalOrders,
             ticketMedio,
-            dailyRevenue,
+            dailyRevenue: USE_REVENUE_CHART_MOCK ? MONTHLY_REVENUE_CHART_MOCK : realDailyRevenue,
             lastOrders,
             financialData: [
                 ...channelRevenueData,
@@ -1548,30 +2368,61 @@ export default function App({ tenantSlug = 'default' }) {
     }, [transactions, recurringCosts, catalogMetrics.averageCmvPercent, catalogMetrics.averageMarkupPercent, salesChannels, payrollSummary]);
 
     // Handlers
+    /**
+     * Registra lançamentos financeiros avulsos e custos fixos recorrentes a partir da tela unificada.
+     */
     const handleAddTransaction = (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        const type = fd.get('type');
-        const amount = parseFloat(fd.get('amount')) || 0;
-        if (amount <= 0) return;
-        const reference = fd.get('reference');
-        const platform = type === 'receita' ? reference : 'despesa';
-        const tax = type === 'receita'
-            ? (platform === 'ifood' ? settings.ifoodTax : platform === 'anotaai' ? settings.anotaaiTax : 0)
-            : 0;
-        setTransactions(prev => [{
-            id: Date.now(),
-            date: fd.get('date'),
-            platform,
-            payment: fd.get('payment'),
-            amount,
-            tax,
-            net: type === 'receita' ? amount * (1 - (tax / 100)) : -amount,
-            type,
-            category: reference || (type === 'receita' ? salesChannels[0]?.name : financeExpenseCategories[0]?.name),
-            note: fd.get('note') || ''
-        }, ...prev]);
-        e.target.reset();
+        try {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const type = fd.get('type');
+            const amount = parseFloat(fd.get('amount')) || 0;
+
+            if (amount <= 0) return;
+
+            if (type === 'custo_fixo') {
+                const descricao = String(fd.get('reference') || '').trim();
+                const dueDay = parseInt(fd.get('dueDay'), 10) || 1;
+
+                if (!descricao) return;
+
+                setRecurringCosts((prev) => [{
+                    id: Date.now(),
+                    desc: descricao,
+                    amount,
+                    dueDay,
+                    lastPaidMonth: ''
+                }, ...prev]);
+
+                e.target.reset();
+                setFinanceFormType('receita');
+                return;
+            }
+
+            const reference = fd.get('reference');
+            const platform = type === 'receita' ? reference : 'despesa';
+            const tax = type === 'receita'
+                ? (platform === 'ifood' ? settings.ifoodTax : platform === 'anotaai' ? settings.anotaaiTax : 0)
+                : 0;
+
+            setTransactions((prev) => [{
+                id: Date.now(),
+                date: fd.get('date'),
+                platform,
+                payment: fd.get('payment'),
+                amount,
+                tax,
+                net: type === 'receita' ? amount * (1 - (tax / 100)) : -amount,
+                type,
+                category: reference || (type === 'receita' ? salesChannels[0]?.name : financeExpenseCategories[0]?.name),
+                note: fd.get('note') || ''
+            }, ...prev]);
+
+            e.target.reset();
+            setFinanceFormType('receita');
+        } catch (_error) {
+            setSettingsError('Não foi possível registrar o lançamento agora.');
+        }
     };
 
     const createEmptyEmployeeForm = () => ({
@@ -1784,10 +2635,16 @@ export default function App({ tenantSlug = 'default' }) {
     }, [ingredientUnits, preparationForm.yieldUnit]);
 
     useEffect(() => {
-        if (activeTab !== 'costs' && highlightedCostIds.length > 0) {
+        if (activeTab !== 'financeiro' && highlightedCostIds.length > 0) {
             setHighlightedCostIds([]);
         }
     }, [activeTab, highlightedCostIds]);
+
+    useEffect(() => {
+        if (activeTab === 'costs') {
+            setActiveTab('financeiro');
+        }
+    }, [activeTab]);
 
     const handleIngredientFormChange = (field, value) => {
         setIngredientForm((prev) => ({ ...prev, [field]: value }));
@@ -1961,6 +2818,391 @@ export default function App({ tenantSlug = 'default' }) {
         e.target.reset();
     };
 
+    const resetMenuItemForm = () => {
+        setEditingMenuItemId(null);
+        setMenuItemForm(createEmptyMenuItemForm(menuCategoryOptions[0] || ''));
+        setMenuComponentSearch('');
+    };
+
+    const resetComboForm = () => {
+        setEditingComboId(null);
+        setComboForm(createEmptyComboForm(menuCategoryOptions.find((category) => category === 'Combo') || menuCategoryOptions[0] || 'Combo'));
+    };
+
+    const closeMenuItemModal = () => {
+        setIsMenuItemModalOpen(false);
+        resetMenuItemForm();
+    };
+
+    const closeComboModal = () => {
+        setIsComboModalOpen(false);
+        resetComboForm();
+    };
+
+    const handleMenuItemFormChange = (field, value) => {
+        setMenuItemForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleMenuItemPhotoChange = (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            setMenuItemForm((prev) => ({ ...prev, photoPreview: '' }));
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setMenuItemForm((prev) => ({
+                ...prev,
+                photoPreview: typeof reader.result === 'string' ? reader.result : ''
+            }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleComboPhotoChange = (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            setComboForm((prev) => ({ ...prev, photoPreview: '' }));
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setComboForm((prev) => ({
+                ...prev,
+                photoPreview: typeof reader.result === 'string' ? reader.result : ''
+            }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleToggleMenuComponent = (componentKey) => {
+        setMenuItemForm((prev) => ({
+            ...prev,
+            linkedComponentIds: prev.linkedComponentIds.includes(componentKey)
+                ? prev.linkedComponentIds.filter((item) => item !== componentKey)
+                : [...prev.linkedComponentIds, componentKey]
+        }));
+    };
+
+    const handleComboFormChange = (field, value) => {
+        setComboForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleAddComboGroup = () => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: [...prev.comboGroups, createEmptyComboGroup(`Grupo ${prev.comboGroups.length + 1}`)]
+        }));
+    };
+
+    const handleDuplicateComboGroup = (groupId) => {
+        setComboForm((prev) => {
+            const group = prev.comboGroups.find((item) => item.id === groupId);
+            if (!group) return prev;
+
+            const duplicated = {
+                ...group,
+                id: createId(),
+                name: `${group.name} Cópia`,
+                options: group.options.map((option) => ({
+                    ...option,
+                    id: createId()
+                }))
+            };
+
+            return {
+                ...prev,
+                comboGroups: [...prev.comboGroups, duplicated]
+            };
+        });
+    };
+
+    const handleRemoveComboGroup = (groupId) => {
+        setComboForm((prev) => {
+            if (prev.comboGroups.length === 1) return prev;
+            return {
+                ...prev,
+                comboGroups: prev.comboGroups.filter((group) => group.id !== groupId)
+            };
+        });
+    };
+
+    const handleComboGroupChange = (groupId, field, value) => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: prev.comboGroups.map((group) => group.id === groupId ? { ...group, [field]: value } : group)
+        }));
+    };
+
+    const handleAddComboOption = (groupId) => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: prev.comboGroups.map((group) => (
+                group.id === groupId
+                    ? { ...group, options: [...group.options, createEmptyComboOption()] }
+                    : group
+            ))
+        }));
+    };
+
+    const handleRemoveComboOption = (groupId, optionId) => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: prev.comboGroups.map((group) => {
+                if (group.id !== groupId) return group;
+                if (group.options.length === 1) return group;
+                return {
+                    ...group,
+                    options: group.options.filter((option) => option.id !== optionId)
+                };
+            })
+        }));
+    };
+
+    const handleComboOptionChange = (groupId, optionId, field, value) => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: prev.comboGroups.map((group) => (
+                group.id === groupId
+                    ? {
+                        ...group,
+                        options: group.options.map((option) => option.id === optionId ? { ...option, [field]: value } : option)
+                    }
+                    : group
+            ))
+        }));
+    };
+
+    const handleSubmitMenuItem = (e) => {
+        e.preventDefault();
+
+        const payload = {
+            name: menuItemForm.name.trim(),
+            category: menuItemForm.category,
+            description: menuItemForm.description.trim(),
+            status: menuItemForm.status,
+            salePrice: parseFloat(menuItemForm.salePrice) || 0,
+            photoPreview: menuItemForm.photoPreview,
+            linkedComponents: menuItemForm.linkedComponentIds.map((componentKey) => {
+                const parsed = parseComponentValue(componentKey);
+                return {
+                    type: parsed.componentType,
+                    id: parsed.componentId
+                };
+            }),
+            createdAt: new Date().toISOString()
+        };
+
+        if (!payload.name || !payload.description || payload.salePrice <= 0) return;
+
+        if (editingMenuItemId) {
+            setMenuItems((prev) => prev.map((item) => item.id === editingMenuItemId ? { ...item, ...payload } : item));
+        } else {
+            setMenuItems((prev) => [{ id: Date.now(), ...payload }, ...prev]);
+        }
+
+        resetMenuItemForm();
+        setIsMenuItemModalOpen(false);
+        e.target.reset();
+    };
+
+    const handleEditMenuItem = (item) => {
+        setEditingMenuItemId(item.id);
+        setMenuItemForm({
+            name: item.name,
+            category: item.category,
+            description: item.description,
+            status: item.status,
+            salePrice: String(item.salePrice || ''),
+            photoPreview: item.photoPreview || '',
+            linkedComponentIds: item.linkedComponents.map((component) => `${component.type}:${component.id}`)
+        });
+        setIsMenuItemModalOpen(true);
+    };
+
+    const handleSubmitCombo = (e) => {
+        e.preventDefault();
+
+        const normalizedGroups = comboForm.comboGroups.map((group) => ({
+            ...group,
+            name: group.name.trim(),
+            minSelect: Number(group.minSelect) || 0,
+            maxSelect: Number(group.maxSelect) || 0,
+            options: group.options.map((option) => ({
+                ...option,
+                name: option.name.trim(),
+                extraPrice: Number(option.extraPrice) || 0,
+                maxQty: Number(option.maxQty) || 0,
+                isAvailable: Boolean(option.isAvailable)
+            }))
+        }));
+
+        const invalidGroup = normalizedGroups.some((group) => (
+            !group.name
+            || group.maxSelect < 1
+            || group.minSelect > group.maxSelect
+            || group.options.length === 0
+            || group.options.some((option) => !option.name || option.maxQty < 1 || option.extraPrice < 0)
+        ));
+
+        const payload = {
+            itemType: 'combo',
+            name: comboForm.name.trim(),
+            category: comboForm.category,
+            description: comboForm.description.trim(),
+            status: comboForm.status,
+            salePrice: null,
+            basePrice: Number(comboForm.basePrice) || 0,
+            photoPreview: comboForm.photoPreview,
+            linkedComponents: [],
+            comboGroups: normalizedGroups,
+            createdAt: new Date().toISOString()
+        };
+
+        if (!payload.name || !payload.description || payload.basePrice < 0 || invalidGroup) return;
+
+        if (editingComboId) {
+            setMenuItems((prev) => prev.map((item) => item.id === editingComboId ? { ...item, ...payload } : item));
+        } else {
+            setMenuItems((prev) => [{ id: createId(), ...payload }, ...prev]);
+        }
+
+        closeComboModal();
+    };
+
+    const handleEditCombo = (item) => {
+        setEditingComboId(item.id);
+        setComboForm({
+            name: item.name,
+            category: item.category,
+            description: item.description,
+            status: item.status,
+            basePrice: String(item.basePrice ?? ''),
+            photoPreview: item.photoPreview || '',
+            comboGroups: item.comboGroups.map((group) => ({
+                ...group,
+                minSelect: String(group.minSelect),
+                maxSelect: String(group.maxSelect),
+                options: group.options.map((option) => ({
+                    ...option,
+                    extraPrice: String(option.extraPrice ?? 0),
+                    maxQty: String(option.maxQty ?? 1)
+                }))
+            }))
+        });
+        setIsComboModalOpen(true);
+    };
+
+    const handleDeleteMenuItem = (itemId) => {
+        setMenuItems((prev) => prev.filter((item) => item.id !== itemId));
+        setExpandedMenuItems((prev) => {
+            const next = { ...prev };
+            delete next[itemId];
+            return next;
+        });
+
+        if (editingMenuItemId === itemId) {
+            resetMenuItemForm();
+        }
+        if (editingComboId === itemId) {
+            resetComboForm();
+        }
+    };
+
+    const handleMenuCategoryFormChange = (field, value) => {
+        setMenuCategoryForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const resetMenuCategoryForm = () => {
+        setEditingMenuCategoryId(null);
+        setMenuCategoryForm(createEmptyCategoryForm());
+    };
+
+    const closeMenuCategoryModal = () => {
+        setIsMenuCategoryModalOpen(false);
+        resetMenuCategoryForm();
+    };
+
+    const handleSubmitMenuCategory = (e) => {
+        e.preventDefault();
+
+        const normalizedName = menuCategoryForm.name.trim();
+        if (!normalizedName) return;
+
+        if (editingMenuCategoryId) {
+            const previousCategory = menuCategories.find((category) => category.id === editingMenuCategoryId);
+            setMenuCategories((prev) => prev.map((category) => category.id === editingMenuCategoryId ? { ...category, name: normalizedName } : category));
+
+            if (previousCategory && previousCategory.name !== normalizedName) {
+                setMenuItems((prev) => prev.map((item) => item.category === previousCategory.name ? { ...item, category: normalizedName } : item));
+                setExpandedMenuCategories((prev) => {
+                    const next = { ...prev };
+                    delete next[previousCategory.name];
+                    next[normalizedName] = true;
+                    return next;
+                });
+                setMenuItemForm((prev) => prev.category === previousCategory.name ? { ...prev, category: normalizedName } : prev);
+                setComboForm((prev) => prev.category === previousCategory.name ? { ...prev, category: normalizedName } : prev);
+            }
+        } else {
+            const newCategory = { id: Date.now(), name: normalizedName };
+            setMenuCategories((prev) => [...prev, newCategory]);
+            setExpandedMenuCategories((prev) => ({ ...prev, [normalizedName]: true }));
+
+            if (!menuItemForm.category) {
+                setMenuItemForm((prev) => ({ ...prev, category: normalizedName }));
+            }
+            if (!comboForm.category) {
+                setComboForm((prev) => ({ ...prev, category: normalizedName }));
+            }
+        }
+
+        resetMenuCategoryForm();
+        setIsMenuCategoryModalOpen(false);
+    };
+
+    const handleEditMenuCategory = (category) => {
+        setEditingMenuCategoryId(category.id);
+        setMenuCategoryForm({ name: category.name });
+        setIsMenuCategoryModalOpen(true);
+    };
+
+    const handleDeleteMenuCategory = (categoryId) => {
+        const category = menuCategories.find((item) => item.id === categoryId);
+        if (!category) return;
+
+        setMenuCategories((prev) => prev.filter((item) => item.id !== categoryId));
+        setMenuItems((prev) => prev.map((item) => item.category === category.name ? { ...item, category: '' } : item));
+        setExpandedMenuCategories((prev) => {
+            const next = { ...prev };
+            delete next[category.name];
+            return next;
+        });
+
+        if (menuItemForm.category === category.name) {
+            setMenuItemForm((prev) => ({ ...prev, category: menuCategoryOptions.find((name) => name !== category.name) || '' }));
+        }
+        if (comboForm.category === category.name) {
+            setComboForm((prev) => ({ ...prev, category: menuCategoryOptions.find((name) => name !== category.name) || 'Combo' }));
+        }
+
+        if (editingMenuCategoryId === categoryId) {
+            resetMenuCategoryForm();
+        }
+    };
+
+    const toggleMenuCategoryExpansion = (categoryName) => {
+        setExpandedMenuCategories((prev) => ({ ...prev, [categoryName]: !prev[categoryName] }));
+    };
+
+    const toggleMenuItemExpansion = (itemId) => {
+        setExpandedMenuItems((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
+    };
+
     const handleAddPreparation = (e) => {
         e.preventDefault();
 
@@ -1992,19 +3234,6 @@ export default function App({ tenantSlug = 'default' }) {
         setPreparationForm({ name: '', yieldQuantity: '1', yieldUnit: ingredientUnits[0]?.label || 'g' });
         setPreparationRecipeDraft([{ id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }]);
         setIsPreparationModalOpen(false);
-    };
-
-    const handleAddRecurringCost = (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        setRecurringCosts(prev => [...prev, {
-            id: Date.now(),
-            desc: fd.get('desc'),
-            amount: parseFloat(fd.get('amount')) || 0,
-            dueDay: parseInt(fd.get('dueDay')) || 1,
-            lastPaidMonth: ""
-        }]);
-        e.target.reset();
     };
 
     const handleUpdateCost = (id, newAmount) => {
@@ -2053,6 +3282,24 @@ export default function App({ tenantSlug = 'default' }) {
         setActiveTab('dashboard');
     };
 
+    const handleSaveAiBehaviorSettings = (payload) => {
+        setAiBehaviorError('');
+        setAiBehaviorSuccess('');
+
+        const normalizedInstructions = payload.additionalInstructions.trim();
+
+        if (normalizedInstructions.length > 150) {
+            setAiBehaviorError('As instruções adicionais precisam ficar em até 150 caracteres.');
+            return;
+        }
+
+        setAiBehaviorSettings({
+            ...payload,
+            additionalInstructions: normalizedInstructions
+        });
+        setAiBehaviorSuccess('Comportamento da IA salvo com sucesso.');
+    };
+
     if (!session) {
         return (
             <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 md:p-6 font-sans">
@@ -2081,7 +3328,7 @@ export default function App({ tenantSlug = 'default' }) {
 
     return (
         <div className="app-shell flex min-h-screen bg-[#fdfffd] text-gray-900 font-sans italic relative">
-            <CategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={costCategories} setCategories={setCostCategories} />
+            <LegacyMenuCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={costCategories} setCategories={setCostCategories} />
             <EmployeeRoleModal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} roles={employeeRoles} setRoles={setEmployeeRoles} />
             <UnitModal isOpen={isUnitModalOpen} onClose={() => setIsUnitModalOpen(false)} units={ingredientUnits} setUnits={setIngredientUnits} ingredients={ingredients} />
             <SimpleOptionsModal isOpen={isChannelModalOpen} onClose={() => setIsChannelModalOpen(false)} title="Canais" options={salesChannels} setOptions={setSalesChannels} />
@@ -2122,6 +3369,57 @@ export default function App({ tenantSlug = 'default' }) {
                 ingredients={ingredients}
                 preparations={preparations}
             />
+            <MenuCategoryModal
+                isOpen={isMenuCategoryModalOpen}
+                onClose={closeMenuCategoryModal}
+                categories={menuCategories}
+                categoryForm={menuCategoryForm}
+                editingCategoryId={editingMenuCategoryId}
+                onCategoryFormChange={handleMenuCategoryFormChange}
+                onSubmitCategory={handleSubmitMenuCategory}
+                onEditCategory={handleEditMenuCategory}
+                onDeleteCategory={handleDeleteMenuCategory}
+                onCancelEdit={resetMenuCategoryForm}
+                CustomInput={CustomInput}
+            />
+            <MenuItemModal
+                isOpen={isMenuItemModalOpen}
+                onClose={closeMenuItemModal}
+                menuItemForm={menuItemForm}
+                editingMenuItemId={editingMenuItemId}
+                categoryOptions={menuCategoryOptions}
+                menuComponentSearch={menuComponentSearch}
+                filteredMenuComponentOptions={filteredMenuComponentOptions}
+                onMenuItemFormChange={handleMenuItemFormChange}
+                onSubmitMenuItem={handleSubmitMenuItem}
+                onResetMenuItemForm={resetMenuItemForm}
+                onMenuItemPhotoChange={handleMenuItemPhotoChange}
+                onMenuComponentSearchChange={setMenuComponentSearch}
+                onToggleMenuComponent={handleToggleMenuComponent}
+                CustomInput={CustomInput}
+            />
+            <ComboEditorModal
+                isOpen={isComboModalOpen}
+                onClose={closeComboModal}
+                comboForm={comboForm}
+                editingComboId={editingComboId}
+                categoryOptions={menuCategoryOptions}
+                menuComponentOptions={menuComponentOptions}
+                catalogMetrics={catalogMetrics}
+                ingredients={ingredients}
+                onComboFormChange={handleComboFormChange}
+                onComboPhotoChange={handleComboPhotoChange}
+                onSubmitCombo={handleSubmitCombo}
+                onAddComboGroup={handleAddComboGroup}
+                onDuplicateComboGroup={handleDuplicateComboGroup}
+                onRemoveComboGroup={handleRemoveComboGroup}
+                onComboGroupChange={handleComboGroupChange}
+                onAddComboOption={handleAddComboOption}
+                onRemoveComboOption={handleRemoveComboOption}
+                onComboOptionChange={handleComboOptionChange}
+                formatMoney={formatMoney}
+                CustomInput={CustomInput}
+            />
 
             {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-[45] lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
 
@@ -2155,9 +3453,9 @@ export default function App({ tenantSlug = 'default' }) {
                         label: 'Operacional',
                         icon: Briefcase,
                         items: [
+                            { id: 'menu', label: 'Cardápio Operacional', icon: ChefHat },
+                            { id: 'reviews', label: 'Gestão de Avaliações', icon: Star },
                             { id: 'cmv', label: 'CMV / Ficha Técnica', icon: Wallet },
-                            { id: 'costs', label: 'Custos Fixos', icon: Receipt },
-                            { id: 'closing', label: 'Fechamento', icon: PieChart },
                         ]
                     }, {
                         key: 'financeiro',
@@ -2165,6 +3463,7 @@ export default function App({ tenantSlug = 'default' }) {
                         icon: DollarSign,
                         items: [
                             { id: 'financeiro', label: 'Lançamentos', icon: TrendingUp },
+                            { id: 'closing', label: 'Fechamento', icon: PieChart },
                         ]
                     }, {
                         key: 'pessoas',
@@ -2179,6 +3478,7 @@ export default function App({ tenantSlug = 'default' }) {
                         icon: Settings,
                         items: [
                             { id: 'settings', label: 'Configurações', icon: Settings },
+                            { id: 'ai-behavior', label: 'Comportamento da IA', icon: Bot },
                         ]
                     }].map(group => {
                         const isOpen = openGroups[group.key];
@@ -2258,8 +3558,8 @@ export default function App({ tenantSlug = 'default' }) {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setActiveTab(primaryAlert.targetTab || 'costs');
-                                        if (primaryAlert.targetTab === 'costs') {
+                                        setActiveTab(primaryAlert.targetTab || 'financeiro');
+                                        if (primaryAlert.targetTab === 'financeiro') {
                                             setHighlightedCostIds(prioritizedAlerts.map((alert) => alert.id));
                                         } else if (primaryAlert.targetTab === 'rh') {
                                             setRhView(primaryAlert.targetRhView || 'fixed');
@@ -2316,8 +3616,14 @@ export default function App({ tenantSlug = 'default' }) {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="h-[280px] sm:h-[340px] xl:h-[400px]">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                <div className="w-full min-w-0 min-h-[280px] h-[280px] sm:h-[340px] xl:h-[400px]">
+                                    <ResponsiveContainer
+                                        width="100%"
+                                        height="100%"
+                                        minWidth={0}
+                                        minHeight={280}
+                                        initialDimension={{ width: 720, height: 280 }}
+                                    >
                                         <BarChart data={stats.dailyRevenue} barCategoryGap="12%">
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                             <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontWeight: 'bold', fontSize: 10, fill: '#696965' }} />
@@ -2491,6 +3797,402 @@ export default function App({ tenantSlug = 'default' }) {
                         </div>
                     )}
 
+                    {activeTab === 'menu' && (
+                        <div className="space-y-6 xl:space-y-8">
+                            <section className="menu-command-center">
+                                <div className="menu-command-center__headline">
+                                    <div className="space-y-3">
+                                        <p className="menu-command-center__eyebrow">Operação do catálogo</p>
+                                        <div className="space-y-2">
+                                            <h3 className="menu-command-center__title">Cardápio operacional sem cara de planilha perdida</h3>
+                                            <p className="menu-command-center__description">
+                                                Cadastro, visibilidade, foto e vínculo técnico ficam no mesmo fluxo. A ideia aqui é simples:
+                                                você bate o olho e entende onde o catálogo está forte, onde está frouxo e o que ainda trava a publicação.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="menu-command-center__signal">
+                                        <span className="menu-command-center__signal-label">Cobertura visual</span>
+                                        <strong>{menuOperationalSummary.photoCoverage}%</strong>
+                                        <span>{menuDashboard.itemsWithPhoto}/{menuOperationalSummary.totalItems || 0} itens com foto</span>
+                                    </div>
+                                </div>
+
+                                <div className="menu-command-center__metrics">
+                                    <div className="menu-health-card">
+                                        <span className="menu-health-card__label">Exposição</span>
+                                        <strong className="menu-health-card__value">{menuOperationalSummary.visibilityCoverage}%</strong>
+                                        <p className="menu-health-card__text">{menuDashboard.visibleCount} item(ns) exposto(s) no cardápio.</p>
+                                    </div>
+                                    <div className="menu-health-card">
+                                        <span className="menu-health-card__label">Categorias vazias</span>
+                                        <strong className="menu-health-card__value">{menuOperationalSummary.emptyCategories}</strong>
+                                        <p className="menu-health-card__text">Categoria sem item cadastrado só ocupa espaço e piora navegação.</p>
+                                    </div>
+                                    <div className="menu-health-card">
+                                        <span className="menu-health-card__label">Rascunhos</span>
+                                        <strong className="menu-health-card__value">{menuOperationalSummary.draftCount}</strong>
+                                        <p className="menu-health-card__text">Itens ainda sem acabamento operacional para entrar em produção.</p>
+                                    </div>
+                                    <div className="menu-health-card">
+                                        <span className="menu-health-card__label">Vínculos técnicos</span>
+                                        <strong className="menu-health-card__value">{menuOperationalSummary.linkedItems}</strong>
+                                        <p className="menu-health-card__text">Itens com conexão real com produto, base ou complemento.</p>
+                                    </div>
+                                </div>
+
+                                <div className="menu-command-center__footer">
+                                    <div className="menu-command-pill">
+                                        <Sparkles size={14} />
+                                        <span>{menuDashboard.highlightedCount} destaque(s) da casa</span>
+                                    </div>
+                                    <div className="menu-command-pill">
+                                        <Eye size={14} />
+                                        <span>{menuDashboard.activeCount} item(ns) prontos para vender</span>
+                                    </div>
+                                    <div className="menu-command-pill">
+                                        <Link2 size={14} />
+                                        <span>{Math.max(menuOperationalSummary.totalItems - menuOperationalSummary.linkedItems, 0)} item(ns) ainda sem vínculo</span>
+                                    </div>
+                                    <div className="menu-command-pill">
+                                        <Camera size={14} />
+                                        <span>{Math.max(menuOperationalSummary.totalItems - menuDashboard.itemsWithPhoto, 0)} item(ns) pedindo foto decente</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 xl:gap-8">
+                                <StatCard title="Itens do Cardápio" value={menuItems.length} icon={ChefHat} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Disponíveis" value={menuDashboard.activeCount} icon={CheckCircle} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
+                                <StatCard title="Com Foto" value={menuDashboard.itemsWithPhoto} icon={Camera} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
+                                <StatCard title="Visíveis" value={menuDashboard.visibleCount} icon={Eye} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
+                            </div>
+
+                            <div className="menu-bottom-zone">
+                                <div className="menu-bottom-toolbar">
+                                    <div className="menu-bottom-toolbar__intro">
+                                        <p className="menu-command-center__eyebrow">Categorias, itens e produção</p>
+                                        <h4 className="menu-bottom-toolbar__title">A base operacional fica inteira aqui embaixo</h4>
+                                        <p className="menu-bottom-toolbar__description">
+                                            Organização e edição viram ação curta. Produção continua tomando a área útil da tela, como deveria desde o começo.
+                                        </p>
+                                    </div>
+
+                                    <div className="menu-compact-actions">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                resetMenuCategoryForm();
+                                                setIsMenuCategoryModalOpen(true);
+                                            }}
+                                            className="menu-compact-action"
+                                        >
+                                            <List size={14} />
+                                            <span>Organização</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                resetMenuItemForm();
+                                                setIsMenuItemModalOpen(true);
+                                            }}
+                                            className="menu-compact-action"
+                                        >
+                                            <ChefHat size={14} />
+                                            <span>Novo item</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                resetComboForm();
+                                                setIsComboModalOpen(true);
+                                            }}
+                                            className="menu-compact-action"
+                                        >
+                                            <Plus size={14} />
+                                            <span>Novo combo</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => document.getElementById('menu-production-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                            className="menu-compact-action menu-compact-action--ghost"
+                                        >
+                                            <Eye size={14} />
+                                            <span>Produção</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="menu-bottom-toolbar__signals">
+                                        <span className="menu-inline-signal">{menuCategories.length} categorias</span>
+                                        <span className="menu-inline-signal">{menuItems.length} itens</span>
+                                        <span className="menu-inline-signal">{menuOperationalSummary.comboCount} combos</span>
+                                        <span className="menu-inline-signal">{menuOperationalSummary.emptyCategories} vazias</span>
+                                        <span className="menu-inline-signal">{menuDashboard.itemsWithPhoto} com foto</span>
+                                    </div>
+                                </div>
+
+                                <div className="menu-catalog-panel menu-catalog-panel--full" id="menu-production-panel">
+                                    <div className="menu-catalog-panel__header">
+                                        <div>
+                                            <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Leitura operacional</p>
+                                            <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Categorias e itens em produção</h3>
+                                            <p className="menu-catalog-panel__description">O catálogo precisa mostrar rápido o que está vendável, o que está escondido e o que ainda está frouxo.</p>
+                                        </div>
+                                        <div className="menu-link-counter">{menuDashboard.highlightedCount} destaque(s)</div>
+                                    </div>
+
+                                    <div className="menu-catalog-panel__toolbar">
+                                        <div className="relative">
+                                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#696965]" />
+                                            <input type="text" value={menuSearchTerm} onChange={(e) => setMenuSearchTerm(e.target.value)} placeholder="Buscar categoria ou item do cardápio..." className="w-full pl-10 pr-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#c5a04a]" />
+                                        </div>
+
+                                        <div className="menu-status-summary">
+                                            <div className="menu-status-chip menu-status-chip--available">
+                                                <span className="menu-status-chip__value">{menuDashboard.activeCount}</span>
+                                                <span>Disponíveis</span>
+                                            </div>
+                                            <div className="menu-status-chip menu-status-chip--highlight">
+                                                <span className="menu-status-chip__value">{menuDashboard.highlightedCount}</span>
+                                                <span>Destaques</span>
+                                            </div>
+                                            <div className="menu-status-chip menu-status-chip--draft">
+                                                <span className="menu-status-chip__value">{menuOperationalSummary.draftCount}</span>
+                                                <span>Rascunhos</span>
+                                            </div>
+                                            <div className="menu-status-chip menu-status-chip--inactive">
+                                                <span className="menu-status-chip__value">{menuOperationalSummary.inactiveCount}</span>
+                                                <span>Ocultos</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="menu-category-strip">
+                                        {menuOperationalSummary.categoryHealth.map((category) => (
+                                            <div key={category.id} className="menu-category-strip__card">
+                                                <p className="menu-category-strip__label">{category.name}</p>
+                                                <strong className="menu-category-strip__value">{category.itemsCount}</strong>
+                                                <span className="menu-category-strip__meta">{category.visibleItems} visível(eis)</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="menu-accordion-list custom-scrollbar">
+                                        {menuItemsByCategory.map((categoryGroup) => {
+                                            const categoryExpanded = expandedMenuCategories[categoryGroup.name] ?? false;
+                                            const visibleItems = categoryGroup.items.filter((item) => item.status !== 'inactive').length;
+                                            const highlightedItems = categoryGroup.items.filter((item) => item.status === 'seasonal').length;
+
+                                            return (
+                                                <div key={categoryGroup.id} className="menu-category-accordion">
+                                                    <button type="button" onClick={() => toggleMenuCategoryExpansion(categoryGroup.name)} className="menu-category-accordion__trigger">
+                                                        <div className="menu-category-accordion__heading">
+                                                            <p className="menu-category-accordion__eyebrow">Categoria</p>
+                                                            <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight">{categoryGroup.name}</p>
+                                                        </div>
+                                                        <div className="menu-category-accordion__meta">
+                                                            <span className="menu-category-badge">{categoryGroup.items.length} item(ns)</span>
+                                                            <span className="menu-category-badge menu-category-badge--soft">{visibleItems} visível(eis)</span>
+                                                            {highlightedItems > 0 && <span className="menu-category-badge menu-category-badge--highlight">{highlightedItems} destaque(s)</span>}
+                                                            <svg className={`menu-chevron ${categoryExpanded ? 'menu-chevron--open' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                                            </svg>
+                                                        </div>
+                                                    </button>
+
+                                                    {categoryExpanded && (
+                                                        <div className="menu-category-accordion__content">
+                                                            {categoryGroup.items.length > 0 ? categoryGroup.items.map((item) => {
+                                                                const statusMeta = getMenuStatusMeta(item.status);
+                                                                const itemExpanded = expandedMenuItems[item.id] ?? false;
+                                                                const linkedDetails = (item.linkedComponents || []).map((component) => {
+                                                                    if (component.type === 'product') {
+                                                                        const product = catalogMetrics.productSummaries.find((productItem) => productItem.id === component.id);
+                                                                        return product ? {
+                                                                            name: product.name,
+                                                                            detail: `Preço base ${formatMoney(product.metrics.salePrice)}`,
+                                                                            tag: getComponentTagLabel(component.type)
+                                                                        } : null;
+                                                                    }
+
+                                                                    if (component.type === 'preparation') {
+                                                                        const preparation = catalogMetrics.preparationSummaries.find((preparationItem) => preparationItem.id === component.id);
+                                                                        return preparation ? {
+                                                                            name: preparation.name,
+                                                                            detail: `${preparation.yieldQuantity} ${preparation.yieldUnit}`,
+                                                                            tag: getComponentTagLabel(component.type)
+                                                                        } : null;
+                                                                    }
+
+                                                                    if (component.type === 'ingredient') {
+                                                                        const ingredient = ingredients.find((ingredientItem) => ingredientItem.id === component.id);
+                                                                        return ingredient ? {
+                                                                            name: ingredient.name,
+                                                                            detail: 'Uso complementar',
+                                                                            tag: getComponentTagLabel(component.type)
+                                                                        } : null;
+                                                                    }
+
+                                                                    return null;
+                                                                }).filter(Boolean);
+                                                                const comboSummary = item.itemType === 'combo' ? summarizeComboGroups(item.comboGroups) : null;
+                                                                const comboGroups = item.itemType === 'combo' ? item.comboGroups : [];
+
+                                                                return (
+                                                                    <div key={item.id} className="menu-item-accordion">
+                                                                        <button type="button" onClick={() => toggleMenuItemExpansion(item.id)} className="menu-item-accordion__trigger">
+                                                                            <div className="menu-item-accordion__summary">
+                                                                                <div className="menu-item-accordion__thumb">
+                                                                                    {item.photoPreview ? (
+                                                                                        <img src={item.photoPreview} alt={item.name} className="menu-item-accordion__image" />
+                                                                                    ) : (
+                                                                                        <div className="menu-item-accordion__placeholder">
+                                                                                            <Eye size={16} />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                                    <div className="min-w-0 text-left">
+                                                                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                                                                            {item.itemType === 'combo' && <span className="menu-component-tag">Combo</span>}
+                                                                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${statusMeta.badgeClass}`}>{statusMeta.label}</span>
+                                                                                            {linkedDetails.length > 0 && <span className="menu-component-tag">{linkedDetails.length} vínculo(s)</span>}
+                                                                                            {item.itemType === 'combo' && <span className="menu-component-tag">{comboGroups.length} grupo(s)</span>}
+                                                                                        </div>
+                                                                                        <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight truncate leading-tight">{item.name}</p>
+                                                                                        <p className="menu-item-accordion__description">{item.description}</p>
+                                                                                        {item.itemType === 'combo' && <p className="menu-item-accordion__support">{comboSummary}</p>}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="menu-item-accordion__aside">
+                                                                                    <div className="text-right shrink-0">
+                                                                                        <p className="text-[9px] font-black text-[#696965] uppercase tracking-widest hidden sm:block">{item.itemType === 'combo' ? 'A partir de' : 'Preço'}</p>
+                                                                                        <p className="text-sm font-black text-[#5c1f20] whitespace-nowrap">{formatMoney(item.itemType === 'combo' ? item.basePrice || 0 : item.salePrice || 0)}</p>
+                                                                                        <p className="menu-item-accordion__support">
+                                                                                            {item.itemType === 'combo'
+                                                                                                ? `${comboGroups.reduce((acc, group) => acc + group.options.length, 0)} opção(ões)`
+                                                                                                : linkedDetails.length > 0 ? `${linkedDetails.length} vínculo(s)` : 'Sem vínculo'}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                    <svg className={`menu-chevron ${itemExpanded ? 'menu-chevron--open' : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                                                                </svg>
+                                                                            </div>
+                                                                        </button>
+
+                                                                        {itemExpanded && (
+                                                                            <div className="menu-item-accordion__content">
+                                                                                <div className="menu-item-accordion__body">
+                                                                                    <div className="menu-item-detail-card">
+                                                                                        <p className="menu-item-detail-card__label">Descrição</p>
+                                                                                        <p className="menu-item-detail-card__text">{item.description}</p>
+                                                                                    </div>
+                                                                                    <div className="menu-item-detail-card">
+                                                                                        <p className="menu-item-detail-card__label">{item.itemType === 'combo' ? 'Preço base' : 'Status'}</p>
+                                                                                        <p className="menu-item-detail-card__text">{item.itemType === 'combo' ? formatMoney(item.basePrice || 0) : statusMeta.label}</p>
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {item.itemType === 'combo' ? (
+                                                                                    <div className="space-y-3">
+                                                                                        <div className="flex items-center justify-between gap-3">
+                                                                                            <p className="text-[10px] font-black text-[#696965] uppercase tracking-widest">Grupos do combo</p>
+                                                                                            <span className="text-[10px] font-black text-[#5c1f20] uppercase">{comboGroups.length} grupo(s)</span>
+                                                                                        </div>
+                                                                                        <div className="combo-preview-grid">
+                                                                                            {comboGroups.map((group) => (
+                                                                                                <div key={group.id} className="combo-preview-card">
+                                                                                                    <div className="flex items-center justify-between gap-3">
+                                                                                                        <div>
+                                                                                                            <p className="combo-preview-card__eyebrow">Grupo</p>
+                                                                                                            <p className="combo-preview-card__title">{group.name}</p>
+                                                                                                        </div>
+                                                                                                        <span className="menu-component-tag">De {group.minSelect} a {group.maxSelect}</span>
+                                                                                                    </div>
+                                                                                                    <div className="space-y-2 mt-3">
+                                                                                                        {group.options.map((option) => (
+                                                                                                            <div key={option.id} className={`combo-preview-option ${option.isAvailable ? '' : 'combo-preview-option--disabled'}`}>
+                                                                                                                <div>
+                                                                                                                    <p className="combo-preview-option__name">{option.name}</p>
+                                                                                                                    <p className="combo-preview-option__meta">
+                                                                                                                        {option.extraPrice > 0 ? `+ ${formatMoney(option.extraPrice)}` : 'R$ 0,00'} • Máx. {option.maxQty}
+                                                                                                                    </p>
+                                                                                                                </div>
+                                                                                                                <span className={`combo-preview-option__status ${option.isAvailable ? 'combo-preview-option__status--active' : ''}`}>
+                                                                                                                    {option.isAvailable ? 'Ativo' : 'Esgotado'}
+                                                                                                                </span>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="space-y-2">
+                                                                                        <div className="flex items-center justify-between gap-3">
+                                                                                            <p className="text-[10px] font-black text-[#696965] uppercase tracking-widest">Relacionamentos</p>
+                                                                                            <span className="text-[10px] font-black text-[#5c1f20] uppercase">{linkedDetails.length} item(ns)</span>
+                                                                                        </div>
+                                                                                        <div className="menu-related-grid">
+                                                                                            {linkedDetails.length > 0 ? linkedDetails.map((detail, index) => (
+                                                                                                <div key={`${item.id}-${detail.name}-${index}`} className="menu-related-card">
+                                                                                                    <span className="menu-component-tag">{detail.tag}</span>
+                                                                                                    <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight mt-3">{detail.name}</p>
+                                                                                                    <p className="text-[11px] text-[#696965] font-semibold mt-1">{detail.detail}</p>
+                                                                                                </div>
+                                                                                            )) : (
+                                                                                                <div className="menu-empty-state">
+                                                                                                    <Sparkles size={16} className="text-[#c5a04a]" />
+                                                                                                    <span>Nenhum relacionamento adicional para este item.</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                <div className="flex items-center justify-end gap-2 pt-2">
+                                                                                    <button type="button" onClick={() => item.itemType === 'combo' ? handleEditCombo(item) : handleEditMenuItem(item)} className="menu-action-button menu-action-button--edit">
+                                                                                        <Edit size={14} /> Editar
+                                                                                    </button>
+                                                                                    <button type="button" onClick={() => handleDeleteMenuItem(item.id)} className="menu-action-button menu-action-button--delete">
+                                                                                        <Trash2 size={14} /> Excluir
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            }) : (
+                                                                <div className="menu-empty-state">
+                                                                    <ChefHat size={18} className="text-[#c5a04a]" />
+                                                                    <span>Nenhum item nesta categoria.</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+
+                                        {menuItemsByCategory.length === 0 && (
+                                            <div className="menu-empty-state menu-empty-state--large">
+                                                <ChefHat size={18} className="text-[#c5a04a]" />
+                                                <span>Nenhum item de cardápio encontrado.</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'reviews' && (
+                        <div className="max-w-7xl mx-auto">
+                            <ReviewManagementPage />
+                        </div>
+                    )}
+
                     {activeTab === 'cmv' && (
                         <div className="space-y-6 xl:space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 xl:gap-8">
@@ -2537,7 +4239,7 @@ export default function App({ tenantSlug = 'default' }) {
                                         </div>
                                     </form>
 
-                                    <div className="mt-6 space-y-3">
+                                    <div className="mt-6 max-h-[26rem] overflow-y-auto pr-2 space-y-3">
                                         {ingredients.map((ingredient) => (
                                             <div key={ingredient.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between gap-4">
                                                 <div className="min-w-0">
@@ -2575,7 +4277,7 @@ export default function App({ tenantSlug = 'default' }) {
                                             <CustomInput label="CMV Alvo (%)" name="targetCmvPercent" type="number" step="0.1" defaultValue="30" required />
                                         </div>
 
-                                        <div className="space-y-3">
+                                        <div className="space-y-3 max-h-[26rem] overflow-y-auto pr-2">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm font-black text-[#5c1f20] uppercase">Receita / Componentes</p>
                                                 <button type="button" onClick={handleAddRecipeLine} className="text-[10px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-2 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all">
@@ -2684,56 +4386,58 @@ export default function App({ tenantSlug = 'default' }) {
                                 )}
                             </div>
 
-                            {/* ── Lista filtrada ── */}
-                            <div className="space-y-4">
+                            {/* ── Grid de cards de produtos ── */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 xl:gap-5">
                                 {catalogMetrics.productSummaries
                                     .filter((p) => p.name.toLowerCase().includes(productSearchTerm.toLowerCase().trim()))
                                     .map((product) => {
                                         const cmvOk = product.metrics.cmvPercent <= product.metrics.targetCmvPercent;
                                         return (
-                                            <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                            <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col">
 
-                                                {/* ── Linha 1: Identidade + Métricas ── */}
-                                                <div className="flex flex-col lg:flex-row lg:items-center gap-4 px-5 py-4">
-                                                    {/* Nome e info */}
-                                                    <div className="shrink-0 min-w-[180px]">
-                                                        <h3 className="text-sm font-black text-[#5c1f20] uppercase tracking-tight">{product.name}</h3>
-                                                        <p className="text-[10px] text-[#696965] font-semibold mt-0.5">
-                                                            {product.yieldQuantity} un &nbsp;·&nbsp; Venda: {formatMoney(product.metrics.salePrice)}
-                                                        </p>
+                                                {/* ── Header: Nome do produto ── */}
+                                                <div className="bg-[#5c1f20] px-4 py-3 rounded-t-2xl">
+                                                    <h3 className="text-sm font-black text-white uppercase tracking-tight leading-tight">{product.name}</h3>
+                                                    <p className="text-[10px] text-[#c5a04a] font-semibold mt-0.5">
+                                                        Venda: {formatMoney(product.metrics.salePrice)}
+                                                    </p>
+                                                </div>
+
+                                                {/* ── Métricas em grid de badges ── */}
+                                                <div className="px-4 pt-4 pb-3">
+                                                    <div className="grid grid-cols-3 gap-1.5">
+                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-[#5c1f20]/5 rounded-lg">
+                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Custo Receita</span>
+                                                            <span className="text-xs font-black text-[#5c1f20]">{formatMoney(product.metrics.recipeCost)}</span>
+                                                        </div>
+                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-blue-50 rounded-lg">
+                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Custo Unit.</span>
+                                                            <span className="text-xs font-black text-blue-700">{formatMoney(product.metrics.unitCost)}</span>
+                                                        </div>
+                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50 rounded-lg">
+                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Markup</span>
+                                                            <span className="text-xs font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
+                                                        </div>
                                                     </div>
-
-                                                    {/* Divider vertical */}
-                                                    <div className="hidden lg:block w-px h-10 bg-gray-100 shrink-0" />
-
-                                                    {/* Pills de métricas */}
-                                                    <div className="flex flex-wrap gap-2 flex-1">
-                                                        <div className="flex flex-col items-center px-3 py-2 bg-[#5c1f20]/5 rounded-xl min-w-[90px]">
-                                                            <span className="text-[9px] font-bold text-[#696965] uppercase tracking-widest mb-0.5">Custo Receita</span>
-                                                            <span className="text-sm font-black text-[#5c1f20]">{formatMoney(product.metrics.recipeCost)}</span>
+                                                    <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                                                        <div className={`flex flex-col items-center px-2 py-1.5 rounded-lg ${cmvOk ? 'bg-green-50' : 'bg-red-50'}`}>
+                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">CMV Atual</span>
+                                                            <span className={`text-xs font-black ${cmvOk ? 'text-green-700' : 'text-red-600'}`}>{product.metrics.cmvPercent.toFixed(1)}%</span>
                                                         </div>
-                                                        <div className="flex flex-col items-center px-3 py-2 bg-blue-50 rounded-xl min-w-[90px]">
-                                                            <span className="text-[9px] font-bold text-[#696965] uppercase tracking-widest mb-0.5">Custo Unit.</span>
-                                                            <span className="text-sm font-black text-blue-700">{formatMoney(product.metrics.unitCost)}</span>
+                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50 rounded-lg">
+                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Markup</span>
+                                                            <span className="text-xs font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
                                                         </div>
-                                                        <div className={`flex flex-col items-center px-3 py-2 rounded-xl min-w-[80px] ${cmvOk ? 'bg-green-50' : 'bg-red-50'}`}>
-                                                            <span className="text-[9px] font-bold text-[#696965] uppercase tracking-widest mb-0.5">CMV Atual</span>
-                                                            <span className={`text-sm font-black ${cmvOk ? 'text-green-700' : 'text-red-600'}`}>{product.metrics.cmvPercent.toFixed(1)}%</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center px-3 py-2 bg-amber-50 rounded-xl min-w-[80px]">
-                                                            <span className="text-[9px] font-bold text-[#696965] uppercase tracking-widest mb-0.5">Markup</span>
-                                                            <span className="text-sm font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center px-3 py-2 bg-amber-50/60 rounded-xl min-w-[90px] border border-amber-100">
-                                                            <span className="text-[9px] font-bold text-[#696965] uppercase tracking-widest mb-0.5">Preço Sug.</span>
-                                                            <span className="text-sm font-black text-amber-600">{formatMoney(product.metrics.suggestedPrice)}</span>
+                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50/60 rounded-lg border border-amber-100">
+                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Preço Sug.</span>
+                                                            <span className="text-xs font-black text-amber-600">{formatMoney(product.metrics.suggestedPrice)}</span>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* ── Linha 2: Ingredientes ── */}
+                                                {/* ── Componentes em lista full-width ── */}
                                                 {product.recipe.length > 0 && (
-                                                    <div className="border-t border-gray-100 px-5 py-3 flex flex-wrap gap-2">
+                                                    <div className="border-t border-gray-100 px-4 py-2 max-h-[160px] overflow-y-auto custom-scrollbar">
                                                         {product.recipe.map((item, index) => {
                                                             const ingredient = item.componentType === 'ingredient'
                                                                 ? ingredients.find((c) => c.id === item.componentId)
@@ -2751,41 +4455,48 @@ export default function App({ tenantSlug = 'default' }) {
                                                             const lineCost = componentUnitCost * normalizedQuantity;
 
                                                             return (
-                                                                <div key={`${product.id}-${index}`} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5">
-                                                                    <div>
-                                                                        <p className="text-[10px] font-black text-[#5c1f20] uppercase leading-tight">{componentName}</p>
-                                                                        <p className="text-[9px] text-[#696965] font-semibold">{item.quantity} {componentUnit}</p>
+                                                                <div key={`${product.id}-${index}`} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-b-0">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <span className="text-sm shrink-0">🧂</span>
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-[10px] font-black text-[#5c1f20] uppercase leading-tight truncate">{componentName}</p>
+                                                                            <p className="text-[9px] text-[#696965] font-semibold">{item.quantity} {componentUnit}</p>
+                                                                        </div>
                                                                     </div>
-                                                                    <span className="text-[10px] font-black text-gray-600 bg-white border border-gray-200 rounded px-1.5 py-0.5 ml-1 shrink-0">{formatMoney(lineCost)}</span>
+                                                                    <span className="text-[10px] font-black text-gray-600 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">{formatMoney(lineCost)}</span>
                                                                 </div>
                                                             );
                                                         })}
                                                     </div>
                                                 )}
 
-                                                {/* ── Linha 3: Footer de indicadores ── */}
-                                                <div className="border-t border-gray-100 px-5 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-                                                    <span className="text-[10px] font-bold text-[#5c1f20]">
-                                                        Lucro bruto: <strong>{formatMoney(product.metrics.grossMargin)}</strong>
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-[#696965]">
-                                                        CMV alvo: <strong>{product.metrics.targetCmvPercent.toFixed(1)}%</strong>
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-blue-600">
-                                                        Margem s/ venda: <strong>{product.metrics.marginPercent.toFixed(1)}%</strong>
-                                                    </span>
-                                                    <button
-                                                        onClick={() => setProducts((prev) => prev.filter((item) => item.id !== product.id))}
-                                                        className="ml-auto flex items-center gap-1 text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-wide transition-colors"
-                                                    >
-                                                        <Trash2 size={11} /> Excluir
-                                                    </button>
+                                                {/* ── Footer com indicadores ── */}
+                                                <div className="border-t border-gray-100 px-4 py-2.5 mt-auto">
+                                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-bold">
+                                                        <span className="text-[#5c1f20]">
+                                                            Lucro bruto: <strong className="font-black">{formatMoney(product.metrics.grossMargin)}</strong>
+                                                        </span>
+                                                        <span className="text-[#696965]">
+                                                            CMV alvo: <strong className="font-black">{product.metrics.targetCmvPercent.toFixed(1)}%</strong>
+                                                        </span>
+                                                        <span className="text-blue-600">
+                                                            Margem s/ venda: <strong className="font-black">{product.metrics.marginPercent.toFixed(1)}%</strong>
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-end mt-1">
+                                                        <button
+                                                            onClick={() => setProducts((prev) => prev.filter((item) => item.id !== product.id))}
+                                                            className="flex items-center gap-1 text-[9px] font-bold text-red-400 hover:text-red-600 uppercase tracking-wide transition-colors"
+                                                        >
+                                                            <Trash2 size={11} /> Excluir
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 {catalogMetrics.productSummaries.filter((p) => p.name.toLowerCase().includes(productSearchTerm.toLowerCase().trim())).length === 0 && (
-                                    <p className="text-center text-sm font-bold text-[#696965] py-8 uppercase tracking-widest">
+                                    <p className="text-center text-sm font-bold text-[#696965] py-8 uppercase tracking-widest col-span-full">
                                         Nenhum produto encontrado para &ldquo;{productSearchTerm}&rdquo;
                                     </p>
                                 )}
@@ -2796,130 +4507,160 @@ export default function App({ tenantSlug = 'default' }) {
 
 
 
-                    {activeTab === 'costs' && (
-                        <div className="space-y-6">
-                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm italic font-sans">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-lg font-black text-[#5c1f20] uppercase flex items-center gap-2 italic tracking-tighter font-sans"><Receipt size={18} /> Novo Gasto</h3>
-                                    <button onClick={() => setIsCatModalOpen(true)} className="text-[9px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-1.5 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all">Categorias</button>
-                                </div>
-                                <form onSubmit={handleAddRecurringCost} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest font-sans not-italic">Descrição</label>
-                                        <select name="desc" className="w-full px-3 py-2 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-[#c5a04a] not-italic">
-                                            {costCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <CustomInput label="Valor" name="amount" type="number" step="0.01" required />
-                                    <CustomInput label="Vencimento" name="dueDay" type="number" min="1" max="31" required />
-                                    <button type="submit" className="bg-[#5c1f20] text-[#c5a04a] h-10 rounded-xl font-black uppercase text-[10px] shadow-md active:scale-95 transition-all">Registrar</button>
-                                </form>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3">
-                                {/* Linha RH Fixa */}
-                                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between opacity-70 italic">
-                                    <div className="min-w-0">
-                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Folha Salarial Real (Automático RH)</p>
-                                        <p className="text-xs font-black text-[#5c1f20]">R$ {stats.folhaSalarial.toLocaleString()}</p>
-                                    </div>
-                                    <CheckCircle className="text-green-500" size={24} />
-                                </div>
-                                {sortedRecurringCosts.map(c => {
-                                    const isPaid = c.lastPaidMonth === currentMonthYear;
-                                    const isHighlighted = highlightedCostIds.includes(c.id);
-                                    return (
-                                        <div key={c.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 italic ${isPaid ? 'bg-green-50/10 border-green-100 opacity-60' : isHighlighted ? 'bg-amber-50 border-amber-200 shadow-md' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`px-2 py-0.5 rounded-lg text-[8px] uppercase font-black ${!isPaid && new Date().getDate() === c.dueDay ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-[#c5a04a]/10 text-[#c5a04a]'}`}>Dia {c.dueDay}</span>
-                                                    {isHighlighted && <span className="px-2 py-0.5 rounded-lg text-[8px] uppercase font-black bg-amber-200 text-amber-800">Vencimento próximo</span>}
-                                                    <p className={`text-xs font-black uppercase truncate ${isPaid ? 'line-through text-gray-400' : 'text-[#5c1f20]'}`}>{c.desc}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <p className={`text-xs font-black ${isPaid ? 'line-through text-gray-400' : 'text-gray-900'}`}>R$ {c.amount.toFixed(2)}</p>
-                                                    <div className="flex items-center gap-1.5 ml-2">
-                                                        <input type="number" id={`inp-${c.id}`} className="max-w-[70px] bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 text-[10px] font-bold outline-none not-italic" defaultValue={c.amount} disabled={isPaid} />
-                                                        {!isPaid && <button onClick={() => handleUpdateCost(c.id, document.getElementById(`inp-${c.id}`).value)} className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"><Save size={14} /></button>}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <button onClick={() => setRecurringCosts(prev => prev.filter(x => x.id !== c.id))} className="text-red-200 hover:text-red-500 p-1 transition-colors"><Trash2 size={16} /></button>
-                                                <button onClick={() => togglePaymentStatus(c.id)} className={`transition-all ${isPaid ? 'text-green-600 scale-110' : 'text-gray-300 hover:text-[#5c1f20]'}`}>
-                                                    {isPaid ? <CheckCircle size={28} fill="rgba(34, 197, 94, 0.1)" /> : <Circle size={28} />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
+                    {activeTab === 'costs' && null}
 
                     {activeTab === 'financeiro' && (
                         <div className="space-y-6">
                             <div className="bg-white p-6 sm:p-10 rounded-[2rem] border border-gray-100 shadow-sm italic">
-                                <h3 className="text-lg font-black text-[#5c1f20] uppercase mb-8 tracking-tighter">Lançamentos Financeiros</h3>
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-8">
+                                    <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Central Financeira</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsCatModalOpen(true)}
+                                            className="text-[9px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-1.5 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all"
+                                        >
+                                            Categorias de Custos Fixos
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsFinanceCategoryModalOpen(true)}
+                                            className="text-[9px] font-black text-[#5c1f20] border border-[#5c1f20]/20 px-3 py-1.5 rounded-full uppercase hover:bg-[#5c1f20]/5 transition-all"
+                                        >
+                                            Categorias Financeiras
+                                        </button>
+                                    </div>
+                                </div>
                                 <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-end italic">
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">Tipo</label>
                                         <select name="type" value={financeFormType} onChange={(e) => setFinanceFormType(e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
                                             <option value="receita">Entrada</option>
                                             <option value="despesa">Saída</option>
+                                            <option value="custo_fixo">Custo Fixo</option>
                                         </select>
                                     </div>
-                                    <CustomInput label={financeFormType === 'receita' ? 'Valor de Entrada' : 'Valor de Saída'} name="amount" type="number" step="0.01" required />
+                                    <CustomInput
+                                        label={financeFormType === 'receita' ? 'Valor de Entrada' : financeFormType === 'despesa' ? 'Valor de Saída' : 'Valor do Custo Fixo'}
+                                        name="amount"
+                                        type="number"
+                                        step="0.01"
+                                        required
+                                    />
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">
-                                            {financeFormType === 'receita' ? 'Canal' : 'Categoria'}
+                                            {financeFormType === 'receita' ? 'Canal' : financeFormType === 'despesa' ? 'Categoria' : 'Descrição'}
                                         </label>
                                         <select name="reference" className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
-                                            {(financeFormType === 'receita' ? salesChannels : financeExpenseCategories).map((item) => (
+                                            {(financeFormType === 'receita' ? salesChannels : financeFormType === 'despesa' ? financeExpenseCategories : costCategories).map((item) => (
                                                 <option key={item.id} value={item.name}>{item.name}</option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">Pagamento</label>
-                                        <select name="payment" className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
-                                            <option value="pix">PIX</option><option value="cartao">Cartão</option><option value="online">Online</option><option value="dinheiro">Dinheiro</option>
-                                        </select>
-                                    </div>
-                                    <CustomInput label="Data" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+                                    {financeFormType === 'custo_fixo' ? (
+                                        <CustomInput label="Dia de Vencimento" name="dueDay" type="number" min="1" max="31" required />
+                                    ) : (
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">Pagamento</label>
+                                            <select name="payment" className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
+                                                <option value="pix">PIX</option>
+                                                <option value="cartao">Cartão</option>
+                                                <option value="online">Online</option>
+                                                <option value="dinheiro">Dinheiro</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    <CustomInput
+                                        label={financeFormType === 'custo_fixo' ? 'Competência Inicial' : 'Data'}
+                                        name="date"
+                                        type="date"
+                                        defaultValue={new Date().toISOString().split('T')[0]}
+                                    />
                                     <CustomInput label="Observação" name="note" />
-                                    <button type="submit" className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-lg">Lançar</button>
+                                    <button type="submit" className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-lg">
+                                        {financeFormType === 'custo_fixo' ? 'Registrar Custo Fixo' : 'Lançar'}
+                                    </button>
                                 </form>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                 <StatCard title="Entradas" value={formatMoney(stats.receitaLiquida)} icon={TrendingUp} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
                                 <StatCard title="Saídas" value={formatMoney(stats.saidasLancadas)} icon={Receipt} colorClass="text-red-600" bgColorClass="bg-red-50" iconColorClass="text-red-600" />
+                                <StatCard title="Custos Fixos" value={formatMoney(stats.custosFixosTotal - stats.folhaSalarial)} icon={Calendar} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
                                 <StatCard title="Taxas Canais" value={formatMoney(stats.taxasCanais)} icon={CreditCard} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
                                 <StatCard title="Saldo Operac." value={formatMoney(stats.saldoOperacional)} icon={Wallet} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
                             </div>
-                            <div className="space-y-2">
-                                {transactions.map(t => (
-                                    <div key={t.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between italic">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-1 h-8 rounded-full ${t.type === 'receita' ? (t.platform === 'ifood' ? 'bg-[#5c1f20]' : 'bg-[#c5a04a]') : 'bg-red-500'}`} />
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-black text-[#5c1f20] uppercase truncate font-sans">
-                                                    {t.type === 'receita' ? 'Entrada' : 'Saída'} - {t.category}
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h4 className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Custos Fixos</h4>
+                                    <span className="text-[10px] font-black text-[#696965] uppercase">{sortedRecurringCosts.length} itens</span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3">
+                                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between opacity-70 italic">
+                                        <div className="min-w-0">
+                                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Folha Salarial Real (Automático RH)</p>
+                                            <p className="text-xs font-black text-[#5c1f20]">R$ {stats.folhaSalarial.toLocaleString()}</p>
+                                        </div>
+                                        <CheckCircle className="text-green-500" size={24} />
+                                    </div>
+                                    {sortedRecurringCosts.map(c => {
+                                        const isPaid = c.lastPaidMonth === currentMonthYear;
+                                        const isHighlighted = highlightedCostIds.includes(c.id);
+                                        return (
+                                            <div key={c.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 italic ${isPaid ? 'bg-green-50/10 border-green-100 opacity-60' : isHighlighted ? 'bg-amber-50 border-amber-200 shadow-md' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[8px] uppercase font-black ${!isPaid && new Date().getDate() === c.dueDay ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-[#c5a04a]/10 text-[#c5a04a]'}`}>Dia {c.dueDay}</span>
+                                                        {isHighlighted && <span className="px-2 py-0.5 rounded-lg text-[8px] uppercase font-black bg-amber-200 text-amber-800">Vencimento próximo</span>}
+                                                        <p className={`text-xs font-black uppercase truncate ${isPaid ? 'line-through text-gray-400' : 'text-[#5c1f20]'}`}>{c.desc}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className={`text-xs font-black ${isPaid ? 'line-through text-gray-400' : 'text-gray-900'}`}>R$ {c.amount.toFixed(2)}</p>
+                                                        <div className="flex items-center gap-1.5 ml-2">
+                                                            <input type="number" id={`inp-${c.id}`} className="max-w-[70px] bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 text-[10px] font-bold outline-none not-italic" defaultValue={c.amount} disabled={isPaid} />
+                                                            {!isPaid && <button type="button" onClick={() => handleUpdateCost(c.id, document.getElementById(`inp-${c.id}`).value)} className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors"><Save size={14} /></button>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <button type="button" onClick={() => setRecurringCosts(prev => prev.filter(x => x.id !== c.id))} className="text-red-200 hover:text-red-500 p-1 transition-colors"><Trash2 size={16} /></button>
+                                                    <button type="button" onClick={() => togglePaymentStatus(c.id)} className={`transition-all ${isPaid ? 'text-green-600 scale-110' : 'text-gray-300 hover:text-[#5c1f20]'}`}>
+                                                        {isPaid ? <CheckCircle size={28} fill="rgba(34, 197, 94, 0.1)" /> : <Circle size={28} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h4 className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Lançamentos Financeiros</h4>
+                                    <span className="text-[10px] font-black text-[#696965] uppercase">{transactions.length} registros</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {transactions.map(t => (
+                                        <div key={t.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between italic">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-1 h-8 rounded-full ${t.type === 'receita' ? (t.platform === 'ifood' ? 'bg-[#5c1f20]' : 'bg-[#c5a04a]') : 'bg-red-500'}`} />
+                                                <div className="min-w-0">
+                                                    <p className="text-[10px] font-black text-[#5c1f20] uppercase truncate font-sans">
+                                                        {t.type === 'receita' ? 'Entrada' : 'Saída'} - {t.category}
+                                                    </p>
+                                                    <p className="text-[9px] font-bold text-gray-400 font-mono uppercase">
+                                                        {formatDateBr(new Date(`${t.date}T00:00:00`))} | {t.type === 'receita' ? `${t.platform} | ${t.payment}` : `${t.payment} | ${t.category}`}
+                                                    </p>
+                                                    {t.note && <p className="text-[9px] font-bold text-gray-400 truncate uppercase">{t.note}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <p className={`text-xs font-black tracking-tighter ${t.type === 'receita' ? 'text-green-700' : 'text-red-600'}`}>
+                                                    {t.type === 'receita' ? '+' : '-'} {formatMoney(t.amount)}
                                                 </p>
-                                                <p className="text-[9px] font-bold text-gray-400 font-mono uppercase">
-                                                    {formatDateBr(new Date(`${t.date}T00:00:00`))} | {t.type === 'receita' ? `${t.platform} | ${t.payment}` : `${t.payment} | ${t.category}`}
-                                                </p>
-                                                {t.note && <p className="text-[9px] font-bold text-gray-400 truncate uppercase">{t.note}</p>}
+                                                <button type="button" onClick={() => setTransactions(prev => prev.filter(x => x.id !== t.id))} className="text-gray-200 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <p className={`text-xs font-black tracking-tighter ${t.type === 'receita' ? 'text-green-700' : 'text-red-600'}`}>
-                                                {t.type === 'receita' ? '+' : '-'} {formatMoney(t.amount)}
-                                            </p>
-                                            <button onClick={() => setTransactions(prev => prev.filter(x => x.id !== t.id))} className="text-gray-200 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -3099,22 +4840,133 @@ export default function App({ tenantSlug = 'default' }) {
                     )}
 
                     {activeTab === 'closing' && (
-                        <div className="max-w-5xl 2xl:max-w-6xl mx-auto italic font-black">
-                            <div className="bg-white p-6 sm:p-12 xl:p-14 2xl:p-16 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
+                        <div className="max-w-6xl 2xl:max-w-7xl mx-auto italic font-black space-y-6">
+                            <div className="bg-white p-6 sm:p-10 rounded-[2rem] border border-gray-100 shadow-sm space-y-6 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 rotate-12 opacity-5"><Logo className="w-48 h-48" /></div>
-                                <h3 className="text-2xl sm:text-3xl xl:text-4xl 2xl:text-5xl font-black text-[#5c1f20] uppercase tracking-tighter relative z-10 font-sans">Balanço do Mês</h3>
-                                <div className="mt-8 space-y-4 relative z-10 font-sans tracking-tight">
-                                    <div className="flex justify-between items-center border-b pb-2"><span className="text-[#696965] uppercase text-[10px] font-black">Entradas Brutas</span><span className="text-green-700">{formatMoney(stats.receitaBruta)}</span></div>
-                                    <div className="flex justify-between items-center border-b pb-2 text-xs"><span className="text-red-500 uppercase text-[10px] font-black">Taxas de Canal</span><span>{formatMoney(stats.taxasCanais)}</span></div>
-                                    <div className="flex justify-between items-center border-b pb-2 text-xs"><span className="text-[#696965] uppercase text-[10px] font-black">Entradas Líquidas</span><span>{formatMoney(stats.receitaLiquida)}</span></div>
-                                    <div className="flex justify-between items-center border-b pb-2 text-xs"><span className="text-red-500 uppercase text-[10px] font-black">Saídas Lançadas</span><span>{formatMoney(stats.saidasLancadas)}</span></div>
-                                    <div className="flex justify-between items-center border-b pb-2 text-xs"><span className="text-red-500 uppercase text-[10px] font-black">Folha Salarial Real</span><span>{formatMoney(stats.folhaSalarial)}</span></div>
-                                    <div className="flex justify-between items-center border-b pb-2 text-xs"><span className="text-red-500 uppercase text-[10px] font-black">Custos Fixos</span><span>{formatMoney(stats.custosFixosTotal - stats.folhaSalarial)}</span></div>
-                                    <div className="flex justify-between items-center border-b pb-2 text-xs"><span className="text-[#696965] uppercase text-[10px] font-black">Saldo Operacional</span><span>{formatMoney(stats.saldoOperacional)}</span></div>
-                                    <div className="mt-8 bg-[#5c1f20] p-6 rounded-[1.5rem] text-white shadow-xl italic">
-                                        <p className="text-[10px] font-black text-[#c5a04a] uppercase tracking-widest mb-1">Sobrou no Reino</p>
-                                        <h4 className="text-2xl sm:text-4xl font-black tracking-tighter truncate font-mono">{formatMoney(stats.saldoFinal)}</h4>
+                                <div className="relative z-10">
+                                    <h3 className="text-2xl sm:text-3xl xl:text-4xl font-black text-[#5c1f20] uppercase tracking-tighter font-sans">Extrato Financeiro</h3>
+                                    <p className="text-xs font-bold text-[#696965] uppercase tracking-widest mt-2">{closingRange.label}</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 relative z-10">
+                                    <div className="space-y-1 xl:col-span-2">
+                                        <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Visualização</label>
+                                        <select
+                                            value={closingFilterType}
+                                            onChange={(e) => setClosingFilterType(e.target.value)}
+                                            className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                        >
+                                            <option value="dia">Fechamento do Dia</option>
+                                            <option value="mes">Fechamento do Mês</option>
+                                            <option value="quinzena">Fechamento Quinzenal</option>
+                                            <option value="intervalo">Intervalo Personalizado</option>
+                                        </select>
                                     </div>
+
+                                    {closingFilterType !== 'intervalo' && (
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Data de Referência</label>
+                                            <input
+                                                type="date"
+                                                value={closingReferenceDate}
+                                                onChange={(e) => setClosingReferenceDate(e.target.value)}
+                                                className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {closingFilterType === 'intervalo' && (
+                                        <>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Data Inicial</label>
+                                                <input
+                                                    type="date"
+                                                    value={closingRangeStart}
+                                                    onChange={(e) => setClosingRangeStart(e.target.value)}
+                                                    className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Data Final</label>
+                                                <input
+                                                    type="date"
+                                                    value={closingRangeEnd}
+                                                    onChange={(e) => setClosingRangeEnd(e.target.value)}
+                                                    className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                                <StatCard title="Entradas Líquidas" value={formatMoney(closingSummary.receitaLiquida)} icon={TrendingUp} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
+                                <StatCard title="Saídas Lançadas" value={formatMoney(closingSummary.saidasLancadas)} icon={Receipt} colorClass="text-red-600" bgColorClass="bg-red-50" iconColorClass="text-red-600" />
+                                <StatCard title="Custos + RH" value={formatMoney(closingSummary.custosFixos + closingSummary.folhaSalarial)} icon={Users} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Saldo do Período" value={formatMoney(closingSummary.saldoPeriodo)} icon={Wallet} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
+                            </div>
+
+                            <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                    <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
+                                        <p className="text-[10px] font-black uppercase text-[#696965]">Entradas Brutas</p>
+                                        <p className="text-lg font-black text-green-700">{formatMoney(closingSummary.receitaBruta)}</p>
+                                    </div>
+                                    <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
+                                        <p className="text-[10px] font-black uppercase text-[#696965]">Taxas de Canal</p>
+                                        <p className="text-lg font-black text-amber-700">{formatMoney(closingSummary.taxasCanais)}</p>
+                                    </div>
+                                    <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
+                                        <p className="text-[10px] font-black uppercase text-[#696965]">Itens no Extrato</p>
+                                        <p className="text-lg font-black text-[#5c1f20]">{closingSummary.ledgerEntries.length}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 mb-4">
+                                    <h4 className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Movimentações do Período</h4>
+                                    <span className="text-[10px] font-black text-[#696965] uppercase">
+                                        {closingSummary.receitasCount} entrada(s) • {closingSummary.despesasCount} saída(s)
+                                    </span>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {closingSummary.ledgerEntries.length === 0 && (
+                                        <div className="rounded-2xl border border-dashed border-gray-200 bg-stone-50 px-4 py-8 text-center">
+                                            <p className="text-xs font-black text-[#696965] uppercase tracking-widest">Nenhuma movimentação encontrada para o período selecionado.</p>
+                                        </div>
+                                    )}
+
+                                    {closingSummary.ledgerEntries.map((entry) => {
+                                        const isIncome = entry.kind === 'receita';
+                                        const isFixedCost = entry.kind === 'custo_fixo';
+                                        const isPayroll = entry.kind === 'folha';
+                                        return (
+                                            <div key={entry.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-1 h-10 rounded-full ${isIncome ? 'bg-green-600' : isFixedCost ? 'bg-[#c5a04a]' : isPayroll ? 'bg-[#5c1f20]' : 'bg-red-500'}`} />
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-black text-[#5c1f20] uppercase truncate font-sans">
+                                                            {entry.title} • {entry.category}
+                                                        </p>
+                                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                                            {formatDateBr(entry.date)}
+                                                            {entry.payment ? ` | ${entry.payment}` : ''}
+                                                            {entry.platform ? ` | ${entry.platform}` : ''}
+                                                        </p>
+                                                        {entry.note && <p className="text-[10px] font-bold text-gray-500 uppercase truncate mt-1">{entry.note}</p>}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <p className={`text-sm font-black ${isIncome ? 'text-green-700' : 'text-red-600'}`}>
+                                                        {isIncome ? '+' : '-'} {formatMoney(entry.amount)}
+                                                    </p>
+                                                    <p className="text-[9px] font-bold text-gray-400 uppercase">
+                                                        {isFixedCost ? 'Custo fixo' : isPayroll ? 'Despesa RH' : isIncome ? 'Entrada' : 'Saída'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -3179,6 +5031,15 @@ export default function App({ tenantSlug = 'default' }) {
                                 </form>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'ai-behavior' && (
+                        <AiBehaviorSettingsPage
+                            value={aiBehaviorSettings}
+                            onSave={handleSaveAiBehaviorSettings}
+                            errorMessage={aiBehaviorError}
+                            successMessage={aiBehaviorSuccess}
+                        />
                     )}
                 </div>
             </main>
