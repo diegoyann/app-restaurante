@@ -318,9 +318,11 @@ export const ComboEditorModal = ({
   comboForm,
   editingComboId,
   categoryOptions,
-  menuComponentOptions,
+  comboLinkCategoryOptions,
+  comboLinkItemsByCategory,
   catalogMetrics,
   ingredients,
+  menuItems,
   onComboFormChange,
   onComboPhotoChange,
   onSubmitCombo,
@@ -438,20 +440,41 @@ export const ComboEditorModal = ({
 
                   <div className="space-y-3">
                     {group.options.map((option) => {
-                      const linkedMeta = resolveLinkedComponentMeta(option.linkedComponentRef, catalogMetrics, ingredients, formatMoney);
+                      const linkedItems = comboLinkItemsByCategory[option.linkedCategoryName] || [];
+                      const linkedMeta = resolveLinkedComponentMeta(option.linkedComponentRef, catalogMetrics, ingredients, formatMoney, menuItems);
 
                       return (
                         <div key={option.id} className="combo-option-row">
                           <div className="combo-option-row__main">
                                     <InputComponent label="Opção" value={option.name} onChange={(e) => onComboOptionChange(group.id, option.id, 'name', e.target.value)} required />
-                            <div className="space-y-1">
-                              <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Vínculo técnico</label>
-                              <select value={option.linkedComponentRef} onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
-                                <option value="">Manual / sem vínculo</option>
-                                {menuComponentOptions.map((component) => (
-                                  <option key={component.key} value={component.key}>{component.name} · {component.tag}</option>
-                                ))}
-                              </select>
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria vinculada</label>
+                                <select
+                                  value={option.linkedCategoryName || ''}
+                                  onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedCategoryName', e.target.value)}
+                                  className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                >
+                                  <option value="">Selecionar categoria</option>
+                                  {comboLinkCategoryOptions.map((category) => (
+                                    <option key={category.value} value={category.value}>{category.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Item cadastrado</label>
+                                <select
+                                  value={option.linkedComponentRef}
+                                  onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)}
+                                  className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a] disabled:bg-gray-100 disabled:text-[#8f8f88]"
+                                  disabled={!option.linkedCategoryName}
+                                >
+                                  <option value="">{option.linkedCategoryName ? 'Selecionar item' : 'Escolha a categoria primeiro'}</option>
+                                  {linkedItems.map((component) => (
+                                    <option key={component.key} value={component.key}>{component.name} · {component.subtitle}</option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
                           <div className="combo-option-row__pricing">

@@ -1,7 +1,18 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs"
+    "api/index.js": {
+      "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "/api?route=health"
+    },
+    {
+      "source": "/api/:route*",
+      "destination": "/api?route=:route*"
+    }
+  ]
 }

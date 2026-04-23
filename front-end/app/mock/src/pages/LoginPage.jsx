@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     UtensilsCrossed,
@@ -10,14 +10,14 @@ import {
     EyeOff,
     Loader2
 } from 'lucide-react';
+import { authApi } from '../services/api.js';
+import { supabase } from '../lib/supabase.js';
 
-// --- MOCK: mapa de e-mail → tenant slug ---
-// Futuramente, isso será uma chamada à API de autenticação.
-// A API retornará o tenant do usuário no payload do login.
-const MOCK_USERS = [
-    { email: 'rei@reidasesfihas.com', password: 'admin', tenantSlug: 'reidasesfihas', name: 'Rei das Esfihas' },
-    { email: 'demo@gestaofood.com.br', password: 'demo', tenantSlug: 'demo', name: 'Demo Restaurante' },
-    { email: 'admin@express.com', password: 'admin', tenantSlug: 'esfiharia-express', name: 'Esfiharia Express' },
+const DEMO_USERS = [
+    { email: 'admin@gestaofood.com.br', password: 'TroqueEssaSenhaAgora123!', name: 'Administrador Global' },
+    { email: 'rei@reidasesfihas.com', password: 'TroqueEssaSenhaAgora123!', name: 'Rei das Esfihas' },
+    { email: 'demo@gestaofood.com.br', password: 'TroqueEssaSenhaAgora123!', name: 'Demo Restaurante' },
+    { email: 'admin@express.com', password: 'TroqueEssaSenhaAgora123!', name: 'Esfiharia Express' },
 ];
 
 export default function LoginPage() {
@@ -28,17 +28,59 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        let mounted = true;
+
+        async function restoreSession() {
+            const { data } = await supabase.auth.getSession();
+            if (!mounted || !data.session) return;
+
+            try {
+                const response = await authApi.getSession();
+                navigate(
+                    response.user?.role === 'super_admin'
+                        ? '/admin'
+                        : `/app/${response.currentTenant?.slug || response.memberships?.[0]?.tenant?.slug || ''}`,
+                    { replace: true }
+                );
+            } catch (_error) {
+                // Se a sessão local estiver inválida, deixamos a tela de login seguir normal.
+            }
+        }
+
+        restoreSession();
+
+        return () => {
+            mounted = false;
+        };
+    }, [navigate]);
+
     const doLogin = async (emailValue, passwordValue) => {
         setError('');
         setLoading(true);
-        await new Promise(r => setTimeout(r, 800));
-        const user = MOCK_USERS.find(
-            u => u.email.toLowerCase() === emailValue.toLowerCase().trim() && u.password === passwordValue
-        );
-        setLoading(false);
-        if (!user) { setError('E-mail ou senha inválidos.'); return; }
-        sessionStorage.setItem('tenantSlug', user.tenantSlug);
-        navigate('/app');
+
+        try {
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: emailValue,
+                password: passwordValue
+            });
+
+            if (signInError) {
+                throw signInError;
+            }
+
+            const response = await authApi.getSession();
+
+            navigate(
+                response.user?.role === 'super_admin'
+                    ? '/admin'
+                    : `/app/${response.currentTenant?.slug || response.memberships?.[0]?.tenant?.slug || ''}`
+            );
+        } catch (apiError) {
+            setError(apiError.message || 'E-mail ou senha inválidos.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -170,7 +212,7 @@ export default function LoginPage() {
                             Contas de demonstração
                         </p>
                         <div className="space-y-2">
-                            {MOCK_USERS.map((u, i) => (
+                            {DEMO_USERS.map((u, i) => (
                                 <button
                                     key={i}
                                     type="button"

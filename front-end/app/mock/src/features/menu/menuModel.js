@@ -33,6 +33,7 @@ export const createEmptyComboOption = () => ({
   extraPrice: '0',
   maxQty: '1',
   isAvailable: true,
+  linkedCategoryName: '',
   linkedComponentRef: ''
 });
 
@@ -84,12 +85,27 @@ export const summarizeComboGroups = (comboGroups = []) => {
   return `${groups} grupo(s) • ${requiredGroups} obrigatório(s) • ${options} opção(ões)`;
 };
 
-export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredients, formatMoney) => {
+export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredients, formatMoney, menuItems = []) => {
   if (!componentRef) return null;
 
   const [componentType, rawId] = String(componentRef).split(':');
   const componentId = Number(rawId);
   if (!componentType || Number.isNaN(componentId)) return null;
+
+  if (componentType === 'menu-item') {
+    const menuItem = menuItems.find((item) => item.id === componentId);
+    if (!menuItem) return null;
+
+    const hasBasePrice = typeof menuItem.basePrice === 'number' && menuItem.basePrice > 0;
+    const priceValue = hasBasePrice ? menuItem.basePrice : Number(menuItem.salePrice) || 0;
+    const priceLabel = hasBasePrice ? 'Preço base' : 'Preço';
+
+    return {
+      name: menuItem.name,
+      subtitle: `${menuItem.category} • ${priceLabel} ${formatMoney(priceValue)}`,
+      tag: menuItem.itemType === 'combo' ? 'Combo cadastrado' : 'Item cadastrado'
+    };
+  }
 
   if (componentType === 'product') {
     const product = catalogMetrics.productSummaries.find((item) => item.id === componentId);

@@ -5,6 +5,7 @@ import './index.css'
 import LandingPage from './pages/LandingPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import TenantApp from './pages/TenantApp.jsx'
+import AdminPage from './pages/AdminPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -12,6 +13,7 @@ createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/app" element={<TenantApp />} />
         <Route path="/app/:tenant" element={<TenantApp />} />
       </Routes>

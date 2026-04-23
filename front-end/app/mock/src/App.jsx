@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, startTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './App.css';
 import {
@@ -43,10 +43,6 @@ import {
     Bot
 } from 'lucide-react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList,
-    AreaChart, Area, Legend
-} from 'recharts';
-import {
     ComboEditorModal,
     MenuCategoryManager,
     MenuCategoryModal,
@@ -69,9 +65,12 @@ import {
 } from './features/menu/menuModel.js';
 import { ReviewManagementPage } from './features/reviews/ReviewManagement.jsx';
 import AiBehaviorSettingsPage from './features/settings/AiBehaviorSettings.jsx';
+import { appApi, financeApi, hrApi, settingsApi } from './services/api.js';
+import { supabase } from './lib/supabase.js';
 
 // --- CONFIGURAÇÃO ---
 const LOGO_URL = "/hero-logo.png";
+const USE_BACKEND_BOOTSTRAP = false;
 const USE_REVENUE_CHART_MOCK = true;
 const MONTHLY_REVENUE_CHART_MOCK = [
     { day: '01', bruto: 4200, liquido: 3610, pedidos: 32 },
@@ -1247,7 +1246,16 @@ const parseIsoDate = (value) => {
     if (!value) return null;
     const [year, month, day] = String(value).split('-').map(Number);
     if (!year || !month || !day) return null;
-    return new Date(year, month - 1, day);
+    const parsed = new Date(year, month - 1, day);
+    if (
+        Number.isNaN(parsed.getTime()) ||
+        parsed.getFullYear() !== year ||
+        parsed.getMonth() !== month - 1 ||
+        parsed.getDate() !== day
+    ) {
+        return null;
+    }
+    return parsed;
 };
 
 const toIsoDate = (date) => {
@@ -1312,13 +1320,15 @@ const isWeekend = (date) => {
 };
 
 const isHoliday = (date, holidayDates = []) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
     const iso = date.toISOString().slice(0, 10);
     return holidayDates.includes(iso);
 };
 
-const isBusinessDay = (date, holidayDates = []) => (
-    !isWeekend(date) && !isHoliday(date, holidayDates)
-);
+const isBusinessDay = (date, holidayDates = []) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+    return !isWeekend(date) && !isHoliday(date, holidayDates);
+};
 
 const getNthBusinessDay = (year, monthIndex, nth, holidayDates = []) => {
     let current = new Date(year, monthIndex, 1);
@@ -1496,11 +1506,12 @@ const calculateProductMetrics = (product, ingredients, preparations, preparation
 // --- APLICAÇÃO PRINCIPAL ---
 export default function App({ tenantSlug = 'default' }) {
     const navigate = useNavigate();
-    const hasTenantSession = typeof window !== 'undefined' && Boolean(sessionStorage.getItem('tenantSlug'));
-    const [session, setSession] = useState(hasTenantSession || tenantSlug !== 'default');
+    const [session, setSession] = useState(tenantSlug !== 'default');
+    const [bootstrapLoading, setBootstrapLoading] = useState(true);
+    const [bootstrapError, setBootstrapError] = useState('');
     const [activeTab, setActiveTab] = useState('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [openGroups, setOpenGroups] = useState({ operacional: true, financeiro: false, pessoas: false, sistema: false });
+    const [openGroups, setOpenGroups] = useState(() => ({ operacional: true, financeiro: false, pessoas: false, sistema: false }));
     const [loginError, setLoginError] = useState('');
     const [settingsError, setSettingsError] = useState('');
     const [settingsSuccess, setSettingsSuccess] = useState('');
@@ -1525,35 +1536,35 @@ export default function App({ tenantSlug = 'default' }) {
     const currentMonthYear = new Date().toISOString().slice(0, 7);
 
     // Configurações
-    const [settings, setSettings] = useState({
+    const [settings, setSettings] = useState(() => ({
         ifoodTax: 23,
         anotaaiTax: 5,
         appPassword: 'admin',
         passwordReminder: 'A senha padrão é "admin".',
         businessName: 'Rei das Esfihas',
         alertDaysBefore: 3
-    });
-    const [aiBehaviorSettings, setAiBehaviorSettings] = useState({
+    }));
+    const [aiBehaviorSettings, setAiBehaviorSettings] = useState(() => ({
         positiveTone: 'friendly',
         crisisStrategy: 'whatsapp',
         additionalInstructions: '',
         autoPublishPositive: true
-    });
+    }));
 
     // Categorias
-    const [costCategories, setCostCategories] = useState([
+    const [costCategories, setCostCategories] = useState(() => [
         { id: 1, name: "Aluguel" }, { id: 2, name: "Energia Elétrica" },
         { id: 3, name: "Água" }, { id: 4, name: "Internet" }, { id: 5, name: "Contador" }
     ]);
 
-    const [employeeRoles, setEmployeeRoles] = useState([
+    const [employeeRoles, setEmployeeRoles] = useState(() => [
         { id: 1, name: 'Esfiharia' },
         { id: 2, name: 'Atendimento' },
         { id: 3, name: 'Pizzaiolo' },
         { id: 4, name: 'Gerência' }
     ]);
 
-    const [discountCategories, setDiscountCategories] = useState([
+    const [discountCategories, setDiscountCategories] = useState(() => [
         { id: 1, name: 'Falta' },
         { id: 2, name: 'Atraso' },
         { id: 3, name: 'Adiantamento' },
@@ -1561,7 +1572,7 @@ export default function App({ tenantSlug = 'default' }) {
     ]);
 
     // RH
-    const [employees, setEmployees] = useState([
+    const [employees, setEmployees] = useState(() => [
         {
             id: 1,
             name: 'João da Massa',
@@ -1611,7 +1622,7 @@ export default function App({ tenantSlug = 'default' }) {
         }
     ]);
     const [employeeDiscountDrafts, setEmployeeDiscountDrafts] = useState({});
-    const [employeeForm, setEmployeeForm] = useState({
+    const [employeeForm, setEmployeeForm] = useState(() => ({
         name: '',
         phone: '',
         email: '',
@@ -1629,18 +1640,18 @@ export default function App({ tenantSlug = 'default' }) {
         weekday: '1',
         specificDate: '',
         startDate: ''
-    });
+    }));
 
-    const [payrollConfig, setPayrollConfig] = useState({
+    const [payrollConfig, setPayrollConfig] = useState(() => ({
         salaryPercentage: 60,
         salaryBusinessDayOrdinal: 5,
         advancePercentage: 40,
         advanceFixedDay: 20,
         advanceBusinessDayPolicy: 'next',
         holidayDates: []
-    });
+    }));
 
-    const [ingredients, setIngredients] = useState([
+    const [ingredients, setIngredients] = useState(() => [
         { id: 1, name: 'Farinha', unit: 'g', packageQuantity: 5000, packageCost: 22.0 },
         { id: 2, name: 'Carne Moída', unit: 'g', packageQuantity: 1000, packageCost: 32.0 },
         { id: 3, name: 'Queijo Mussarela', unit: 'g', packageQuantity: 1000, packageCost: 28.0 },
@@ -1648,7 +1659,7 @@ export default function App({ tenantSlug = 'default' }) {
         { id: 5, name: 'Embalagem', unit: 'un', packageQuantity: 100, packageCost: 35.0 }
     ]);
 
-    const [ingredientUnits, setIngredientUnits] = useState([
+    const [ingredientUnits, setIngredientUnits] = useState(() => [
         { id: 1, label: 'g' },
         { id: 2, label: 'ml' },
         { id: 3, label: 'un' },
@@ -1656,12 +1667,12 @@ export default function App({ tenantSlug = 'default' }) {
     ]);
 
     const [editingIngredientId, setEditingIngredientId] = useState(null);
-    const [ingredientForm, setIngredientForm] = useState({
+    const [ingredientForm, setIngredientForm] = useState(() => ({
         name: '',
         unit: 'g',
         packageQuantity: '',
         packageCost: ''
-    });
+    }));
     const [financeFormType, setFinanceFormType] = useState('receita');
     const todayIsoDate = toIsoDate(new Date());
     const [closingFilterType, setClosingFilterType] = useState('mes');
@@ -1669,13 +1680,13 @@ export default function App({ tenantSlug = 'default' }) {
     const [closingRangeStart, setClosingRangeStart] = useState(todayIsoDate);
     const [closingRangeEnd, setClosingRangeEnd] = useState(todayIsoDate);
 
-    const [preparationForm, setPreparationForm] = useState({
+    const [preparationForm, setPreparationForm] = useState(() => ({
         name: '',
         yieldQuantity: '1',
         yieldUnit: 'g'
-    });
+    }));
 
-    const [preparations, setPreparations] = useState([
+    const [preparations, setPreparations] = useState(() => [
         {
             id: 1,
             name: 'Carne Moída Temperada',
@@ -1688,7 +1699,7 @@ export default function App({ tenantSlug = 'default' }) {
         }
     ]);
 
-    const [products, setProducts] = useState([
+    const [products, setProducts] = useState(() => [
         {
             id: 1,
             name: 'Esfiha de Carne',
@@ -1716,8 +1727,8 @@ export default function App({ tenantSlug = 'default' }) {
         }
     ]);
 
-    const [menuCategories, setMenuCategories] = useState(createInitialMenuCategories());
-    const [menuItems, setMenuItems] = useState([
+    const [menuCategories, setMenuCategories] = useState(() => createInitialMenuCategories());
+    const [menuItems, setMenuItems] = useState(() => [
         {
             id: 1,
             itemType: 'regular',
@@ -1791,9 +1802,9 @@ export default function App({ tenantSlug = 'default' }) {
             createdAt: '2026-04-05T18:30:00.000Z'
         }
     ]);
-    const [menuItemForm, setMenuItemForm] = useState(createEmptyMenuItemForm('Esfiha'));
-    const [comboForm, setComboForm] = useState(createEmptyComboForm('Combo'));
-    const [menuCategoryForm, setMenuCategoryForm] = useState(createEmptyCategoryForm());
+    const [menuItemForm, setMenuItemForm] = useState(() => createEmptyMenuItemForm('Esfiha'));
+    const [comboForm, setComboForm] = useState(() => createEmptyComboForm('Combo'));
+    const [menuCategoryForm, setMenuCategoryForm] = useState(() => createEmptyCategoryForm());
     const [menuSearchTerm, setMenuSearchTerm] = useState('');
     const [menuComponentSearch, setMenuComponentSearch] = useState('');
     const [editingMenuItemId, setEditingMenuItemId] = useState(null);
@@ -1802,31 +1813,31 @@ export default function App({ tenantSlug = 'default' }) {
     const [isMenuCategoryModalOpen, setIsMenuCategoryModalOpen] = useState(false);
     const [isMenuItemModalOpen, setIsMenuItemModalOpen] = useState(false);
     const [isComboModalOpen, setIsComboModalOpen] = useState(false);
-    const [expandedMenuCategories, setExpandedMenuCategories] = useState({ Esfiha: true, Pizza: true });
-    const [expandedMenuItems, setExpandedMenuItems] = useState({ 1: false, 2: false, 3: true });
+    const [expandedMenuCategories, setExpandedMenuCategories] = useState(() => ({ Esfiha: true, Pizza: true }));
+    const [expandedMenuItems, setExpandedMenuItems] = useState(() => ({ 1: false, 2: false, 3: true }));
 
-    const [productRecipeDraft, setProductRecipeDraft] = useState([
+    const [productRecipeDraft, setProductRecipeDraft] = useState(() => [
         { id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }
     ]);
 
-    const [preparationRecipeDraft, setPreparationRecipeDraft] = useState([
+    const [preparationRecipeDraft, setPreparationRecipeDraft] = useState(() => [
         { id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }
     ]);
 
     const [productSearchTerm, setProductSearchTerm] = useState('');
 
     // Custos Fixos
-    const [recurringCosts, setRecurringCosts] = useState([
+    const [recurringCosts, setRecurringCosts] = useState(() => [
         { id: 1, desc: 'Aluguel', amount: 3000, dueDay: 10, lastPaidMonth: "" },
         { id: 2, desc: 'Energia Elétrica', amount: 850, dueDay: 15, lastPaidMonth: "" }
     ]);
 
-    const [salesChannels, setSalesChannels] = useState([
+    const [salesChannels, setSalesChannels] = useState(() => [
         { id: 1, name: 'ifood' },
         { id: 2, name: 'anotaai' }
     ]);
 
-    const [financeExpenseCategories, setFinanceExpenseCategories] = useState([
+    const [financeExpenseCategories, setFinanceExpenseCategories] = useState(() => [
         { id: 1, name: 'Compra de Insumos' },
         { id: 2, name: 'Fornecedor' },
         { id: 3, name: 'Manutenção' },
@@ -1837,11 +1848,74 @@ export default function App({ tenantSlug = 'default' }) {
     ]);
 
     // Vendas
-    const [transactions, setTransactions] = useState([
+    const [transactions, setTransactions] = useState(() => [
         { id: 1, date: '2024-04-09', platform: 'ifood', payment: 'online', amount: 1200.00, tax: 23, net: 924.00, type: 'receita', category: 'ifood', note: 'Pedidos iFood' },
         { id: 2, date: '2024-04-09', platform: 'anotaai', payment: 'pix', amount: 650.00, tax: 5, net: 617.50, type: 'receita', category: 'anotaai', note: 'Pedidos Anota AI' },
         { id: 3, date: '2024-04-09', platform: 'despesa', payment: 'pix', amount: 180.00, tax: 0, net: -180.00, type: 'despesa', category: 'Compra de Insumos', note: 'Reposição de hortifruti' },
     ]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const resolvedTenantSlug = tenantSlug !== 'default' ? tenantSlug : '';
+
+        if (!USE_BACKEND_BOOTSTRAP) {
+            setSession(true);
+            setBootstrapError('');
+            setBootstrapLoading(false);
+            return undefined;
+        }
+
+        if (!resolvedTenantSlug) {
+            setBootstrapLoading(false);
+            setBootstrapError('Sessão não encontrada. Faça login novamente.');
+            return undefined;
+        }
+
+        const loadBootstrap = async () => {
+            setBootstrapLoading(true);
+            setBootstrapError('');
+
+            try {
+                const payload = await appApi.getBootstrap(resolvedTenantSlug);
+
+                if (cancelled) return;
+
+                startTransition(() => {
+                    setSettings(payload.settings || {});
+                    setAiBehaviorSettings(payload.aiBehaviorSettings || {});
+                    setPayrollConfig(payload.payrollConfig || {});
+                    setEmployees(payload.employees || []);
+                    setRecurringCosts(payload.recurringCosts || []);
+                    setSalesChannels(payload.salesChannels || []);
+                    setFinanceExpenseCategories(payload.financeExpenseCategories || []);
+                    setTransactions(payload.transactions || []);
+                    setEmployeeRoles(payload.employeeRoles || []);
+                    setDiscountCategories(payload.discountCategories || []);
+                    setIngredients(payload.ingredients || []);
+                    setIngredientUnits(payload.ingredientUnits || []);
+                    setPreparations(payload.preparations || []);
+                    setProducts(payload.products || []);
+                    setMenuCategories(payload.menuCategories || []);
+                    setMenuItems(payload.menuItems || []);
+                    setSession(true);
+                });
+            } catch (apiError) {
+                if (cancelled) return;
+                setBootstrapError(apiError.message || 'Falha ao carregar os dados iniciais.');
+            } finally {
+                if (!cancelled) {
+                    setBootstrapLoading(false);
+                }
+            }
+        };
+
+        loadBootstrap();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantSlug]);
 
     // Lógica de Alertas
     const activeAlerts = useMemo(() => {
@@ -1934,6 +2008,46 @@ export default function App({ tenantSlug = 'default' }) {
         ));
     }, [menuComponentOptions, menuComponentSearch]);
 
+    const menuCategoryOptions = useMemo(() => menuCategories.map((category) => category.name), [menuCategories]);
+
+    const comboLinkCategoryOptions = useMemo(() => (
+        menuCategoryOptions.reduce((acc, category) => {
+            const registeredItemsCount = menuItems.filter((item) => item.category === category && item.id !== editingComboId).length;
+            if (registeredItemsCount === 0) return acc;
+
+            acc.push({
+                value: category,
+                label: `${category} (${registeredItemsCount})`
+            });
+            return acc;
+        }, [])
+    ), [editingComboId, menuCategoryOptions, menuItems]);
+
+    const comboLinkItemsByCategory = useMemo(() => (
+        menuItems.reduce((acc, item) => {
+            if (item.id === editingComboId) return acc;
+
+            const categoryKey = item.category || 'Sem categoria';
+            if (!acc[categoryKey]) {
+                acc[categoryKey] = [];
+            }
+
+            const hasBasePrice = typeof item.basePrice === 'number' && item.basePrice > 0;
+            const priceValue = hasBasePrice ? item.basePrice : Number(item.salePrice) || 0;
+
+            acc[categoryKey].push({
+                key: `menu-item:${item.id}`,
+                type: 'menu-item',
+                id: item.id,
+                name: item.name,
+                subtitle: `${item.itemType === 'combo' ? 'Combo' : 'Item'} • ${formatMoney(priceValue)}`,
+                tag: item.itemType === 'combo' ? 'Combo cadastrado' : 'Item cadastrado'
+            });
+
+            return acc;
+        }, {})
+    ), [editingComboId, formatMoney, menuItems]);
+
     const menuDashboard = useMemo(() => {
         const activeCount = menuItems.filter((item) => item.status === 'active').length;
         const highlightedCount = menuItems.filter((item) => item.status === 'seasonal').length;
@@ -1963,8 +2077,6 @@ export default function App({ tenantSlug = 'default' }) {
             )
         ));
     }, [menuItems, menuSearchTerm]);
-
-    const menuCategoryOptions = useMemo(() => menuCategories.map((category) => category.name), [menuCategories]);
 
     const menuItemsByCategory = useMemo(() => {
         const grouped = menuCategories.map((category) => ({
@@ -2371,7 +2483,7 @@ export default function App({ tenantSlug = 'default' }) {
     /**
      * Registra lançamentos financeiros avulsos e custos fixos recorrentes a partir da tela unificada.
      */
-    const handleAddTransaction = (e) => {
+    const handleAddTransaction = async (e) => {
         try {
             e.preventDefault();
             const fd = new FormData(e.target);
@@ -2380,43 +2492,26 @@ export default function App({ tenantSlug = 'default' }) {
 
             if (amount <= 0) return;
 
-            if (type === 'custo_fixo') {
-                const descricao = String(fd.get('reference') || '').trim();
-                const dueDay = parseInt(fd.get('dueDay'), 10) || 1;
+            const payload = {
+                type,
+                date: fd.get('date'),
+                payment: fd.get('payment'),
+                amount,
+                reference: fd.get('reference'),
+                dueDay: parseInt(fd.get('dueDay'), 10) || 1,
+                note: fd.get('note') || ''
+            };
 
-                if (!descricao) return;
+            const response = await financeApi.createTransaction(tenantSlug, payload);
 
-                setRecurringCosts((prev) => [{
-                    id: Date.now(),
-                    desc: descricao,
-                    amount,
-                    dueDay,
-                    lastPaidMonth: ''
-                }, ...prev]);
-
+            if (response.type === 'custo_fixo') {
+                setRecurringCosts((prev) => [response.recurringCost, ...prev]);
                 e.target.reset();
                 setFinanceFormType('receita');
                 return;
             }
 
-            const reference = fd.get('reference');
-            const platform = type === 'receita' ? reference : 'despesa';
-            const tax = type === 'receita'
-                ? (platform === 'ifood' ? settings.ifoodTax : platform === 'anotaai' ? settings.anotaaiTax : 0)
-                : 0;
-
-            setTransactions((prev) => [{
-                id: Date.now(),
-                date: fd.get('date'),
-                platform,
-                payment: fd.get('payment'),
-                amount,
-                tax,
-                net: type === 'receita' ? amount * (1 - (tax / 100)) : -amount,
-                type,
-                category: reference || (type === 'receita' ? salesChannels[0]?.name : financeExpenseCategories[0]?.name),
-                note: fd.get('note') || ''
-            }, ...prev]);
+            setTransactions((prev) => [response.transaction, ...prev]);
 
             e.target.reset();
             setFinanceFormType('receita');
@@ -2462,12 +2557,12 @@ export default function App({ tenantSlug = 'default' }) {
         setIsEmployeeModalOpen(true);
     };
 
-    const handleSubmitEmployee = (e) => {
+    const handleSubmitEmployee = async (e) => {
         e.preventDefault();
 
         const isFixed = employeeForm.employmentType === 'fixed';
         const payload = {
-            id: editingEmployeeId || Date.now(),
+            id: editingEmployeeId || undefined,
             name: employeeForm.name.trim(),
             phone: employeeForm.phone,
             email: employeeForm.email,
@@ -2491,17 +2586,23 @@ export default function App({ tenantSlug = 'default' }) {
         if (isFixed && payload.salary <= 0) return;
         if (!isFixed && payload.baseAmount <= 0) return;
 
-        setEmployees((prev) => {
-            if (editingEmployeeId) {
-                return prev.map((item) => item.id === editingEmployeeId ? payload : item);
-            }
+        try {
+            const savedEmployee = await hrApi.saveEmployee(tenantSlug, payload);
 
-            return [...prev, payload];
-        });
+            setEmployees((prev) => {
+                if (editingEmployeeId) {
+                    return prev.map((item) => item.id === editingEmployeeId ? savedEmployee : item);
+                }
 
-        setIsEmployeeModalOpen(false);
-        setEditingEmployeeId(null);
-        setEmployeeForm(createEmptyEmployeeForm());
+                return [...prev, savedEmployee];
+            });
+
+            setIsEmployeeModalOpen(false);
+            setEditingEmployeeId(null);
+            setEmployeeForm(createEmptyEmployeeForm());
+        } catch (_error) {
+            setSettingsError('Não foi possível salvar o funcionário agora.');
+        }
     };
 
     const handleUpdateEmployeeDiscountDraft = (employeeId, field, value) => {
@@ -2516,26 +2617,41 @@ export default function App({ tenantSlug = 'default' }) {
         }));
     };
 
-    const handleAddEmployeeDiscount = (employeeId) => {
+    const persistEmployeeDiscounts = async (employeeId, nextDiscounts) => {
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) return null;
+
+        const savedEmployee = await hrApi.saveEmployee(tenantSlug, {
+            ...employee,
+            discounts: nextDiscounts
+        });
+
+        setEmployees((prev) =>
+            prev.map((current) => current.id === employeeId ? savedEmployee : current)
+        );
+
+        return savedEmployee;
+    };
+
+    const handleAddEmployeeDiscount = async (employeeId) => {
         const draft = employeeDiscountDrafts[employeeId];
         const amount = Math.max(parseFloat(draft?.amount) || 0, 0);
         const category = draft?.category || discountCategories[0]?.name || 'Outros';
 
         if (amount <= 0) return;
 
-        setEmployees((prev) =>
-            prev.map((employee) =>
-                employee.id === employeeId
-                    ? {
-                        ...employee,
-                        discounts: [
-                            ...(employee.discounts || []),
-                            { id: Date.now() + Math.random(), category, amount }
-                        ]
-                    }
-                    : employee
-            )
-        );
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) return;
+
+        try {
+            await persistEmployeeDiscounts(employeeId, [
+                ...(employee.discounts || []),
+                { id: Date.now() + Math.random(), category, amount }
+            ]);
+        } catch (_error) {
+            setSettingsError('Não foi possível salvar o desconto do funcionário.');
+            return;
+        }
 
         setEmployeeDiscountDrafts((prev) => ({
             ...prev,
@@ -2546,48 +2662,54 @@ export default function App({ tenantSlug = 'default' }) {
         }));
     };
 
-    const handleUpdateEmployeeDiscount = (employeeId, discountId, discountValue) => {
-        setEmployees((prev) =>
-            prev.map((employee) =>
-                employee.id === employeeId
-                    ? {
-                        ...employee,
-                        discounts: (employee.discounts || []).map((discount) =>
-                            discount.id === discountId
-                                ? { ...discount, amount: Math.max(parseFloat(discountValue) || 0, 0) }
-                                : discount
-                        )
-                    }
-                    : employee
-            )
-        );
+    const handleUpdateEmployeeDiscount = async (employeeId, discountId, discountValue) => {
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) return;
+
+        try {
+            await persistEmployeeDiscounts(
+                employeeId,
+                (employee.discounts || []).map((discount) =>
+                    discount.id === discountId
+                        ? { ...discount, amount: Math.max(parseFloat(discountValue) || 0, 0) }
+                        : discount
+                )
+            );
+        } catch (_error) {
+            setSettingsError('Não foi possível atualizar o desconto.');
+        }
     };
 
-    const handleUpdateEmployeeDiscountCategory = (employeeId, discountId, category) => {
-        setEmployees((prev) =>
-            prev.map((employee) =>
-                employee.id === employeeId
-                    ? {
-                        ...employee,
-                        discounts: (employee.discounts || []).map((discount) =>
-                            discount.id === discountId
-                                ? { ...discount, category }
-                                : discount
-                        )
-                    }
-                    : employee
-            )
-        );
+    const handleUpdateEmployeeDiscountCategory = async (employeeId, discountId, category) => {
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) return;
+
+        try {
+            await persistEmployeeDiscounts(
+                employeeId,
+                (employee.discounts || []).map((discount) =>
+                    discount.id === discountId
+                        ? { ...discount, category }
+                        : discount
+                )
+            );
+        } catch (_error) {
+            setSettingsError('Não foi possível atualizar a categoria do desconto.');
+        }
     };
 
-    const handleRemoveEmployeeDiscount = (employeeId, discountId) => {
-        setEmployees((prev) =>
-            prev.map((employee) =>
-                employee.id === employeeId
-                    ? { ...employee, discounts: (employee.discounts || []).filter((discount) => discount.id !== discountId) }
-                    : employee
-            )
-        );
+    const handleRemoveEmployeeDiscount = async (employeeId, discountId) => {
+        const employee = employees.find((item) => item.id === employeeId);
+        if (!employee) return;
+
+        try {
+            await persistEmployeeDiscounts(
+                employeeId,
+                (employee.discounts || []).filter((discount) => discount.id !== discountId)
+            );
+        } catch (_error) {
+            setSettingsError('Não foi possível remover o desconto.');
+        }
     };
 
     const openEmployeeDiscountsModal = (employeeId) => {
@@ -2618,12 +2740,6 @@ export default function App({ tenantSlug = 'default' }) {
             }));
         }
     }, [ingredientUnits, ingredientForm.unit]);
-
-    useEffect(() => {
-        if (hasTenantSession || tenantSlug !== 'default') {
-            setSession(true);
-        }
-    }, [hasTenantSession, tenantSlug]);
 
     useEffect(() => {
         if (!ingredientUnits.some((unit) => unit.label === preparationForm.yieldUnit)) {
@@ -2970,7 +3086,17 @@ export default function App({ tenantSlug = 'default' }) {
                 group.id === groupId
                     ? {
                         ...group,
-                        options: group.options.map((option) => option.id === optionId ? { ...option, [field]: value } : option)
+                        options: group.options.map((option) => {
+                            if (option.id !== optionId) return option;
+                            if (field === 'linkedCategoryName') {
+                                return {
+                                    ...option,
+                                    linkedCategoryName: value,
+                                    linkedComponentRef: ''
+                                };
+                            }
+                            return { ...option, [field]: value };
+                        })
                     }
                     : group
             ))
@@ -3090,7 +3216,14 @@ export default function App({ tenantSlug = 'default' }) {
                 options: group.options.map((option) => ({
                     ...option,
                     extraPrice: String(option.extraPrice ?? 0),
-                    maxQty: String(option.maxQty ?? 1)
+                    maxQty: String(option.maxQty ?? 1),
+                    linkedCategoryName: option.linkedCategoryName || (() => {
+                        const [componentType, rawId] = String(option.linkedComponentRef || '').split(':');
+                        if (componentType !== 'menu-item') return '';
+
+                        const linkedItem = menuItems.find((menuItem) => menuItem.id === Number(rawId));
+                        return linkedItem?.category || '';
+                    })()
                 }))
             }))
         });
@@ -3236,19 +3369,36 @@ export default function App({ tenantSlug = 'default' }) {
         setIsPreparationModalOpen(false);
     };
 
-    const handleUpdateCost = (id, newAmount) => {
-        setRecurringCosts(prev => prev.map(c => c.id === id ? { ...c, amount: parseFloat(newAmount) || 0 } : c));
+    const handleUpdateCost = async (id, newAmount) => {
+        try {
+            const recurringCost = await financeApi.updateRecurringCostAmount(tenantSlug, id, parseFloat(newAmount) || 0);
+            setRecurringCosts((prev) => prev.map((cost) => cost.id === id ? recurringCost : cost));
+        } catch (_error) {
+            setSettingsError('Não foi possível atualizar o custo fixo.');
+        }
     };
 
-    const togglePaymentStatus = (id) => {
-        setRecurringCosts(prev => prev.map(c => c.id === id ? { ...c, lastPaidMonth: c.lastPaidMonth === currentMonthYear ? "" : currentMonthYear } : c));
+    const togglePaymentStatus = async (id) => {
+        const cost = recurringCosts.find((item) => item.id === id);
+        if (!cost) return;
+
+        try {
+            const recurringCost = await financeApi.toggleRecurringCostPayment(
+                tenantSlug,
+                id,
+                cost.lastPaidMonth === currentMonthYear ? '' : currentMonthYear
+            );
+            setRecurringCosts((prev) => prev.map((current) => current.id === id ? recurringCost : current));
+        } catch (_error) {
+            setSettingsError('Não foi possível atualizar o status de pagamento.');
+        }
     };
 
     const handlePasswordKeyboardState = (event) => {
         setSettingsCapsLockOn(event.getModifierState('CapsLock'));
     };
 
-    const handleUpdateSettings = (e) => {
+    const handleUpdateSettings = async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
         const newPassword = fd.get('appPassword')?.toString() || '';
@@ -3269,20 +3419,25 @@ export default function App({ tenantSlug = 'default' }) {
             }
         }
 
-        setSettings(prev => ({
-            ...prev,
-            ifoodTax: parseFloat(fd.get('ifoodTax')) || 0,
-            anotaaiTax: parseFloat(fd.get('anotaaiTax')) || 0,
-            appPassword: newPassword || prev.appPassword,
-            passwordReminder: fd.get('passwordReminder') || prev.passwordReminder,
-            businessName: fd.get('businessName') || prev.businessName,
-            alertDaysBefore: parseInt(fd.get('alertDaysBefore')) || 0
-        }));
-        setSettingsSuccess('Configurações salvas com sucesso.');
-        setActiveTab('dashboard');
+        try {
+            const nextSettings = await settingsApi.updateGeneral(tenantSlug, {
+                ifoodTax: parseFloat(fd.get('ifoodTax')) || 0,
+                anotaaiTax: parseFloat(fd.get('anotaaiTax')) || 0,
+                appPassword: newPassword || settings.appPassword,
+                passwordReminder: fd.get('passwordReminder') || settings.passwordReminder,
+                businessName: fd.get('businessName') || settings.businessName,
+                alertDaysBefore: parseInt(fd.get('alertDaysBefore')) || 0
+            });
+
+            setSettings(nextSettings);
+            setSettingsSuccess('Configurações salvas com sucesso.');
+            setActiveTab('dashboard');
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar as configurações.');
+        }
     };
 
-    const handleSaveAiBehaviorSettings = (payload) => {
+    const handleSaveAiBehaviorSettings = async (payload) => {
         setAiBehaviorError('');
         setAiBehaviorSuccess('');
 
@@ -3293,12 +3448,49 @@ export default function App({ tenantSlug = 'default' }) {
             return;
         }
 
-        setAiBehaviorSettings({
-            ...payload,
-            additionalInstructions: normalizedInstructions
-        });
-        setAiBehaviorSuccess('Comportamento da IA salvo com sucesso.');
+        try {
+            const nextSettings = await settingsApi.updateAiBehavior(tenantSlug, {
+                ...payload,
+                additionalInstructions: normalizedInstructions
+            });
+
+            setAiBehaviorSettings(nextSettings);
+            setAiBehaviorSuccess('Comportamento da IA salvo com sucesso.');
+        } catch (apiError) {
+            setAiBehaviorError(apiError.message || 'Não foi possível salvar o comportamento da IA.');
+        }
     };
+
+    if (bootstrapLoading) {
+        return (
+            <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 md:p-6 font-sans">
+                <div className="bg-[#fdfffd] w-full max-w-[440px] rounded-[2rem] p-8 shadow-2xl border border-gray-100 text-center space-y-4 italic">
+                    <Logo className="w-16 h-16 mx-auto" />
+                    <p className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Carregando dados do tenant</p>
+                    <p className="text-xs font-bold text-[#696965]">Agora existe backend. Se isso falhar, o problema não é mais teatro de mock.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (bootstrapError) {
+        return (
+            <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 md:p-6 font-sans">
+                <div className="bg-[#fdfffd] w-full max-w-[520px] rounded-[2rem] p-8 shadow-2xl border border-gray-100 text-center space-y-4 italic">
+                    <Logo className="w-16 h-16 mx-auto" />
+                    <p className="text-sm font-black text-red-700 uppercase tracking-widest">Falha ao carregar o backend</p>
+                    <p className="text-xs font-bold text-[#696965]">{bootstrapError}</p>
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="w-full bg-[#5c1f20] text-[#fdfffd] py-3 rounded-2xl font-black uppercase text-xs hover:bg-[#c5a04a] transition-all shadow-xl"
+                    >
+                        Tentar novamente
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (!session) {
         return (
@@ -3328,98 +3520,124 @@ export default function App({ tenantSlug = 'default' }) {
 
     return (
         <div className="app-shell flex min-h-screen bg-[#fdfffd] text-gray-900 font-sans italic relative">
-            <LegacyMenuCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={costCategories} setCategories={setCostCategories} />
-            <EmployeeRoleModal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} roles={employeeRoles} setRoles={setEmployeeRoles} />
-            <UnitModal isOpen={isUnitModalOpen} onClose={() => setIsUnitModalOpen(false)} units={ingredientUnits} setUnits={setIngredientUnits} ingredients={ingredients} />
-            <SimpleOptionsModal isOpen={isChannelModalOpen} onClose={() => setIsChannelModalOpen(false)} title="Canais" options={salesChannels} setOptions={setSalesChannels} />
-            <SimpleOptionsModal isOpen={isFinanceCategoryModalOpen} onClose={() => setIsFinanceCategoryModalOpen(false)} title="Categorias Financeiras" options={financeExpenseCategories} setOptions={setFinanceExpenseCategories} />
-            <SimpleOptionsModal isOpen={isDiscountCategoryModalOpen} onClose={() => setIsDiscountCategoryModalOpen(false)} title="Categorias de Desconto" options={discountCategories} setOptions={setDiscountCategories} />
-            <EmployeeDiscountsModal
-                isOpen={isEmployeeDiscountsModalOpen}
-                onClose={() => setIsEmployeeDiscountsModalOpen(false)}
-                employee={selectedEmployeeForDiscounts}
-                discountDraft={selectedEmployeeIdForDiscounts ? employeeDiscountDrafts[selectedEmployeeIdForDiscounts] : null}
-                onDraftChange={(field, value) => selectedEmployeeIdForDiscounts && handleUpdateEmployeeDiscountDraft(selectedEmployeeIdForDiscounts, field, value)}
-                onAddDiscount={() => selectedEmployeeIdForDiscounts && handleAddEmployeeDiscount(selectedEmployeeIdForDiscounts)}
-                onUpdateDiscountCategory={(discountId, category) => selectedEmployeeIdForDiscounts && handleUpdateEmployeeDiscountCategory(selectedEmployeeIdForDiscounts, discountId, category)}
-                onUpdateDiscountValue={(discountId, value) => selectedEmployeeIdForDiscounts && handleUpdateEmployeeDiscount(selectedEmployeeIdForDiscounts, discountId, value)}
-                onRemoveDiscount={(discountId) => selectedEmployeeIdForDiscounts && handleRemoveEmployeeDiscount(selectedEmployeeIdForDiscounts, discountId)}
-                discountCategories={discountCategories}
-            />
-            <EmployeeModal
-                isOpen={isEmployeeModalOpen}
-                onClose={() => setIsEmployeeModalOpen(false)}
-                onSubmit={handleSubmitEmployee}
-                employeeRoles={employeeRoles}
-                employee={employeeForm}
-                setEmployee={setEmployeeForm}
-                isEditing={Boolean(editingEmployeeId)}
-            />
-            <PreparationModal
-                isOpen={isPreparationModalOpen}
-                onClose={() => setIsPreparationModalOpen(false)}
-                preparationForm={preparationForm}
-                onPreparationFormChange={handlePreparationFormChange}
-                preparationRecipeDraft={preparationRecipeDraft}
-                onAddPreparationRecipeLine={handleAddPreparationRecipeLine}
-                onPreparationRecipeDraftChange={handlePreparationRecipeDraftChange}
-                onRemovePreparationRecipeLine={handleRemovePreparationRecipeLine}
-                onSubmit={handleAddPreparation}
-                ingredientUnits={ingredientUnits}
-                ingredients={ingredients}
-                preparations={preparations}
-            />
-            <MenuCategoryModal
-                isOpen={isMenuCategoryModalOpen}
-                onClose={closeMenuCategoryModal}
-                categories={menuCategories}
-                categoryForm={menuCategoryForm}
-                editingCategoryId={editingMenuCategoryId}
-                onCategoryFormChange={handleMenuCategoryFormChange}
-                onSubmitCategory={handleSubmitMenuCategory}
-                onEditCategory={handleEditMenuCategory}
-                onDeleteCategory={handleDeleteMenuCategory}
-                onCancelEdit={resetMenuCategoryForm}
-                CustomInput={CustomInput}
-            />
-            <MenuItemModal
-                isOpen={isMenuItemModalOpen}
-                onClose={closeMenuItemModal}
-                menuItemForm={menuItemForm}
-                editingMenuItemId={editingMenuItemId}
-                categoryOptions={menuCategoryOptions}
-                menuComponentSearch={menuComponentSearch}
-                filteredMenuComponentOptions={filteredMenuComponentOptions}
-                onMenuItemFormChange={handleMenuItemFormChange}
-                onSubmitMenuItem={handleSubmitMenuItem}
-                onResetMenuItemForm={resetMenuItemForm}
-                onMenuItemPhotoChange={handleMenuItemPhotoChange}
-                onMenuComponentSearchChange={setMenuComponentSearch}
-                onToggleMenuComponent={handleToggleMenuComponent}
-                CustomInput={CustomInput}
-            />
-            <ComboEditorModal
-                isOpen={isComboModalOpen}
-                onClose={closeComboModal}
-                comboForm={comboForm}
-                editingComboId={editingComboId}
-                categoryOptions={menuCategoryOptions}
-                menuComponentOptions={menuComponentOptions}
-                catalogMetrics={catalogMetrics}
-                ingredients={ingredients}
-                onComboFormChange={handleComboFormChange}
-                onComboPhotoChange={handleComboPhotoChange}
-                onSubmitCombo={handleSubmitCombo}
-                onAddComboGroup={handleAddComboGroup}
-                onDuplicateComboGroup={handleDuplicateComboGroup}
-                onRemoveComboGroup={handleRemoveComboGroup}
-                onComboGroupChange={handleComboGroupChange}
-                onAddComboOption={handleAddComboOption}
-                onRemoveComboOption={handleRemoveComboOption}
-                onComboOptionChange={handleComboOptionChange}
-                formatMoney={formatMoney}
-                CustomInput={CustomInput}
-            />
+            {isCatModalOpen && (
+                <LegacyMenuCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={costCategories} setCategories={setCostCategories} />
+            )}
+            {isRoleModalOpen && (
+                <EmployeeRoleModal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} roles={employeeRoles} setRoles={setEmployeeRoles} />
+            )}
+            {isUnitModalOpen && (
+                <UnitModal isOpen={isUnitModalOpen} onClose={() => setIsUnitModalOpen(false)} units={ingredientUnits} setUnits={setIngredientUnits} ingredients={ingredients} />
+            )}
+            {isChannelModalOpen && (
+                <SimpleOptionsModal isOpen={isChannelModalOpen} onClose={() => setIsChannelModalOpen(false)} title="Canais" options={salesChannels} setOptions={setSalesChannels} />
+            )}
+            {isFinanceCategoryModalOpen && (
+                <SimpleOptionsModal isOpen={isFinanceCategoryModalOpen} onClose={() => setIsFinanceCategoryModalOpen(false)} title="Categorias Financeiras" options={financeExpenseCategories} setOptions={setFinanceExpenseCategories} />
+            )}
+            {isDiscountCategoryModalOpen && (
+                <SimpleOptionsModal isOpen={isDiscountCategoryModalOpen} onClose={() => setIsDiscountCategoryModalOpen(false)} title="Categorias de Desconto" options={discountCategories} setOptions={setDiscountCategories} />
+            )}
+            {isEmployeeDiscountsModalOpen && (
+                <EmployeeDiscountsModal
+                    isOpen={isEmployeeDiscountsModalOpen}
+                    onClose={() => setIsEmployeeDiscountsModalOpen(false)}
+                    employee={selectedEmployeeForDiscounts}
+                    discountDraft={selectedEmployeeIdForDiscounts ? employeeDiscountDrafts[selectedEmployeeIdForDiscounts] : null}
+                    onDraftChange={(field, value) => selectedEmployeeIdForDiscounts && handleUpdateEmployeeDiscountDraft(selectedEmployeeIdForDiscounts, field, value)}
+                    onAddDiscount={() => selectedEmployeeIdForDiscounts && handleAddEmployeeDiscount(selectedEmployeeIdForDiscounts)}
+                    onUpdateDiscountCategory={(discountId, category) => selectedEmployeeIdForDiscounts && handleUpdateEmployeeDiscountCategory(selectedEmployeeIdForDiscounts, discountId, category)}
+                    onUpdateDiscountValue={(discountId, value) => selectedEmployeeIdForDiscounts && handleUpdateEmployeeDiscount(selectedEmployeeIdForDiscounts, discountId, value)}
+                    onRemoveDiscount={(discountId) => selectedEmployeeIdForDiscounts && handleRemoveEmployeeDiscount(selectedEmployeeIdForDiscounts, discountId)}
+                    discountCategories={discountCategories}
+                />
+            )}
+            {isEmployeeModalOpen && (
+                <EmployeeModal
+                    isOpen={isEmployeeModalOpen}
+                    onClose={() => setIsEmployeeModalOpen(false)}
+                    onSubmit={handleSubmitEmployee}
+                    employeeRoles={employeeRoles}
+                    employee={employeeForm}
+                    setEmployee={setEmployeeForm}
+                    isEditing={Boolean(editingEmployeeId)}
+                />
+            )}
+            {isPreparationModalOpen && (
+                <PreparationModal
+                    isOpen={isPreparationModalOpen}
+                    onClose={() => setIsPreparationModalOpen(false)}
+                    preparationForm={preparationForm}
+                    onPreparationFormChange={handlePreparationFormChange}
+                    preparationRecipeDraft={preparationRecipeDraft}
+                    onAddPreparationRecipeLine={handleAddPreparationRecipeLine}
+                    onPreparationRecipeDraftChange={handlePreparationRecipeDraftChange}
+                    onRemovePreparationRecipeLine={handleRemovePreparationRecipeLine}
+                    onSubmit={handleAddPreparation}
+                    ingredientUnits={ingredientUnits}
+                    ingredients={ingredients}
+                    preparations={preparations}
+                />
+            )}
+            {isMenuCategoryModalOpen && (
+                <MenuCategoryModal
+                    isOpen={isMenuCategoryModalOpen}
+                    onClose={closeMenuCategoryModal}
+                    categories={menuCategories}
+                    categoryForm={menuCategoryForm}
+                    editingCategoryId={editingMenuCategoryId}
+                    onCategoryFormChange={handleMenuCategoryFormChange}
+                    onSubmitCategory={handleSubmitMenuCategory}
+                    onEditCategory={handleEditMenuCategory}
+                    onDeleteCategory={handleDeleteMenuCategory}
+                    onCancelEdit={resetMenuCategoryForm}
+                    CustomInput={CustomInput}
+                />
+            )}
+            {isMenuItemModalOpen && (
+                <MenuItemModal
+                    isOpen={isMenuItemModalOpen}
+                    onClose={closeMenuItemModal}
+                    menuItemForm={menuItemForm}
+                    editingMenuItemId={editingMenuItemId}
+                    categoryOptions={menuCategoryOptions}
+                    menuComponentSearch={menuComponentSearch}
+                    filteredMenuComponentOptions={filteredMenuComponentOptions}
+                    onMenuItemFormChange={handleMenuItemFormChange}
+                    onSubmitMenuItem={handleSubmitMenuItem}
+                    onResetMenuItemForm={resetMenuItemForm}
+                    onMenuItemPhotoChange={handleMenuItemPhotoChange}
+                    onMenuComponentSearchChange={setMenuComponentSearch}
+                    onToggleMenuComponent={handleToggleMenuComponent}
+                    CustomInput={CustomInput}
+                />
+            )}
+            {isComboModalOpen && (
+                <ComboEditorModal
+                    isOpen={isComboModalOpen}
+                    onClose={closeComboModal}
+                    comboForm={comboForm}
+                    editingComboId={editingComboId}
+                    categoryOptions={menuCategoryOptions}
+                    comboLinkCategoryOptions={comboLinkCategoryOptions}
+                    comboLinkItemsByCategory={comboLinkItemsByCategory}
+                    catalogMetrics={catalogMetrics}
+                    ingredients={ingredients}
+                    menuItems={menuItems}
+                    onComboFormChange={handleComboFormChange}
+                    onComboPhotoChange={handleComboPhotoChange}
+                    onSubmitCombo={handleSubmitCombo}
+                    onAddComboGroup={handleAddComboGroup}
+                    onDuplicateComboGroup={handleDuplicateComboGroup}
+                    onRemoveComboGroup={handleRemoveComboGroup}
+                    onComboGroupChange={handleComboGroupChange}
+                    onAddComboOption={handleAddComboOption}
+                    onRemoveComboOption={handleRemoveComboOption}
+                    onComboOptionChange={handleComboOptionChange}
+                    formatMoney={formatMoney}
+                    CustomInput={CustomInput}
+                />
+            )}
 
             {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-[45] lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
 
@@ -3530,9 +3748,8 @@ export default function App({ tenantSlug = 'default' }) {
                 <div className="p-6 border-t border-[#7a3738] bg-black/10 backdrop-blur-sm">
                     <button
                         onClick={() => {
-                            sessionStorage.removeItem('tenantSlug');
                             setSession(null);
-                            navigate('/login');
+                            supabase.auth.signOut().finally(() => navigate('/login'));
                         }}
                         className="text-[9px] font-black text-white uppercase tracking-widest hover:text-[#f6d98b] flex items-center justify-center gap-2 w-full transition-colors"
                     >
@@ -3599,62 +3816,20 @@ export default function App({ tenantSlug = 'default' }) {
                                 <StatCard title="Custos Fixos" value={formatMoney(stats.custosFixosTotal)} icon={Receipt} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
                             </div>
 
-                            {/* --- FATURAMENTO MENSAL (GRÁFICO DIÁRIO) --- */}
-                            <div className="dashboard-chart-panel bg-white p-4 sm:p-6 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic font-sans tracking-tight">
-                                        Faturamento Mensal ({new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })})
-                                    </h3>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-3 h-3 rounded-sm bg-[#5c1f20]" />
-                                            <span className="text-[10px] font-bold text-[#696965] uppercase">Bruto</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-3 h-3 rounded-sm bg-[#c5a04a]" />
-                                            <span className="text-[10px] font-bold text-[#696965] uppercase">Líquido</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="w-full min-w-0 min-h-[280px] h-[280px] sm:h-[340px] xl:h-[400px]">
-                                    <ResponsiveContainer
-                                        width="100%"
-                                        height="100%"
-                                        minWidth={0}
-                                        minHeight={280}
-                                        initialDimension={{ width: 720, height: 280 }}
-                                    >
-                                        <BarChart data={stats.dailyRevenue} barCategoryGap="12%">
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontWeight: 'bold', fontSize: 10, fill: '#696965' }} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#696965' }} tickFormatter={(v) => v > 0 ? `${(v / 1000).toFixed(0)}k` : '0'} width={35} />
-                                            <Tooltip
-                                                contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12, fontWeight: 700 }}
-                                                formatter={(value, name) => [formatMoney(value), name === 'bruto' ? 'Bruto' : 'Líquido']}
-                                                labelFormatter={(label) => `Dia ${label}`}
-                                            />
-                                            <Bar dataKey="bruto" fill="#5c1f20" radius={[4, 4, 0, 0]} />
-                                            <Bar dataKey="liquido" fill="#c5a04a" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            {/* --- ROW: RECEITA POR CANAL + PEDIDOS POR CANAL --- */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 xl:gap-8">
-                                {/* Receita por Canal */}
                                 <div className="bg-white p-5 sm:p-7 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
                                     <div className="flex items-center justify-between mb-6">
                                         <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic font-sans tracking-tight">Receita por Canal</h3>
                                         <span className="text-lg sm:text-xl font-black text-[#0f172a] tracking-tighter">{formatMoney(stats.receitaBruta)}</span>
                                     </div>
                                     <div className="space-y-5">
-                                        {stats.financialData.filter(d => d.name !== 'Total').map((channel, i) => {
+                                        {stats.financialData.filter((item) => item.name !== 'Total').map((channel, index) => {
                                             const total = stats.receitaBruta || 1;
                                             const pct = ((channel.value / total) * 100).toFixed(1);
                                             const barWidth = Math.max((channel.value / total) * 100, 3);
+
                                             return (
-                                                <div key={i}>
+                                                <div key={`${channel.name}-${index}`}>
                                                     <div className="flex items-center justify-between mb-1.5">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: channel.color }} />
@@ -3666,132 +3841,38 @@ export default function App({ tenantSlug = 'default' }) {
                                                         </div>
                                                     </div>
                                                     <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                                        <div
-                                                            className="h-full rounded-full transition-all duration-700 ease-out"
-                                                            style={{ width: `${barWidth}%`, backgroundColor: channel.color }}
-                                                        />
+                                                        <div className="h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${barWidth}%`, backgroundColor: channel.color }} />
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                    {stats.financialData.filter(d => d.name !== 'Total').length === 0 && (
-                                        <p className="text-xs text-[#696965] font-bold uppercase tracking-widest text-center py-8">Sem dados de receita.</p>
-                                    )}
                                 </div>
 
-                                {/* Pedidos por Canal */}
-                                <div className="bg-white p-5 sm:p-7 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
+                    <div className="bg-white p-5 sm:p-7 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic font-sans tracking-tight">Pedidos por Canal</h3>
-                                        <span className="text-lg sm:text-xl font-black text-[#0f172a] tracking-tighter">{stats.totalOrders} <span className="text-xs font-bold text-[#696965]">un</span></span>
+                                        <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic font-sans tracking-tight">Resumo Operacional</h3>
+                                        <span className="text-lg sm:text-xl font-black text-[#0f172a] tracking-tighter">{stats.totalOrders} pedidos</span>
                                     </div>
-                                    <div className="space-y-5">
-                                        {stats.orderCountData.filter(d => d.name !== 'Total').map((channel, i) => {
-                                            const total = stats.totalOrders || 1;
-                                            const pct = ((channel.value / total) * 100).toFixed(1);
-                                            const barWidth = Math.max((channel.value / total) * 100, 3);
-                                            return (
-                                                <div key={i}>
-                                                    <div className="flex items-center justify-between mb-1.5">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: channel.color }} />
-                                                            <span className="text-xs font-bold text-[#696965] uppercase tracking-wider">{channel.name}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-[10px] font-black text-[#696965] bg-gray-100 px-2 py-0.5 rounded-md">{pct}%</span>
-                                                            <span className="text-sm font-black text-[#0f172a]">{channel.value} <span className="text-[10px] text-[#696965]">un</span></span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                                                        <div
-                                                            className="h-full rounded-full transition-all duration-700 ease-out"
-                                                            style={{ width: `${barWidth}%`, backgroundColor: channel.color }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    {stats.orderCountData.filter(d => d.name !== 'Total').length === 0 && (
-                                        <p className="text-xs text-[#696965] font-bold uppercase tracking-widest text-center py-8">Sem pedidos registrados.</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* --- ROW: VOLUME POR PRODUTO + ÚLTIMOS PEDIDOS --- */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 xl:gap-8">
-                                {/* Volume por Produto */}
-                                <div className="bg-white p-4 sm:p-6 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                                    <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic mb-5 font-sans tracking-tight">Volume por Produto</h3>
                                     <div className="space-y-4">
-                                        {products.slice(0, 5).map((product, index) => {
-                                            const maxValue = Math.max(...products.slice(0, 5).map(p => p.salePrice * 10), 1);
-                                            const fakeVolume = Math.round(product.salePrice * (10 - index * 1.5));
-                                            const barWidth = Math.max((fakeVolume / maxValue) * 100, 8);
-                                            return (
-                                                <div key={product.id} className="flex items-center gap-3">
-                                                    <span className="text-xs font-bold text-[#696965] w-32 sm:w-40 truncate uppercase">{product.name}</span>
-                                                    <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
-                                                        <div
-                                                            className="h-full rounded-full transition-all duration-700"
-                                                            style={{
-                                                                width: `${barWidth}%`,
-                                                                background: index % 2 === 0
-                                                                    ? 'linear-gradient(90deg, #5c1f20, #7a2b2d)'
-                                                                    : 'linear-gradient(90deg, #c5a04a, #d4b35e)'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-xs font-black text-[#5c1f20] w-10 text-right">{fakeVolume}</span>
+                                        {stats.orderCountData.filter((item) => item.name !== 'Total').map((channel, index) => (
+                                            <div key={`${channel.name}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-100 bg-[#fcfbf7] px-4 py-3">
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#696965]">{channel.name}</p>
+                                                    <p className="text-sm font-black text-[#5c1f20]">{channel.value} pedidos</p>
                                                 </div>
-                                            );
-                                        })}
-                                        {products.length === 0 && (
-                                            <p className="text-xs text-[#696965] font-bold uppercase tracking-widest">Cadastre produtos no CMV para ver o volume.</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Últimos Pedidos */}
-                                <div className="bg-white p-4 sm:p-6 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                                    <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic mb-5 font-sans tracking-tight">Últimos Pedidos</h3>
-                                    {stats.lastOrders.length > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left">
-                                                <thead>
-                                                    <tr className="border-b border-gray-100">
-                                                        <th className="text-[9px] font-black text-[#696965] uppercase tracking-widest pb-3 pr-2">ID</th>
-                                                        <th className="text-[9px] font-black text-[#696965] uppercase tracking-widest pb-3 pr-2">Canal</th>
-                                                        <th className="text-[9px] font-black text-[#696965] uppercase tracking-widest pb-3 pr-2">Data</th>
-                                                        <th className="text-[9px] font-black text-[#696965] uppercase tracking-widest pb-3 pr-2 text-right">Valor</th>
-                                                        <th className="text-[9px] font-black text-[#696965] uppercase tracking-widest pb-3 text-right">Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {stats.lastOrders.map((order, i) => (
-                                                        <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                                                            <td className="py-2.5 pr-2 text-xs font-black text-[#5c1f20]">{order.id}</td>
-                                                            <td className="py-2.5 pr-2">
-                                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${order.platform === 'ifood' ? 'bg-[#5c1f20]/10 text-[#5c1f20]' : 'bg-[#c5a04a]/10 text-[#c5a04a]'}`}>
-                                                                    {order.platform}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2.5 pr-2 text-[11px] font-medium text-[#696965]">{order.date}</td>
-                                                            <td className="py-2.5 pr-2 text-xs font-black text-[#0f172a] text-right">{formatMoney(order.amount)}</td>
-                                                            <td className="py-2.5 text-right">
-                                                                <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${order.status === 'Entregue' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                                                                    {order.status}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                <span className="text-[10px] font-black text-[#c5a04a] uppercase">
+                                                    {(((channel.value || 0) / (stats.totalOrders || 1)) * 100).toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        ))}
+                                        <div className="rounded-2xl border border-dashed border-[#c5a04a]/40 bg-[#fffaf0] px-4 py-4">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-[#5c1f20]">Visão Geral</p>
+                                            <p className="mt-2 text-sm font-bold text-[#696965]">
+                                                Acompanhe rapidamente o peso de cada canal no faturamento e no volume de pedidos do período.
+                                            </p>
                                         </div>
-                                    ) : (
-                                        <p className="text-xs text-[#696965] font-bold uppercase tracking-widest">Sem pedidos registrados.</p>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
