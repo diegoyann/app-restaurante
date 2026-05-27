@@ -1,0 +1,91 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - paragraph [ref=e7]: Super Admin
+        - heading "Painel global de tenants" [level=1] [ref=e8]
+        - paragraph [ref=e9]: Selecione a empresa, a filial e o escopo de acesso. Multi-tenant sem essa separação vira vazamento de dado com interface bonita.
+      - button "Sair" [ref=e10]:
+        - img [ref=e11]
+        - text: Sair
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Empresas
+          - img [ref=e20]
+        - paragraph [ref=e24]: "3"
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - paragraph [ref=e27]: Tenants
+          - img [ref=e29]
+        - paragraph [ref=e33]: "3"
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - paragraph [ref=e36]: Usuários
+          - img [ref=e38]
+        - paragraph [ref=e43]: "1"
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - paragraph [ref=e46]: Custos fixos
+          - img [ref=e48]
+        - paragraph [ref=e51]: "2"
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - paragraph [ref=e55]: Administração
+          - heading "Empresa selecionada" [level=2] [ref=e56]
+        - generic [ref=e57]:
+          - button "Nova empresa" [ref=e58]:
+            - img [ref=e59]
+            - text: Nova empresa
+          - button "Nova filial" [disabled] [ref=e63]:
+            - img [ref=e64]
+            - text: Nova filial
+          - button "Excluir empresa" [disabled] [ref=e68]:
+            - img [ref=e69]
+            - text: Excluir empresa
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - text: Buscar empresa
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - textbox "Buscar empresa" [ref=e81]:
+                - /placeholder: Digite nome, razão social ou CNPJ
+          - generic [ref=e82]:
+            - text: Filial ativa
+            - generic [ref=e84]:
+              - img [ref=e85]
+              - textbox "Filial ativa" [ref=e88]:
+                - /placeholder: Rei das Esfihas
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - text: Nome da empresa
+              - textbox "Nome da empresa" [ref=e92]
+            - generic [ref=e93]:
+              - text: Razão social
+              - textbox "Razão social" [ref=e94]
+            - generic [ref=e95]:
+              - text: CNPJ
+              - textbox "CNPJ" [ref=e96]:
+                - /placeholder: 00.000.000/0000-00
+          - generic [ref=e97]:
+            - text: Endereço
+            - textbox "Endereço" [ref=e98]:
+              - /placeholder: Rua, número, bairro, cidade
+          - generic [ref=e99]:
+            - button "Salvar empresa" [ref=e100]:
+              - img [ref=e101]
+              - text: Salvar empresa
+            - button "Editar filial ativa" [ref=e105]:
+              - img [ref=e106]
+              - text: Editar filial ativa
+    - generic [ref=e109]:
+      - button "Perfis e permissões" [ref=e110]:
+        - img [ref=e111]
+        - text: Perfis e permissões
+      - button "Usuários e escopo" [ref=e115]:
+        - img [ref=e116]
+        - text: Usuários e escopo

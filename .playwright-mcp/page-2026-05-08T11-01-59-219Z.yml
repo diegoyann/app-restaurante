@@ -1,0 +1,27 @@
+- generic [ref=e4]:
+  - link "Voltar ao site" [ref=e5] [cursor=pointer]:
+    - /url: /
+    - img [ref=e6]
+    - generic [ref=e8]: Voltar ao site
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - img [ref=e12]
+      - heading "GESTÃOFOOD" [level=1] [ref=e17]
+      - paragraph [ref=e18]: Acesse sua conta
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: E-mail
+        - generic [ref=e22]:
+          - img [ref=e23]
+          - textbox "E-mail" [ref=e26]:
+            - /placeholder: seu@email.com
+      - generic [ref=e27]:
+        - generic [ref=e28]: Senha
+        - generic [ref=e29]:
+          - img [ref=e30]
+          - textbox "Senha" [ref=e33]:
+            - /placeholder: ••••••••
+          - button "Mostrar senha" [ref=e34]:
+            - img [ref=e35]
+      - button "Esqueci minha senha" [ref=e39]
+      - button "Entrar" [ref=e40] [cursor=pointer]

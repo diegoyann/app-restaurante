@@ -1,5 +1,5 @@
 import { resolveIdentity, requireRole } from '../../src/auth/identity.js';
-import { getAdminBootstrap } from '../../src/repositories/appRepository.js';
+import { getAdminBootstrap } from '../../src/modules/admin/index.js';
 import {
   handleOptions,
   methodNotAllowed,

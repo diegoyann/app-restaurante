@@ -1,5 +1,5 @@
 import { resolveIdentity, requireRole } from '../../src/auth/identity.js';
-import { deleteTenantUserById, saveTenantUser } from '../../src/repositories/appRepository.js';
+import { deleteTenantUserById, saveTenantUser } from '../../src/modules/admin/index.js';
 import {
   badRequest,
   getTenantSlug,

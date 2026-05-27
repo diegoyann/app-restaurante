@@ -1,0 +1,174 @@
+- generic [ref=e41]:
+  - banner [ref=e42]:
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - paragraph [ref=e45]: Super Admin
+        - heading "Painel global de tenants" [level=1] [ref=e46]
+        - paragraph [ref=e47]: Selecione a empresa, a filial e o escopo de acesso. Multi-tenant sem essa separação vira vazamento de dado com interface bonita.
+      - button "Sair" [ref=e48]:
+        - img [ref=e49]
+        - text: Sair
+  - main [ref=e52]:
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - paragraph [ref=e56]: Tenants
+          - img [ref=e58]
+        - paragraph [ref=e62]: "3"
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - paragraph [ref=e65]: Usuários
+          - img [ref=e67]
+        - paragraph [ref=e72]: "1"
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - paragraph [ref=e75]: Equipe
+          - img [ref=e77]
+        - paragraph [ref=e89]: "3"
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - paragraph [ref=e92]: Custos fixos
+          - img [ref=e94]
+        - paragraph [ref=e97]: "2"
+    - generic [ref=e98]:
+      - generic [ref=e99]:
+        - generic [ref=e100]:
+          - paragraph [ref=e101]: Administração
+          - heading "Empresa selecionada" [level=2] [ref=e102]
+        - generic [ref=e103]:
+          - button "Nova empresa" [active] [ref=e104]:
+            - img [ref=e105]
+            - text: Nova empresa
+          - button "Nova filial" [ref=e109]:
+            - img [ref=e110]
+            - text: Nova filial
+          - button "Excluir empresa" [ref=e114]:
+            - img [ref=e115]
+            - text: Excluir empresa
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - text: Filtrar empresa
+            - combobox "Filtrar empresa" [ref=e122]:
+              - option "Demo Restaurante"
+              - option "Esfiharia Express"
+              - option "Rei das Esfihas" [selected]
+          - generic [ref=e123]:
+            - paragraph [ref=e124]: Filial ativa
+            - paragraph [ref=e125]: Rei das Esfihas
+            - paragraph [ref=e126]: reidasesfihas
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - text: Nome da empresa
+              - textbox "Nome da empresa" [ref=e130]: Rei das Esfihas
+            - generic [ref=e131]:
+              - text: Slug da empresa
+              - textbox "Slug da empresa" [ref=e132]:
+                - /placeholder: slug-da-empresa
+                - text: reidasesfihas
+          - generic [ref=e133]:
+            - button "Salvar empresa" [ref=e134]:
+              - img [ref=e135]
+              - text: Salvar empresa
+            - button "Editar filial ativa" [ref=e139]:
+              - img [ref=e140]
+              - text: Editar filial ativa
+          - generic [ref=e143]:
+            - generic [ref=e145]:
+              - paragraph [ref=e146]: Filiais da empresa
+              - paragraph [ref=e147]: Rei das Esfihas · 1 filial(is)
+            - button "Rei das Esfihas reidasesfihas" [ref=e149]:
+              - generic [ref=e150]: Rei das Esfihas
+              - generic [ref=e151]: reidasesfihas
+    - dialog "Cadastrar empresa" [ref=e231]:
+      - generic [ref=e232]:
+        - heading "Cadastrar empresa" [level=3] [ref=e234]
+        - button "Fechar" [ref=e235]
+      - generic [ref=e237]:
+        - generic [ref=e238]:
+          - generic [ref=e239]:
+            - text: Nome da empresa
+            - textbox "Nome da empresa" [ref=e240]
+          - generic [ref=e241]:
+            - text: Slug da empresa
+            - textbox "Slug da empresa" [ref=e242]:
+              - /placeholder: slug-da-empresa
+        - button "Salvar empresa" [ref=e244]:
+          - img [ref=e245]
+          - text: Salvar empresa
+    - generic [ref=e152]:
+      - generic [ref=e154]:
+        - paragraph [ref=e155]: Configuração
+        - heading "Parâmetros operacionais" [level=2] [ref=e156]
+        - paragraph [ref=e157]: Só ficam aqui dados necessários para renderização e operação. Senha não é configuração de UI.
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - text: Taxa iFood (%)
+          - textbox "Taxa iFood (%)" [ref=e161]: "23"
+        - generic [ref=e162]:
+          - text: Taxa Anota AI (%)
+          - textbox "Taxa Anota AI (%)" [ref=e163]: "5"
+        - generic [ref=e164]:
+          - text: Alerta de vencimento (dias)
+          - textbox "Alerta de vencimento (dias)" [ref=e165]: "3"
+        - generic [ref=e166]:
+          - text: Nome exibido no app
+          - textbox "Nome exibido no app" [ref=e167]: Rei das Esfihas
+        - button "Salvar configurações" [ref=e168]:
+          - img [ref=e169]
+          - text: Salvar configurações
+    - generic [ref=e171]:
+      - generic [ref=e172]:
+        - generic [ref=e173]:
+          - generic [ref=e174]:
+            - paragraph [ref=e175]: Acesso
+            - heading "Usuários e escopo" [level=2] [ref=e176]
+            - paragraph [ref=e177]: Usuário pertence ao tenant selecionado. Escopo de empresa só faz sentido para admin.
+          - button "Novo usuário" [ref=e178]:
+            - img [ref=e179]
+            - text: Novo usuário
+        - generic [ref=e183]:
+          - generic [ref=e184]:
+            - paragraph [ref=e185]: Rei das Esfihas
+            - paragraph [ref=e186]: rei@reidasesfihas.com
+            - generic [ref=e187]:
+              - generic [ref=e188]: Admin
+              - generic [ref=e189]: "Filial: Rei das Esfihas"
+          - generic [ref=e190]:
+            - button "Editar" [ref=e191]
+            - button "Excluir" [ref=e192]
+      - generic [ref=e193]:
+        - generic [ref=e194]:
+          - generic [ref=e195]:
+            - paragraph [ref=e196]: Operação
+            - heading "Equipe do tenant" [level=2] [ref=e197]
+            - paragraph [ref=e198]: Equipe operacional da filial ativa. Cadastro e edição ficam em modal para não competir com usuários e escopo.
+          - button "Novo funcionário" [ref=e199]:
+            - img [ref=e200]
+            - text: Novo funcionário
+        - generic [ref=e202]:
+          - generic [ref=e204]:
+            - generic [ref=e205]:
+              - paragraph [ref=e206]: João da Massa
+              - paragraph [ref=e207]: Esfiharia
+              - paragraph [ref=e208]: Fixo • R$ 2200.00
+            - generic [ref=e209]:
+              - button "Editar" [ref=e210]
+              - button "Excluir" [ref=e211]
+          - generic [ref=e213]:
+            - generic [ref=e214]:
+              - paragraph [ref=e215]: Maria do Balcão
+              - paragraph [ref=e216]: Atendimento
+              - paragraph [ref=e217]: Fixo • R$ 1800.00
+            - generic [ref=e218]:
+              - button "Editar" [ref=e219]
+              - button "Excluir" [ref=e220]
+          - generic [ref=e222]:
+            - generic [ref=e223]:
+              - paragraph [ref=e224]: Carlos da Fornalha
+              - paragraph [ref=e225]: Pizzaiolo
+              - paragraph [ref=e226]: Por fora • R$ 450.00
+            - generic [ref=e227]:
+              - button "Editar" [ref=e228]
+              - button "Excluir" [ref=e229]

@@ -1,5 +1,9 @@
 import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { getTenantBootstrap, saveRecurringCost } from '../../src/repositories/appRepository.js';
+import {
+  deleteRecurringCostById,
+  getTenantBootstrap,
+  saveRecurringCost
+} from '../../src/modules/finance/index.js';
 import {
   badRequest,
   getTenantSlug,
@@ -51,6 +55,25 @@ export default async function handler(req, res) {
       return sendJson(res, 200, bootstrap.recurringCosts);
     }
 
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      const desc = String(body.desc || body.reference || '').trim();
+      const amount = Number(body.amount);
+      const dueDay = Number(body.dueDay);
+
+      if (!desc) throw new Error('Descrição do custo fixo é obrigatória.');
+      if (Number.isNaN(amount) || amount <= 0) throw new Error('amount precisa ser maior que zero.');
+      if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) throw new Error('dueDay precisa estar entre 1 e 31.');
+
+      const recurringCost = await saveRecurringCost(tenantSlug, {
+        desc,
+        amount,
+        dueDay,
+        lastPaidMonth: String(body.lastPaidMonth || '')
+      });
+      return sendJson(res, 201, recurringCost);
+    }
+
     if (req.method === 'PUT') {
       const bootstrap = await getTenantBootstrap(tenantSlug);
       const existing = bootstrap.recurringCosts.find((cost) => cost.id === req.body?.id);
@@ -59,7 +82,14 @@ export default async function handler(req, res) {
       return sendJson(res, 200, await saveRecurringCost(tenantSlug, next));
     }
 
-    return methodNotAllowed(res, ['GET', 'PUT']);
+    if (req.method === 'DELETE') {
+      const recurringCostId = req.body?.id;
+      if (!recurringCostId) throw new Error('id do custo fixo é obrigatório.');
+      await deleteRecurringCostById(tenantSlug, recurringCostId);
+      return sendJson(res, 200, { id: recurringCostId });
+    }
+
+    return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);
   } catch (error) {
     return sendError(res, error, 400);
   }

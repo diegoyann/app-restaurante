@@ -8,20 +8,19 @@ import {
     ArrowLeft,
     Eye,
     EyeOff,
-    Loader2
+    Loader2,
+    ShieldCheck
 } from 'lucide-react';
-import { authApi } from '../services/api.js';
 import { supabase } from '../lib/supabase.js';
-
-const DEMO_USERS = [
-    { email: 'admin@gestaofood.com.br', password: 'TroqueEssaSenhaAgora123!', name: 'Administrador Global' },
-    { email: 'rei@reidasesfihas.com', password: 'TroqueEssaSenhaAgora123!', name: 'Rei das Esfihas' },
-    { email: 'demo@gestaofood.com.br', password: 'TroqueEssaSenhaAgora123!', name: 'Demo Restaurante' },
-    { email: 'admin@express.com', password: 'TroqueEssaSenhaAgora123!', name: 'Esfiharia Express' },
-];
+import { useAuthSession } from '../hooks/useAuthSession.js';
+import { resolveSessionDestination } from '../features/session/sessionModel.js';
+import { authApi } from '../services/api.js';
+import { isMockDataSource } from '../config/dataSource.js';
+import { signInWithMockPassword } from '../services/mockAuth.js';
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const { loading: sessionLoading, session } = useAuthSession();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -29,37 +28,28 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        let mounted = true;
-
-        async function restoreSession() {
-            const { data } = await supabase.auth.getSession();
-            if (!mounted || !data.session) return;
-
-            try {
-                const response = await authApi.getSession();
-                navigate(
-                    response.user?.role === 'super_admin'
-                        ? '/admin'
-                        : `/app/${response.currentTenant?.slug || response.memberships?.[0]?.tenant?.slug || ''}`,
-                    { replace: true }
-                );
-            } catch (_error) {
-                // Se a sessão local estiver inválida, deixamos a tela de login seguir normal.
-            }
+        if (sessionLoading || !session?.user) {
+            return;
         }
 
-        restoreSession();
-
-        return () => {
-            mounted = false;
-        };
-    }, [navigate]);
+        navigate(resolveSessionDestination(session), { replace: true });
+    }, [navigate, session, sessionLoading]);
 
     const doLogin = async (emailValue, passwordValue) => {
         setError('');
         setLoading(true);
 
         try {
+            if (isMockDataSource()) {
+                await signInWithMockPassword({
+                    email: emailValue,
+                    password: passwordValue
+                });
+                const payload = await authApi.getSession();
+                navigate(resolveSessionDestination(payload), { replace: true });
+                return;
+            }
+
             const { error: signInError } = await supabase.auth.signInWithPassword({
                 email: emailValue,
                 password: passwordValue
@@ -68,14 +58,6 @@ export default function LoginPage() {
             if (signInError) {
                 throw signInError;
             }
-
-            const response = await authApi.getSession();
-
-            navigate(
-                response.user?.role === 'super_admin'
-                    ? '/admin'
-                    : `/app/${response.currentTenant?.slug || response.memberships?.[0]?.tenant?.slug || ''}`
-            );
         } catch (apiError) {
             setError(apiError.message || 'E-mail ou senha inválidos.');
         } finally {
@@ -88,19 +70,48 @@ export default function LoginPage() {
         await doLogin(email, password);
     };
 
+    const handleGoogleLogin = async () => {
+        setError('');
+        setLoading(true);
+
+        try {
+            if (isMockDataSource()) {
+                throw new Error('Login Google não está disponível no modo mock.');
+            }
+
+            const { error: oauthError } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/login`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent'
+                    }
+                }
+            });
+
+            if (oauthError) {
+                throw oauthError;
+            }
+        } catch (apiError) {
+            setError(apiError.message || 'Falha ao iniciar login com Google.');
+            setLoading(false);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1a0b0b] to-[#5c1f20] flex items-center justify-center p-4 font-sans antialiased relative overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#3A281B] to-[#2A1E15] flex items-center justify-center p-4 font-sans antialiased relative overflow-hidden">
             {/* Background decorations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#c5a04a]/8 to-transparent rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-[#5c1f20]/15 to-transparent rounded-full blur-3xl" />
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#D4A373]/8 to-transparent rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-[#2A1E15]/15 to-transparent rounded-full blur-3xl" />
             </div>
 
             <div className="w-full max-w-[440px] relative">
                 {/* Voltar para landing */}
                 <Link
                     to="/"
-                    className="inline-flex items-center gap-2 text-white/40 hover:text-[#c5a04a] transition-colors mb-8 group"
+                    className="inline-flex items-center gap-2 text-white/40 hover:text-[#D4A373] transition-colors mb-8 group"
                 >
                     <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                     <span className="text-xs font-bold uppercase tracking-widest">Voltar ao site</span>
@@ -110,58 +121,79 @@ export default function LoginPage() {
                 <div className="bg-white/5 backdrop-blur-xl rounded-[2.5rem] p-8 sm:p-10 border border-white/10 shadow-2xl">
                     {/* Header */}
                     <div className="flex flex-col items-center mb-10 text-center">
-                        <div className="w-16 h-16 bg-gradient-to-br from-[#5c1f20] to-[#3a1213] rounded-2xl flex items-center justify-center shadow-xl mb-5 ring-2 ring-[#c5a04a]/20">
-                            <UtensilsCrossed className="text-[#c5a04a]" size={28} />
+                        <div className="w-16 h-16 bg-gradient-to-br from-[#2A1E15] to-[#3a1213] rounded-2xl flex items-center justify-center shadow-xl mb-5 ring-2 ring-[#D4A373]/20">
+                            <UtensilsCrossed className="text-[#D4A373]" size={28} />
                         </div>
                         <h1 className="text-2xl font-black text-white tracking-tighter uppercase">
-                            GESTÃO<span className="text-[#c5a04a] italic">FOOD</span>
+                            GESTÃO<span className="text-[#D4A373] italic">FOOD</span>
                         </h1>
                         <p className="text-white/40 text-[11px] font-bold uppercase tracking-[0.2em] mt-2">
                             Acesse sua conta
                         </p>
                     </div>
 
-                    {/* Formulário */}
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Formulário */}
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <button
+                            type="button"
+                            onClick={handleGoogleLogin}
+                            disabled={loading}
+                            className="w-full py-3.5 rounded-2xl font-black uppercase text-xs tracking-wider transition-all flex items-center justify-center gap-2 bg-white text-[#2A1E15] hover:bg-[#FAF6EF] disabled:opacity-50 disabled:cursor-not-allowed shadow-xl"
+                        >
+                            <ShieldCheck size={17} />
+                            Entrar com Google
+                        </button>
+
+                        <div className="flex items-center gap-3">
+                            <div className="h-px flex-1 bg-white/10" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">ou</span>
+                            <div className="h-px flex-1 bg-white/10" />
+                        </div>
+
                         {/* E-mail */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-[#c5a04a] uppercase tracking-widest block ml-1">
+                            <label htmlFor="login-email" className="text-[10px] font-black text-[#D4A373] uppercase tracking-widest block ml-1">
                                 E-mail
                             </label>
                             <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A5A2B]" size={16} />
                                 <input
+                                    id="login-email"
+                                    name="email"
                                     type="email"
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
                                     placeholder="seu@email.com"
                                     required
                                     autoComplete="email"
-                                    className="w-full pl-11 pr-4 py-3.5 bg-white/8 border border-white/15 rounded-xl text-white font-medium text-sm outline-none focus:ring-2 focus:ring-[#c5a04a] focus:border-transparent transition-all placeholder:text-white/20"
+                                    className="w-full pl-11 pr-4 py-3.5 bg-[#f9f1e6] border border-[#D4A373]/35 rounded-xl text-[#2A1E15] font-semibold text-sm outline-none focus:ring-2 focus:ring-[#D4A373] focus:border-transparent transition-all placeholder:text-[#8A7A6D]"
                                 />
                             </div>
                         </div>
 
                         {/* Senha */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-[#c5a04a] uppercase tracking-widest block ml-1">
+                            <label htmlFor="login-password" className="text-[10px] font-black text-[#D4A373] uppercase tracking-widest block ml-1">
                                 Senha
                             </label>
                             <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A5A2B]" size={16} />
                                 <input
+                                    id="login-password"
+                                    name="password"
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••"
                                     required
                                     autoComplete="current-password"
-                                    className="w-full pl-11 pr-12 py-3.5 bg-white/8 border border-white/15 rounded-xl text-white font-medium text-sm outline-none focus:ring-2 focus:ring-[#c5a04a] focus:border-transparent transition-all placeholder:text-white/20"
+                                    className="w-full pl-11 pr-12 py-3.5 bg-[#f9f1e6] border border-[#D4A373]/35 rounded-xl text-[#2A1E15] font-semibold text-sm outline-none focus:ring-2 focus:ring-[#D4A373] focus:border-transparent transition-all placeholder:text-[#8A7A6D]"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-[#c5a04a] transition-colors"
+                                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8A5A2B] hover:text-[#2A1E15] transition-colors"
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -180,7 +212,7 @@ export default function LoginPage() {
                         <div className="text-right">
                             <button
                                 type="button"
-                                className="text-[10px] font-bold text-white/30 uppercase tracking-widest hover:text-[#c5a04a] transition-colors"
+                                className="text-[10px] font-bold text-white/30 uppercase tracking-widest hover:text-[#D4A373] transition-colors"
                             >
                                 Esqueci minha senha
                             </button>
@@ -191,8 +223,8 @@ export default function LoginPage() {
                             type="submit"
                             disabled={loading}
                             className={`w-full py-4 rounded-2xl font-black uppercase text-sm tracking-wider transition-all flex items-center justify-center gap-2 ${loading
-                                ? 'bg-[#c5a04a]/50 text-[#5c1f20]/50 cursor-wait'
-                                : 'bg-[#c5a04a] text-[#5c1f20] hover:bg-[#d4b35e] shadow-xl shadow-[#c5a04a]/20 cursor-pointer'
+                                ? 'bg-[#D4A373]/50 text-[#2A1E15]/50 cursor-wait'
+                                : 'bg-[#D4A373] text-[#2A1E15] hover:bg-[#C58F5E] shadow-xl shadow-[#D4A373]/20 cursor-pointer'
                                 }`}
                         >
                             {loading ? (
@@ -206,29 +238,6 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    {/* Dica mock */}
-                    <div className="mt-8 pt-6 border-t border-white/5">
-                        <p className="text-[10px] text-white/20 font-bold text-center uppercase tracking-widest mb-3">
-                            Contas de demonstração
-                        </p>
-                        <div className="space-y-2">
-                            {DEMO_USERS.map((u, i) => (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => { setEmail(u.email); setPassword(u.password); setError(''); doLogin(u.email, u.password); }}
-                                    className="w-full flex items-center justify-between bg-white/3 hover:bg-white/8 border border-white/5 rounded-lg px-3 py-2 transition-all group"
-                                >
-                                    <span className="text-[10px] font-bold text-white/40 group-hover:text-white/70 truncate">
-                                        {u.email}
-                                    </span>
-                                    <span className="text-[9px] font-black text-[#c5a04a]/50 uppercase tracking-wider shrink-0 ml-2">
-                                        {u.name}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -1,5 +1,5 @@
-import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { deleteEmployeeById, getTenantBootstrap, saveEmployee } from '../../src/repositories/appRepository.js';
+import { resolveIdentity, requireTenantAccess, requireTenantPermission } from '../../src/auth/identity.js';
+import { deleteEmployeeById, getTenantBootstrap, saveEmployee } from '../../src/modules/hr/index.js';
 import { validateEmployeePayload } from '../../src/services/payrollService.js';
 import {
   badRequest,
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     const identity = await resolveIdentity(req);
-    requireTenantAccess(identity, tenantSlug, ['tenant_admin', 'tenant_staff']);
+    await requireTenantPermission(identity, tenantSlug, 'people.hr.view');
 
     if (req.method === 'GET') {
       const bootstrap = await getTenantBootstrap(tenantSlug);

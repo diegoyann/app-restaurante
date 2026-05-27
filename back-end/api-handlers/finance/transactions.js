@@ -1,5 +1,10 @@
-import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { getTenantBootstrap, saveRecurringCost, saveTransaction } from '../../src/repositories/appRepository.js';
+import { resolveIdentity, requireTenantPermission } from '../../src/auth/identity.js';
+import {
+  deleteTransactionById,
+  getTenantBootstrap,
+  saveRecurringCost,
+  saveTransaction
+} from '../../src/modules/finance/index.js';
 import {
   badRequest,
   getTenantSlug,
@@ -35,10 +40,11 @@ function buildTransactionPayload(body, bootstrap) {
   if (!date) throw new Error('date é obrigatório.');
 
   const platform = type === 'receita' ? reference : 'despesa';
+  const normalizedPlatform = platform.toLowerCase().replace(/\s+/g, '');
   const tax = type === 'receita'
-    ? platform === 'ifood'
+    ? normalizedPlatform === 'ifood'
       ? Number(bootstrap.settings.ifoodTax || 0)
-      : platform === 'anotaai'
+      : normalizedPlatform === 'anotaai'
         ? Number(bootstrap.settings.anotaaiTax || 0)
         : 0
     : 0;
@@ -67,7 +73,7 @@ export default async function handler(req, res) {
 
   try {
     const identity = await resolveIdentity(req);
-    requireTenantAccess(identity, tenantSlug, ['tenant_admin', 'tenant_staff']);
+    await requireTenantPermission(identity, tenantSlug, 'finance.transactions.view');
 
     if (req.method === 'GET') {
       const bootstrap = await getTenantBootstrap(tenantSlug);
@@ -87,7 +93,24 @@ export default async function handler(req, res) {
       return sendJson(res, 201, { type: transaction.type, transaction });
     }
 
-    return methodNotAllowed(res, ['GET', 'POST']);
+    if (req.method === 'PUT') {
+      const transactionId = req.body?.id;
+      if (!transactionId) throw new Error('id do lançamento é obrigatório.');
+      const bootstrap = await getTenantBootstrap(tenantSlug);
+      const payload = buildTransactionPayload(req.body || {}, bootstrap);
+      if (payload.kind !== 'transaction') throw new Error('Use custos fixos para editar custo recorrente.');
+      const transaction = await saveTransaction(tenantSlug, { ...payload.value, id: transactionId });
+      return sendJson(res, 200, { type: transaction.type, transaction });
+    }
+
+    if (req.method === 'DELETE') {
+      const transactionId = req.body?.id;
+      if (!transactionId) throw new Error('id do lançamento é obrigatório.');
+      await deleteTransactionById(tenantSlug, transactionId);
+      return sendJson(res, 200, { id: transactionId });
+    }
+
+    return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);
   } catch (error) {
     return sendError(res, error, 400);
   }

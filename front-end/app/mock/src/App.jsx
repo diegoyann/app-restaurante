@@ -64,13 +64,24 @@ import {
     summarizeComboGroups
 } from './features/menu/menuModel.js';
 import { ReviewManagementPage } from './features/reviews/ReviewManagement.jsx';
+import OrderOperationsPage from './features/orders/OrderOperationsPage.jsx';
 import AiBehaviorSettingsPage from './features/settings/AiBehaviorSettings.jsx';
-import { appApi, financeApi, hrApi, settingsApi } from './services/api.js';
+import {
+    appApi,
+    catalogApi,
+    customersApi,
+    financeApi,
+    hrApi,
+    menuApi,
+    ordersApi,
+    paymentMethodsApi,
+    settingsApi
+} from './services/api.js';
 import { supabase } from './lib/supabase.js';
 
 // --- CONFIGURAÇÃO ---
 const LOGO_URL = "/hero-logo.png";
-const USE_BACKEND_BOOTSTRAP = false;
+const USE_BACKEND_BOOTSTRAP = true;
 const USE_REVENUE_CHART_MOCK = true;
 const MONTHLY_REVENUE_CHART_MOCK = [
     { day: '01', bruto: 4200, liquido: 3610, pedidos: 32 },
@@ -93,28 +104,28 @@ const MONTHLY_REVENUE_CHART_MOCK = [
 // --- COMPONENTES UI ---
 const Logo = ({ className = "w-10 h-10" }) => {
     const [error, setError] = useState(false);
-    if (error) return <div className={`${className} bg-[#5c1f20] rounded-xl flex items-center justify-center shadow-lg`}><Crown className="text-[#c5a04a]" size={20} /></div>;
+    if (error) return <div className={`${className} bg-[#2A1E15] rounded-xl flex items-center justify-center shadow-lg`}><Crown className="text-[#F6B52E]" size={20} /></div>;
     return <img src={LOGO_URL} alt="Logo" className={`${className} object-contain rounded-xl drop-shadow-md`} onError={() => setError(true)} />;
 };
 
-const StatCard = ({ title, value, icon: Icon, colorClass, bgColorClass, iconColorClass }) => (
+const StatCard = ({ title, value, icon, colorClass, bgColorClass, iconColorClass }) => (
     <div className="bg-white p-4 xl:p-5 2xl:p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-all h-full min-h-[110px] xl:min-h-[132px]">
         <div className="min-w-0 flex-1">
-            <p className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase tracking-tighter truncate mb-1">{title}</p>
+            <p className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase tracking-tighter truncate mb-1">{title}</p>
             <p className={`text-xl sm:text-2xl xl:text-3xl 2xl:text-4xl font-black ${colorClass} truncate leading-none`}>{value}</p>
         </div>
-        <div className={`p-2.5 xl:p-3 2xl:p-4 rounded-xl shrink-0 ml-2 ${bgColorClass}`}>
-            <Icon size={20} className={iconColorClass} />
+        <div className={`metric-icon-box p-2.5 xl:p-3 2xl:p-4 rounded-xl shrink-0 ml-2 ${bgColorClass}`}>
+            {React.createElement(icon, { size: 20, className: `metric-icon ${iconColorClass}` })}
         </div>
     </div>
 );
 
 const CustomInput = ({ label, icon: Icon, ...props }) => (
     <div className="space-y-1 w-full">
-        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">{label}</label>
+        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">{label}</label>
         <div className="relative">
-            {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#696965]" size={16} />}
-            <input {...props} className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium`} />
+            {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" size={16} />}
+            <input {...props} className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium`} />
         </div>
     </div>
 );
@@ -135,11 +146,11 @@ const LegacyMenuCategoryManager = ({
         {!isModalContent && (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Categorias</p>
-                    <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Organização do cardápio</h3>
+                    <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Categorias</p>
+                    <h3 className="text-lg font-black text-[#2A1E15] uppercase tracking-tighter">Organização do cardápio</h3>
                 </div>
                 {editingCategoryId && (
-                    <button type="button" onClick={onCancelEdit} className="text-[10px] font-black text-[#696965] border border-gray-200 px-4 py-2 rounded-full uppercase hover:border-[#5c1f20] hover:text-[#5c1f20] transition-all w-full sm:w-auto">
+                    <button type="button" onClick={onCancelEdit} className="text-[10px] font-black text-[#6F6258] border border-gray-200 px-4 py-2 rounded-full uppercase hover:border-[#2A1E15] hover:text-[#2A1E15] transition-all w-full sm:w-auto">
                         Cancelar edição
                     </button>
                 )}
@@ -148,7 +159,7 @@ const LegacyMenuCategoryManager = ({
 
         <form onSubmit={onSubmitCategory} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_220px] gap-3">
             <CustomInput label="Nome da categoria" value={categoryForm.name} onChange={(e) => onCategoryFormChange('name', e.target.value)} required />
-            <button type="submit" className="bg-[#5c1f20] text-[#c5a04a] h-11 mt-auto rounded-xl font-black uppercase text-[10px] shadow-md">
+            <button type="submit" className="bg-[#2A1E15] text-[#FFFFFF] h-11 mt-auto rounded-xl font-black uppercase text-[10px] shadow-md">
                 {editingCategoryId ? 'Salvar categoria' : 'Cadastrar categoria'}
             </button>
         </form>
@@ -156,7 +167,7 @@ const LegacyMenuCategoryManager = ({
         <div className="menu-category-manager-list">
             {categories.map((category) => (
                 <div key={category.id} className="menu-category-manager-item">
-                    <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight">{category.name}</p>
+                    <p className="text-sm font-black text-[#2A1E15] uppercase tracking-tight">{category.name}</p>
                     <div className="flex items-center gap-2">
                         <button type="button" onClick={() => onEditCategory(category)} className="menu-action-button menu-action-button--edit">
                             <Edit size={14} /> Editar
@@ -189,11 +200,11 @@ const LegacyMenuItemFormPanel = ({
         {!isModalContent && (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Itens</p>
-                    <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Cadastro de item</h3>
+                    <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Itens</p>
+                    <h3 className="text-lg font-black text-[#2A1E15] uppercase tracking-tighter">Cadastro de item</h3>
                 </div>
                 {editingMenuItemId && (
-                    <button type="button" onClick={onResetMenuItemForm} className="text-[10px] font-black text-[#696965] border border-gray-200 px-4 py-2 rounded-full uppercase hover:border-[#5c1f20] hover:text-[#5c1f20] transition-all w-full sm:w-auto">
+                    <button type="button" onClick={onResetMenuItemForm} className="text-[10px] font-black text-[#6F6258] border border-gray-200 px-4 py-2 rounded-full uppercase hover:border-[#2A1E15] hover:text-[#2A1E15] transition-all w-full sm:w-auto">
                         Cancelar edição
                     </button>
                 )}
@@ -205,8 +216,8 @@ const LegacyMenuItemFormPanel = ({
                 <CustomInput label="Nome do item" value={menuItemForm.name} onChange={(e) => onMenuItemFormChange('name', e.target.value)} required />
                 <CustomInput label="Preço" type="number" step="0.01" value={menuItemForm.salePrice} onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)} required />
                 <div className="space-y-1">
-                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
-                    <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]" required>
+                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Categoria</label>
+                    <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
                         <option value="">Selecione</option>
                         {categoryOptions.map((category) => (
                             <option key={category} value={category}>{category}</option>
@@ -214,8 +225,8 @@ const LegacyMenuItemFormPanel = ({
                     </select>
                 </div>
                 <div className="space-y-1">
-                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Visibilidade</label>
-                    <select value={menuItemForm.status} onChange={(e) => onMenuItemFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
+                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Visibilidade</label>
+                    <select value={menuItemForm.status} onChange={(e) => onMenuItemFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]">
                         {menuStatusOptions.map((status) => (
                             <option key={status.value} value={status.value}>{status.label}</option>
                         ))}
@@ -224,8 +235,8 @@ const LegacyMenuItemFormPanel = ({
             </div>
 
             <div className="space-y-1">
-                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Descrição</label>
-                <textarea value={menuItemForm.description} onChange={(e) => onMenuItemFormChange('description', e.target.value)} rows={4} className="w-full px-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium resize-none" placeholder="Descreva sabor, recheio, acompanhamentos ou diferenciais do item." required />
+                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Descrição</label>
+                <textarea value={menuItemForm.description} onChange={(e) => onMenuItemFormChange('description', e.target.value)} rows={4} className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium resize-none" placeholder="Descreva sabor, recheio, acompanhamentos ou diferenciais do item." required />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
@@ -235,13 +246,13 @@ const LegacyMenuItemFormPanel = ({
                             <img src={menuItemForm.photoPreview} alt={menuItemForm.name || 'Preview do item'} className="menu-photo-preview" />
                         ) : (
                             <div className="flex flex-col items-center justify-center text-center gap-2 px-6">
-                                <ImagePlus size={28} className="text-[#c5a04a]" />
-                                <p className="text-xs font-black text-[#5c1f20] uppercase tracking-widest">Foto do item</p>
-                                <p className="text-[11px] text-[#696965] font-semibold">Imagem ilustrativa para o cardápio digital.</p>
+                                <ImagePlus size={28} className="text-[#D4A373]" />
+                                <p className="text-xs font-black text-[#2A1E15] uppercase tracking-widest">Foto do item</p>
+                                <p className="text-[11px] text-[#6F6258] font-semibold">Imagem ilustrativa para o cardápio digital.</p>
                             </div>
                         )}
                     </div>
-                    <label className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md flex items-center justify-center gap-2 cursor-pointer">
+                    <label className="bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md flex items-center justify-center gap-2 cursor-pointer">
                         <Camera size={15} /> Selecionar foto
                         <input type="file" accept="image/*" className="hidden" onChange={onMenuItemPhotoChange} />
                     </label>
@@ -250,15 +261,15 @@ const LegacyMenuItemFormPanel = ({
                 <div className="space-y-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <p className="text-sm font-black text-[#5c1f20] uppercase">Receitas vinculadas</p>
-                            <p className="text-[11px] text-[#696965] font-semibold">Aqui entram só os produtos finais do catálogo. Insumo e base interna não pertencem a essa etapa.</p>
+                            <p className="text-sm font-black text-[#2A1E15] uppercase">Receitas vinculadas</p>
+                            <p className="text-[11px] text-[#6F6258] font-semibold">Aqui entram só os produtos finais do catálogo. Insumo e base interna não pertencem a essa etapa.</p>
                         </div>
                         <div className="menu-link-counter">{menuItemForm.linkedComponentIds.length} selecionado(s)</div>
                     </div>
 
                     <div className="relative">
-                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#696965]" />
-                        <input type="text" value={menuComponentSearch} onChange={(e) => onMenuComponentSearchChange(e.target.value)} placeholder="Buscar produto final para vincular..." className="w-full pl-10 pr-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#c5a04a]" />
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" />
+                        <input type="text" value={menuComponentSearch} onChange={(e) => onMenuComponentSearchChange(e.target.value)} placeholder="Buscar produto final para vincular..." className="w-full pl-10 pr-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" />
                     </div>
 
                     <div className="menu-component-list custom-scrollbar">
@@ -268,12 +279,12 @@ const LegacyMenuItemFormPanel = ({
                             return (
                                 <button key={component.key} type="button" onClick={() => onToggleMenuComponent(component.key)} className={`menu-component-option ${selected ? 'menu-component-option--selected' : ''}`}>
                                     <div className="flex items-start gap-3 min-w-0">
-                                        <div className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${selected ? 'bg-[#5c1f20] border-[#5c1f20] text-white' : 'border-gray-300 text-transparent'}`}>
+                                        <div className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${selected ? 'bg-[#2A1E15] border-[#2A1E15] text-white' : 'border-gray-300 text-transparent'}`}>
                                             <Check size={12} />
                                         </div>
                                         <div className="min-w-0 text-left">
-                                            <p className="text-xs font-black text-[#5c1f20] uppercase truncate">{component.name}</p>
-                                            <p className="text-[11px] text-[#696965] font-semibold leading-relaxed">{component.subtitle}</p>
+                                            <p className="text-xs font-black text-[#2A1E15] uppercase truncate">{component.name}</p>
+                                            <p className="text-[11px] text-[#6F6258] font-semibold leading-relaxed">{component.subtitle}</p>
                                         </div>
                                     </div>
                                     <span className="menu-component-tag">{component.tag}</span>
@@ -283,7 +294,7 @@ const LegacyMenuItemFormPanel = ({
 
                         {filteredMenuComponentOptions.length === 0 && (
                             <div className="menu-empty-state">
-                                <Sparkles size={16} className="text-[#c5a04a]" />
+                                <Sparkles size={16} className="text-[#D4A373]" />
                                 <span>Nenhum relacionamento encontrado para o filtro informado.</span>
                             </div>
                         )}
@@ -291,7 +302,7 @@ const LegacyMenuItemFormPanel = ({
                 </div>
             </div>
 
-            <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+            <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                 {editingMenuItemId ? 'Salvar item' : 'Cadastrar item'}
             </button>
         </form>
@@ -317,8 +328,8 @@ const LegacyMenuCategoryModal = ({
             <div className="bg-white w-full max-w-3xl rounded-[2.5rem] p-5 sm:p-7 shadow-2xl border border-gray-100 max-h-[92vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-start justify-between gap-4 mb-5">
                     <div>
-                        <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Categorias</p>
-                        <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">Organização do cardápio</h3>
+                        <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Categorias</p>
+                        <h3 className="text-2xl font-black text-[#2A1E15] uppercase tracking-tighter">Organização do cardápio</h3>
                         <p className="text-xs font-semibold text-[#7a6262] mt-2">Cadastre, renomeie ou limpe categorias sem deixar esse formulário aberto ocupando a tela inteira.</p>
                     </div>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
@@ -362,8 +373,8 @@ const LegacyMenuItemModal = ({
             <div className="bg-white w-full max-w-5xl rounded-[2.5rem] p-5 sm:p-7 shadow-2xl border border-gray-100 max-h-[92vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-start justify-between gap-4 mb-5">
                     <div>
-                        <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Itens</p>
-                        <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">Cadastro de item</h3>
+                        <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Itens</p>
+                        <h3 className="text-2xl font-black text-[#2A1E15] uppercase tracking-tighter">Cadastro de item</h3>
                         <p className="text-xs font-semibold text-[#7a6262] mt-2">Abra, preencha, salva e sai. Muito melhor do que deixar o formulário plantado na página o tempo todo.</p>
                     </div>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
@@ -415,8 +426,8 @@ const LegacyComboEditorModal = ({
             <div className="bg-white w-full max-w-6xl rounded-[2.5rem] p-5 sm:p-7 shadow-2xl border border-gray-100 max-h-[94vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-start justify-between gap-4 mb-6">
                     <div>
-                        <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Combos</p>
-                        <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">{editingComboId ? 'Editar combo' : 'Novo combo'}</h3>
+                        <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Combos</p>
+                        <h3 className="text-2xl font-black text-[#2A1E15] uppercase tracking-tighter">{editingComboId ? 'Editar combo' : 'Novo combo'}</h3>
                         <p className="text-xs font-semibold text-[#7a6262] mt-2">Editor por grupos, com preço base, adicionais por opção e controle direto de disponibilidade.</p>
                     </div>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"><X size={20} /></button>
@@ -430,13 +441,13 @@ const LegacyComboEditorModal = ({
                                     <img src={comboForm.photoPreview} alt={comboForm.name || 'Preview do combo'} className="menu-photo-preview" />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center text-center gap-2 px-6">
-                                        <ImagePlus size={28} className="text-[#c5a04a]" />
-                                        <p className="text-xs font-black text-[#5c1f20] uppercase tracking-widest">Foto do combo</p>
-                                        <p className="text-[11px] text-[#696965] font-semibold">Use uma capa forte. Combo sem cara de produto vende pior.</p>
+                                        <ImagePlus size={28} className="text-[#D4A373]" />
+                                        <p className="text-xs font-black text-[#2A1E15] uppercase tracking-widest">Foto do combo</p>
+                                        <p className="text-[11px] text-[#6F6258] font-semibold">Use uma capa forte. Combo sem cara de produto vende pior.</p>
                                     </div>
                                 )}
                             </div>
-                            <label className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md flex items-center justify-center gap-2 cursor-pointer">
+                            <label className="bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md flex items-center justify-center gap-2 cursor-pointer">
                                 <Camera size={15} /> Selecionar foto
                                 <input type="file" accept="image/*" className="hidden" onChange={onComboPhotoChange} />
                             </label>
@@ -452,16 +463,16 @@ const LegacyComboEditorModal = ({
                                 <CustomInput label="Nome do combo" value={comboForm.name} onChange={(e) => onComboFormChange('name', e.target.value)} required />
                                 <CustomInput label="Preço base" type="number" step="0.01" value={comboForm.basePrice} onChange={(e) => onComboFormChange('basePrice', e.target.value)} required />
                                 <div className="space-y-1">
-                                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
-                                    <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]" required>
+                                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Categoria</label>
+                                    <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
                                         {categoryOptions.map((category) => (
                                             <option key={category} value={category}>{category}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Visibilidade</label>
-                                    <select value={comboForm.status} onChange={(e) => onComboFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
+                                    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Visibilidade</label>
+                                    <select value={comboForm.status} onChange={(e) => onComboFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]">
                                         {menuStatusOptions.map((status) => (
                                             <option key={status.value} value={status.value}>{status.label}</option>
                                         ))}
@@ -470,8 +481,8 @@ const LegacyComboEditorModal = ({
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Descrição</label>
-                                <textarea value={comboForm.description} onChange={(e) => onComboFormChange('description', e.target.value)} rows={4} className="w-full px-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium resize-none" placeholder="Explique a lógica do combo, quantidade, proposta e percepção de valor." required />
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Descrição</label>
+                                <textarea value={comboForm.description} onChange={(e) => onComboFormChange('description', e.target.value)} rows={4} className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium resize-none" placeholder="Explique a lógica do combo, quantidade, proposta e percepção de valor." required />
                             </div>
                         </div>
                     </div>
@@ -479,8 +490,8 @@ const LegacyComboEditorModal = ({
                     <div className="combo-editor-groups">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Grupos do combo</p>
-                                <h4 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter">Monte a estrutura como na operação real</h4>
+                                <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Grupos do combo</p>
+                                <h4 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter">Monte a estrutura como na operação real</h4>
                             </div>
                             <button type="button" onClick={onAddComboGroup} className="menu-compact-action">
                                 <Plus size={14} />
@@ -517,8 +528,8 @@ const LegacyComboEditorModal = ({
                                                 <div className="combo-option-row__main">
                                                     <CustomInput label="Opção" value={option.name} onChange={(e) => onComboOptionChange(group.id, option.id, 'name', e.target.value)} required />
                                                     <div className="space-y-1">
-                                                        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Vínculo técnico</label>
-                                                        <select value={option.linkedComponentRef} onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]">
+                                                        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Vínculo técnico</label>
+                                                        <select value={option.linkedComponentRef} onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]">
                                                             <option value="">Manual / sem vínculo</option>
                                                             {menuComponentOptions.map((component) => (
                                                                 <option key={component.key} value={component.key}>{component.name} · {component.tag}</option>
@@ -561,7 +572,7 @@ const LegacyComboEditorModal = ({
                         </div>
                     </div>
 
-                    <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-12 rounded-xl font-black uppercase text-[11px] shadow-md">
+                    <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-12 rounded-xl font-black uppercase text-[11px] shadow-md">
                         {editingComboId ? 'Salvar combo' : 'Cadastrar combo'}
                     </button>
                 </form>
@@ -593,7 +604,7 @@ const EmployeeRoleModal = ({ isOpen, onClose, roles, setRoles }) => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100">
                 <div className="flex justify-between items-center mb-6 font-sans italic">
-                    <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter flex items-center gap-2">
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
                         <Briefcase size={20} /> Cargos RH
                     </h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
@@ -605,23 +616,23 @@ const EmployeeRoleModal = ({ isOpen, onClose, roles, setRoles }) => {
                         value={newRoleName}
                         onChange={(e) => setNewRoleName(e.target.value)}
                         placeholder="Novo cargo..."
-                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#c5a04a] text-sm font-bold"
+                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#D4A373] text-sm font-bold"
                     />
-                    <button onClick={handleAddNew} className="bg-[#5c1f20] text-white px-4 rounded-xl hover:bg-[#c5a04a] transition-all flex items-center justify-center">
+                    <button onClick={handleAddNew} className="bg-[#2A1E15] text-white px-4 rounded-xl hover:bg-[#3A281B] transition-all flex items-center justify-center">
                         <Plus size={18} />
                     </button>
                 </div>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {roles.map(role => (
-                        <div key={role.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group border border-transparent hover:border-[#c5a04a]/30">
+                        <div key={role.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group border border-transparent hover:border-[#D4A373]/30">
                             {editingId === role.id ? (
                                 <div className="flex items-center gap-2 w-full">
                                     <input
                                         type="text"
                                         value={editingValue}
                                         onChange={(e) => setEditingValue(e.target.value)}
-                                        className="flex-1 p-1 bg-white border border-[#c5a04a] rounded-md outline-none text-xs font-bold uppercase"
+                                        className="flex-1 p-1 bg-white border border-[#D4A373] rounded-md outline-none text-xs font-bold uppercase"
                                         autoFocus
                                     />
                                     <button onClick={() => handleSaveEdit(role.id)} className="p-1 text-green-600"><Check size={16} /></button>
@@ -629,7 +640,7 @@ const EmployeeRoleModal = ({ isOpen, onClose, roles, setRoles }) => {
                                 </div>
                             ) : (
                                 <>
-                                    <span className="font-bold text-[#696965] uppercase text-xs truncate mr-2">{role.name}</span>
+                                    <span className="font-bold text-[#6F6258] uppercase text-xs truncate mr-2">{role.name}</span>
                                     <div className="flex gap-2 shrink-0">
                                         <button onClick={() => { setEditingId(role.id); setEditingValue(role.name); }} className="text-blue-600 hover:scale-110 transition-transform"><Edit size={14} /></button>
                                         <button onClick={() => setRoles(prev => prev.filter(item => item.id !== role.id))} className="text-red-600 hover:scale-110 transition-transform"><Trash2 size={14} /></button>
@@ -667,7 +678,7 @@ const UnitModal = ({ isOpen, onClose, units, setUnits, ingredients }) => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100">
                 <div className="flex justify-between items-center mb-6 font-sans italic">
-                    <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter flex items-center gap-2">
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
                         <Wallet size={20} /> Unidades
                     </h3>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
@@ -679,9 +690,9 @@ const UnitModal = ({ isOpen, onClose, units, setUnits, ingredients }) => {
                         value={newUnitName}
                         onChange={(e) => setNewUnitName(e.target.value)}
                         placeholder="Nova unidade..."
-                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#c5a04a] text-sm font-bold"
+                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#D4A373] text-sm font-bold"
                     />
-                    <button type="button" onClick={handleAddNew} className="bg-[#5c1f20] text-white px-4 rounded-xl hover:bg-[#c5a04a] transition-all flex items-center justify-center">
+                    <button type="button" onClick={handleAddNew} className="bg-[#2A1E15] text-white px-4 rounded-xl hover:bg-[#3A281B] transition-all flex items-center justify-center">
                         <Plus size={18} />
                     </button>
                 </div>
@@ -691,14 +702,14 @@ const UnitModal = ({ isOpen, onClose, units, setUnits, ingredients }) => {
                         const inUse = ingredients.some((ingredient) => ingredient.unit === unit.label);
 
                         return (
-                            <div key={unit.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group border border-transparent hover:border-[#c5a04a]/30">
+                            <div key={unit.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group border border-transparent hover:border-[#D4A373]/30">
                                 {editingId === unit.id ? (
                                     <div className="flex items-center gap-2 w-full">
                                         <input
                                             type="text"
                                             value={editingValue}
                                             onChange={(e) => setEditingValue(e.target.value)}
-                                            className="flex-1 p-1 bg-white border border-[#c5a04a] rounded-md outline-none text-xs font-bold uppercase"
+                                            className="flex-1 p-1 bg-white border border-[#D4A373] rounded-md outline-none text-xs font-bold uppercase"
                                             autoFocus
                                         />
                                         <button type="button" onClick={() => handleSaveEdit(unit.id)} className="p-1 text-green-600"><Check size={16} /></button>
@@ -706,7 +717,7 @@ const UnitModal = ({ isOpen, onClose, units, setUnits, ingredients }) => {
                                     </div>
                                 ) : (
                                     <>
-                                        <span className="font-bold text-[#696965] uppercase text-xs truncate mr-2">{unit.label}</span>
+                                        <span className="font-bold text-[#6F6258] uppercase text-xs truncate mr-2">{unit.label}</span>
                                         <div className="flex gap-2 shrink-0">
                                             <button type="button" onClick={() => { setEditingId(unit.id); setEditingValue(unit.label); }} className="text-blue-600 hover:scale-110 transition-transform"><Edit size={14} /></button>
                                             <button
@@ -750,7 +761,7 @@ const PreparationModal = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 font-sans italic shrink-0">
-                    <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter flex items-center gap-2">
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
                         <Briefcase size={20} /> Registrar Receita Base
                     </h3>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
@@ -762,11 +773,11 @@ const PreparationModal = ({
                             <CustomInput label="Nome da Receita Base" value={preparationForm.name} onChange={(e) => onPreparationFormChange('name', e.target.value)} required />
                             <CustomInput label="Rendimento da Receita" type="number" step="0.01" value={preparationForm.yieldQuantity} onChange={(e) => onPreparationFormChange('yieldQuantity', e.target.value)} required />
                             <div className="space-y-1">
-                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Unidade do Rendimento</label>
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade do Rendimento</label>
                                 <select
                                     value={preparationForm.yieldUnit}
                                     onChange={(e) => onPreparationFormChange('yieldUnit', e.target.value)}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                 >
                                     {ingredientUnits.map((unit) => (
                                         <option key={`yield-unit-${unit.id}`} value={unit.label}>{unit.label}</option>
@@ -777,8 +788,8 @@ const PreparationModal = ({
 
                         <div className="space-y-3">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm font-black text-[#5c1f20] uppercase">Composição da Receita</p>
-                                <button type="button" onClick={onAddPreparationRecipeLine} className="text-[10px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-2 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all w-full sm:w-auto">
+                                <p className="text-sm font-black text-[#2A1E15] uppercase">Composição da Receita</p>
+                                <button type="button" onClick={onAddPreparationRecipeLine} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto">
                                     Adicionar Item
                                 </button>
                             </div>
@@ -793,13 +804,13 @@ const PreparationModal = ({
                                     return (
                                         <div key={line.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_48px] gap-3 items-end">
                                             <div className="space-y-1">
-                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">
+                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">
                                                     Componente {index + 1}
                                                 </label>
                                                 <select
                                                     value={line.componentRef}
                                                     onChange={(e) => onPreparationRecipeDraftChange(line.id, 'componentRef', e.target.value)}
-                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                 >
                                                     <option value="">Selecione</option>
                                                     <optgroup label="Insumos">
@@ -829,11 +840,11 @@ const PreparationModal = ({
                                             />
 
                                             <div className="space-y-1">
-                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Unidade</label>
+                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
                                                 <select
                                                     value={line.quantityUnit}
                                                     onChange={(e) => onPreparationRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
-                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                     disabled={!line.componentRef}
                                                 >
                                                     <option value="">Selecione</option>
@@ -859,7 +870,7 @@ const PreparationModal = ({
                     </div>
 
                     <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0">
-                        <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                        <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                             Salvar Receita Base
                         </button>
                     </div>
@@ -892,7 +903,7 @@ const SimpleOptionsModal = ({ isOpen, onClose, title, options, setOptions }) => 
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100">
                 <div className="flex justify-between items-center mb-6 font-sans italic">
-                    <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter">{title}</h3>
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter">{title}</h3>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
                 </div>
 
@@ -902,23 +913,23 @@ const SimpleOptionsModal = ({ isOpen, onClose, title, options, setOptions }) => 
                         value={newValue}
                         onChange={(e) => setNewValue(e.target.value)}
                         placeholder="Novo item..."
-                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#c5a04a] text-sm font-bold"
+                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#D4A373] text-sm font-bold"
                     />
-                    <button type="button" onClick={handleAdd} className="bg-[#5c1f20] text-white px-4 rounded-xl hover:bg-[#c5a04a] transition-all flex items-center justify-center">
+                    <button type="button" onClick={handleAdd} className="bg-[#2A1E15] text-white px-4 rounded-xl hover:bg-[#3A281B] transition-all flex items-center justify-center">
                         <Plus size={18} />
                     </button>
                 </div>
 
                 <div className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
                     {options.map((option) => (
-                        <div key={option.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-transparent hover:border-[#c5a04a]/30">
+                        <div key={option.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-transparent hover:border-[#D4A373]/30">
                             {editingId === option.id ? (
                                 <div className="flex items-center gap-2 w-full">
                                     <input
                                         type="text"
                                         value={editingValue}
                                         onChange={(e) => setEditingValue(e.target.value)}
-                                        className="flex-1 p-1 bg-white border border-[#c5a04a] rounded-md outline-none text-xs font-bold uppercase"
+                                        className="flex-1 p-1 bg-white border border-[#D4A373] rounded-md outline-none text-xs font-bold uppercase"
                                         autoFocus
                                     />
                                     <button type="button" onClick={() => handleSave(option.id)} className="p-1 text-green-600"><Check size={16} /></button>
@@ -926,7 +937,7 @@ const SimpleOptionsModal = ({ isOpen, onClose, title, options, setOptions }) => 
                                 </div>
                             ) : (
                                 <>
-                                    <span className="font-bold text-[#696965] uppercase text-xs truncate mr-2">{option.name}</span>
+                                    <span className="font-bold text-[#6F6258] uppercase text-xs truncate mr-2">{option.name}</span>
                                     <div className="flex gap-2 shrink-0">
                                         <button type="button" onClick={() => { setEditingId(option.id); setEditingValue(option.name); }} className="text-blue-600 hover:scale-110 transition-transform"><Edit size={14} /></button>
                                         <button type="button" onClick={() => setOptions((prev) => prev.filter((item) => item.id !== option.id))} className="text-red-600 hover:scale-110 transition-transform"><Trash2 size={14} /></button>
@@ -960,7 +971,7 @@ const EmployeeDiscountsModal = ({
             <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 shrink-0">
                     <div>
-                        <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter">Ver Descontos</h3>
+                        <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter">Ver Descontos</h3>
                         <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mt-1">{employee.name} | {employee.role}</p>
                     </div>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
@@ -970,11 +981,11 @@ const EmployeeDiscountsModal = ({
                     <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
                         <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_180px] gap-3 items-end">
                             <div className="space-y-1">
-                                <label className="text-xs font-black uppercase text-[#696965] tracking-widest">Categoria do Desconto</label>
+                                <label className="text-xs font-black uppercase text-[#6F6258] tracking-widest">Categoria do Desconto</label>
                                 <select
                                     value={discountDraft?.category || discountCategories[0]?.name || 'Outros'}
                                     onChange={(e) => onDraftChange('category', e.target.value)}
-                                    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#696965] outline-none"
+                                    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#6F6258] outline-none"
                                 >
                                     {discountCategories.map(category => (
                                         <option key={category.id} value={category.name}>{category.name}</option>
@@ -982,19 +993,19 @@ const EmployeeDiscountsModal = ({
                                 </select>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-black uppercase text-[#696965] tracking-widest">Valor</label>
+                                <label className="text-xs font-black uppercase text-[#6F6258] tracking-widest">Valor</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     value={discountDraft?.amount || ''}
                                     onChange={(e) => onDraftChange('amount', e.target.value)}
-                                    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-base font-black text-[#5c1f20] outline-none"
+                                    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-base font-black text-[#2A1E15] outline-none"
                                 />
                             </div>
                             <button
                                 type="button"
                                 onClick={onAddDiscount}
-                                className="bg-[#5c1f20] text-[#c5a04a] h-11 px-4 rounded-xl font-black uppercase text-xs shadow-md"
+                                className="bg-[#2A1E15] text-[#FFFFFF] h-11 px-4 rounded-xl font-black uppercase text-xs shadow-md"
                             >
                                 Adicionar Desconto
                             </button>
@@ -1011,7 +1022,7 @@ const EmployeeDiscountsModal = ({
                                     <select
                                         value={discount.category}
                                         onChange={(e) => onUpdateDiscountCategory(discount.id, e.target.value)}
-                                        className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#696965] outline-none"
+                                        className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#6F6258] outline-none"
                                     >
                                         {discountCategories.map(category => (
                                             <option key={category.id} value={category.name}>{category.name}</option>
@@ -1022,7 +1033,7 @@ const EmployeeDiscountsModal = ({
                                         step="0.01"
                                         value={discount.amount}
                                         onChange={(e) => onUpdateDiscountValue(discount.id, e.target.value)}
-                                        className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-base font-black text-[#5c1f20] outline-none"
+                                        className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-base font-black text-[#2A1E15] outline-none"
                                     />
                                 </div>
                                 <button
@@ -1041,14 +1052,14 @@ const EmployeeDiscountsModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 bg-stone-100 text-[#5c1f20] h-11 rounded-xl font-black uppercase text-xs"
+                        className="flex-1 bg-stone-100 text-[#2A1E15] h-11 rounded-xl font-black uppercase text-xs"
                     >
                         Fechar
                     </button>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-xs shadow-md"
+                        className="flex-1 bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-xs shadow-md"
                     >
                         Salvar
                     </button>
@@ -1075,7 +1086,7 @@ const EmployeeModal = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white w-full max-w-5xl max-h-[92vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 shrink-0">
-                    <h3 className="text-xl font-black text-[#5c1f20] uppercase tracking-tighter">
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter">
                         {isEditing ? 'Editar Funcionário' : 'Cadastrar Funcionário'}
                     </h3>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
@@ -1093,22 +1104,22 @@ const EmployeeModal = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <CustomInput label="Endereço" value={employee.address} onChange={(e) => setEmployee((prev) => ({ ...prev, address: e.target.value }))} />
                             <div className="space-y-1">
-                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Tipo de Vínculo</label>
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Tipo de Vínculo</label>
                                 <select
                                     value={employee.employmentType}
                                     onChange={(e) => setEmployee((prev) => ({ ...prev, employmentType: e.target.value }))}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                 >
                                     <option value="fixed">Fixo</option>
                                     <option value="external">Por Fora</option>
                                 </select>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Status</label>
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Status</label>
                                 <select
                                     value={employee.status}
                                     onChange={(e) => setEmployee((prev) => ({ ...prev, status: e.target.value }))}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                 >
                                     <option value="active">Ativo</option>
                                     <option value="inactive">Inativo</option>
@@ -1118,11 +1129,11 @@ const EmployeeModal = ({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="space-y-1">
-                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Cargo / Função</label>
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Cargo / Função</label>
                                 <select
                                     value={employee.role}
                                     onChange={(e) => setEmployee((prev) => ({ ...prev, role: e.target.value }))}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                 >
                                     <option value="">Selecione</option>
                                     {employeeRoles.map((role) => (
@@ -1139,11 +1150,11 @@ const EmployeeModal = ({
                             ) : (
                                 <>
                                     <div className="space-y-1">
-                                        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Tipo de Pagamento</label>
+                                        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Tipo de Pagamento</label>
                                         <select
                                             value={employee.paymentMode}
                                             onChange={(e) => setEmployee((prev) => ({ ...prev, paymentMode: e.target.value }))}
-                                            className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                            className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                         >
                                             <option value="weekly">Semanal</option>
                                             <option value="one_off">Avulso</option>
@@ -1152,11 +1163,11 @@ const EmployeeModal = ({
                                     <CustomInput label="Valor Base" type="number" step="0.01" value={employee.baseAmount} onChange={(e) => setEmployee((prev) => ({ ...prev, baseAmount: e.target.value }))} required />
                                     {employee.paymentMode === 'weekly' ? (
                                         <div className="space-y-1">
-                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Dia da Semana</label>
+                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Dia da Semana</label>
                                             <select
                                                 value={employee.weekday}
                                                 onChange={(e) => setEmployee((prev) => ({ ...prev, weekday: e.target.value }))}
-                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                             >
                                                 <option value="1">Segunda</option>
                                                 <option value="2">Terça</option>
@@ -1181,7 +1192,7 @@ const EmployeeModal = ({
                     </div>
 
                     <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0">
-                        <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                        <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                             {isEditing ? 'Salvar Funcionário' : 'Cadastrar Funcionário'}
                         </button>
                     </div>
@@ -1215,6 +1226,22 @@ const convertQuantityBetweenUnits = (quantity, fromUnit, toUnit) => {
     if (fromDefinition.group !== toDefinition.group) return numericQuantity;
 
     return (numericQuantity * fromDefinition.factor) / toDefinition.factor;
+};
+
+const getIngredientCostReferenceUnit = (unit) => {
+    const definition = getUnitDefinition(unit);
+
+    if (definition?.group === 'weight') return 'kg';
+    if (definition?.group === 'volume') return 'l';
+
+    return unit || 'un';
+};
+
+const getIngredientCostReferenceFactor = (unit) => {
+    const referenceUnit = getIngredientCostReferenceUnit(unit);
+    const convertedQuantity = convertQuantityBetweenUnits(1, referenceUnit, unit);
+
+    return convertedQuantity > 0 ? convertedQuantity : 1;
 };
 
 const getCompatibleUnits = (sourceUnit, ingredientUnits) => {
@@ -1368,6 +1395,9 @@ const getNextWeekdayDate = (weekdayNumber) => {
 };
 
 const calculateIngredientUnitCost = (ingredient) => {
+    const unitCost = Number(ingredient?.unitCost);
+    if (unitCost > 0) return unitCost;
+
     const packageQuantity = Number(ingredient?.packageQuantity) || 0;
     const packageCost = Number(ingredient?.packageCost) || 0;
 
@@ -1375,6 +1405,10 @@ const calculateIngredientUnitCost = (ingredient) => {
 
     return packageCost / packageQuantity;
 };
+
+const getIngredientCostReferenceValue = (ingredient) => (
+    calculateIngredientUnitCost(ingredient) * getIngredientCostReferenceFactor(ingredient?.unit)
+);
 
 const parseComponentValue = (value) => {
     const [componentType, rawId] = String(value || '').split(':');
@@ -1503,6 +1537,70 @@ const calculateProductMetrics = (product, ingredients, preparations, preparation
     };
 };
 
+// --- PALETAS DE CORES ---
+const palettes = {
+    frescor: {
+        primary: '#4A6B53',
+        primaryDark: '#3B5441',
+        primaryLight: '#E8F5E9',
+        primaryDarker: '#2A3F30',
+        secondary: '#FF9800',
+        secondaryHover: '#E68A00',
+        secondaryLight: '#FFE0B2',
+        bgApp: '#F8F9FA',
+        bgCard: '#FFFFFF',
+        bgAlt: '#E8F5E9',
+        textStrong: '#1f2937',
+        accentMin: '#12343B'
+    },
+    natural: {
+        primary: '#3E5A3C',
+        primaryDark: '#2F442E',
+        primaryLight: '#A3B899',
+        primaryDarker: '#1E2C1D',
+        secondary: '#DDA73A',
+        secondaryHover: '#C5942B',
+        secondaryLight: '#F6E3B8',
+        bgApp: '#F5F2EB',
+        bgCard: '#FFFFFF',
+        bgAlt: '#E6E1D5',
+        textStrong: '#2C3E2B',
+        accentMin: '#12343B'
+    },
+    premium: {
+        primary: '#212529',
+        primaryDark: '#1A1D20',
+        primaryLight: '#343A40',
+        primaryDarker: '#0D0E10',
+        secondary: '#E63946',
+        secondaryHover: '#D62839',
+        secondaryLight: '#FFC0C7',
+        bgApp: '#F1F3F5',
+        bgCard: '#FFFFFF',
+        bgAlt: '#E2E8F0',
+        textStrong: '#1A1D20',
+        accentMin: '#12343B'
+    },
+    esfiha: {
+        primary: '#2A1E15',
+        primaryDark: '#3A281B',
+        primaryLight: '#E7DED1',
+        primaryDarker: '#2B2520',
+        secondary: '#D4A373',
+        secondaryHover: '#C58F5E',
+        secondaryLight: '#F3E8DA',
+        bgApp: '#FAF6EF',
+        bgCard: '#FFFFFF',
+        bgAlt: '#F3E8DA',
+        textStrong: '#2B2520',
+        textMedium: '#6F6258',
+        textWeak: '#9C8F84',
+        accentMin: '#3F6F8F',
+        success: '#3F8F52',
+        error: '#C95C49'
+    }
+};
+
 // --- APLICAÇÃO PRINCIPAL ---
 export default function App({ tenantSlug = 'default' }) {
     const navigate = useNavigate();
@@ -1512,7 +1610,6 @@ export default function App({ tenantSlug = 'default' }) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [openGroups, setOpenGroups] = useState(() => ({ operacional: true, financeiro: false, pessoas: false, sistema: false }));
-    const [loginError, setLoginError] = useState('');
     const [settingsError, setSettingsError] = useState('');
     const [settingsSuccess, setSettingsSuccess] = useState('');
     const [aiBehaviorError, setAiBehaviorError] = useState('');
@@ -1542,7 +1639,8 @@ export default function App({ tenantSlug = 'default' }) {
         appPassword: 'admin',
         passwordReminder: 'A senha padrão é "admin".',
         businessName: 'Rei das Esfihas',
-        alertDaysBefore: 3
+        alertDaysBefore: 3,
+        colorPalette: 'esfiha'
     }));
     const [aiBehaviorSettings, setAiBehaviorSettings] = useState(() => ({
         positiveTone: 'friendly',
@@ -1550,6 +1648,30 @@ export default function App({ tenantSlug = 'default' }) {
         additionalInstructions: '',
         autoPublishPositive: true
     }));
+
+    // Injeção dinâmica da paleta de cores no :root
+    React.useEffect(() => {
+        const paletteKey = settings?.colorPalette || 'esfiha';
+        const colors = palettes[paletteKey] || palettes.esfiha;
+        
+        const root = document.documentElement;
+        root.style.setProperty('--color-primary', colors.primary);
+        root.style.setProperty('--color-primary-dark', colors.primaryDark);
+        root.style.setProperty('--color-primary-light', colors.primaryLight);
+        root.style.setProperty('--color-primary-darker', colors.primaryDarker);
+        root.style.setProperty('--color-secondary', colors.secondary);
+        root.style.setProperty('--color-secondary-hover', colors.secondaryHover);
+        root.style.setProperty('--color-secondary-light', colors.secondaryLight);
+        root.style.setProperty('--color-bg-app', colors.bgApp);
+        root.style.setProperty('--color-bg-card', colors.bgCard);
+        root.style.setProperty('--color-bg-alt', colors.bgAlt);
+        root.style.setProperty('--color-text-main', colors.textStrong || '#1A1D20');
+        root.style.setProperty('--color-text-medium', colors.textMedium || '#6F5B50');
+        root.style.setProperty('--color-text-weak', colors.textWeak || '#B9A89A');
+        root.style.setProperty('--color-accent-min', colors.accentMin || '#12343B');
+        root.style.setProperty('--color-success', colors.success || '#2F8F55');
+        root.style.setProperty('--color-error', colors.error || '#B83A2F');
+    }, [settings?.colorPalette]);
 
     // Categorias
     const [costCategories, setCostCategories] = useState(() => [
@@ -1652,11 +1774,11 @@ export default function App({ tenantSlug = 'default' }) {
     }));
 
     const [ingredients, setIngredients] = useState(() => [
-        { id: 1, name: 'Farinha', unit: 'g', packageQuantity: 5000, packageCost: 22.0 },
-        { id: 2, name: 'Carne Moída', unit: 'g', packageQuantity: 1000, packageCost: 32.0 },
-        { id: 3, name: 'Queijo Mussarela', unit: 'g', packageQuantity: 1000, packageCost: 28.0 },
-        { id: 4, name: 'Molho de Tomate', unit: 'g', packageQuantity: 2000, packageCost: 18.0 },
-        { id: 5, name: 'Embalagem', unit: 'un', packageQuantity: 100, packageCost: 35.0 }
+        { id: 1, name: 'Farinha', unit: 'g', packageQuantity: 1000, packageCost: 4.4, unitCost: 0.0044 },
+        { id: 2, name: 'Carne Moída', unit: 'g', packageQuantity: 1000, packageCost: 32.0, unitCost: 0.032 },
+        { id: 3, name: 'Queijo Mussarela', unit: 'g', packageQuantity: 1000, packageCost: 28.0, unitCost: 0.028 },
+        { id: 4, name: 'Molho de Tomate', unit: 'g', packageQuantity: 1000, packageCost: 9.0, unitCost: 0.009 },
+        { id: 5, name: 'Embalagem', unit: 'un', packageQuantity: 1, packageCost: 0.35, unitCost: 0.35 }
     ]);
 
     const [ingredientUnits, setIngredientUnits] = useState(() => [
@@ -1670,8 +1792,7 @@ export default function App({ tenantSlug = 'default' }) {
     const [ingredientForm, setIngredientForm] = useState(() => ({
         name: '',
         unit: 'g',
-        packageQuantity: '',
-        packageCost: ''
+        unitCost: ''
     }));
     const [financeFormType, setFinanceFormType] = useState('receita');
     const todayIsoDate = toIsoDate(new Date());
@@ -1853,6 +1974,11 @@ export default function App({ tenantSlug = 'default' }) {
         { id: 2, date: '2024-04-09', platform: 'anotaai', payment: 'pix', amount: 650.00, tax: 5, net: 617.50, type: 'receita', category: 'anotaai', note: 'Pedidos Anota AI' },
         { id: 3, date: '2024-04-09', platform: 'despesa', payment: 'pix', amount: 180.00, tax: 0, net: -180.00, type: 'despesa', category: 'Compra de Insumos', note: 'Reposição de hortifruti' },
     ]);
+    const [customers, setCustomers] = useState([]);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [orders, setOrders] = useState([]);
+    const [deliveryDrivers, setDeliveryDrivers] = useState([]);
+    const [autoAcceptOrders, setAutoAcceptOrders] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -1890,6 +2016,10 @@ export default function App({ tenantSlug = 'default' }) {
                     setSalesChannels(payload.salesChannels || []);
                     setFinanceExpenseCategories(payload.financeExpenseCategories || []);
                     setTransactions(payload.transactions || []);
+                    setCustomers(payload.customers || []);
+                    setPaymentMethods(payload.paymentMethods || []);
+                    setOrders(payload.orders || []);
+                    setDeliveryDrivers(payload.deliveryDrivers || []);
                     setEmployeeRoles(payload.employeeRoles || []);
                     setDiscountCategories(payload.discountCategories || []);
                     setIngredients(payload.ingredients || []);
@@ -2046,7 +2176,7 @@ export default function App({ tenantSlug = 'default' }) {
 
             return acc;
         }, {})
-    ), [editingComboId, formatMoney, menuItems]);
+    ), [editingComboId, menuItems]);
 
     const menuDashboard = useMemo(() => {
         const activeCount = menuItems.filter((item) => item.status === 'active').length;
@@ -2416,13 +2546,13 @@ export default function App({ tenantSlug = 'default' }) {
         const channelRevenueData = salesChannels.map((channel, index) => ({
             name: channel.name,
             value: transactions.filter(t => t.type === 'receita' && t.platform === channel.name).reduce((acc, current) => acc + current.amount, 0),
-            color: index % 2 === 0 ? '#5c1f20' : '#c5a04a'
+            color: index % 2 === 0 ? '#D4A373' : '#8A5A2B'
         }));
 
         const channelOrderData = salesChannels.map((channel, index) => ({
             name: channel.name,
             value: transactions.filter(t => t.type === 'receita' && t.platform === channel.name).length,
-            color: index % 2 === 0 ? '#5c1f20' : '#c5a04a'
+            color: index % 2 === 0 ? '#D4A373' : '#8A5A2B'
         }));
 
         const totalOrders = transactions.filter(t => t.type === 'receita').length;
@@ -2464,22 +2594,52 @@ export default function App({ tenantSlug = 'default' }) {
             receitaBruta, receitaLiquida, saidasLancadas, custosFixosTotal, folhaSalarial, taxasCanais, saldoOperacional, saldoFinal,
             catalogAverageCmv: catalogMetrics.averageCmvPercent,
             catalogAverageMarkup: catalogMetrics.averageMarkupPercent,
-            totalOrders,
+            totalOrders: orders.length || totalOrders,
             ticketMedio,
             dailyRevenue: USE_REVENUE_CHART_MOCK ? MONTHLY_REVENUE_CHART_MOCK : realDailyRevenue,
             lastOrders,
             financialData: [
                 ...channelRevenueData,
-                { name: 'Total', value: receitaBruta, color: '#696965' }
+                { name: 'Total', value: receitaBruta, color: '#6F6258' }
             ],
             orderCountData: [
                 ...channelOrderData,
-                { name: 'Total', value: totalOrders, color: '#696965' }
+                { name: 'Total', value: totalOrders, color: '#6F6258' }
             ]
         };
-    }, [transactions, recurringCosts, catalogMetrics.averageCmvPercent, catalogMetrics.averageMarkupPercent, salesChannels, payrollSummary]);
+    }, [transactions, recurringCosts, catalogMetrics.averageCmvPercent, catalogMetrics.averageMarkupPercent, salesChannels, payrollSummary, orders.length]);
 
     // Handlers
+    const handleCreateCustomer = async (payload) => {
+        const customer = await customersApi.saveCustomer(tenantSlug, payload);
+        setCustomers((prev) => [
+            customer,
+            ...prev.filter((current) => current.id !== customer.id)
+        ]);
+        return customer;
+    };
+
+    const handleCreatePaymentMethod = async (payload) => {
+        const paymentMethod = await paymentMethodsApi.savePaymentMethod(tenantSlug, payload);
+        setPaymentMethods((prev) => [
+            ...prev.filter((current) => current.id !== paymentMethod.id),
+            paymentMethod
+        ]);
+        return paymentMethod;
+    };
+
+    const handleCreateOrder = async (payload) => {
+        const order = await ordersApi.saveOrder(tenantSlug, payload);
+        setOrders((prev) => [order, ...prev.filter((current) => current.id !== order.id)]);
+        return order;
+    };
+
+    const handleUpdateOrder = async (payload) => {
+        const order = await ordersApi.saveOrder(tenantSlug, payload);
+        setOrders((prev) => prev.map((current) => current.id === order.id ? order : current));
+        return order;
+    };
+
     /**
      * Registra lançamentos financeiros avulsos e custos fixos recorrentes a partir da tela unificada.
      */
@@ -2515,7 +2675,7 @@ export default function App({ tenantSlug = 'default' }) {
 
             e.target.reset();
             setFinanceFormType('receita');
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível registrar o lançamento agora.');
         }
     };
@@ -2600,7 +2760,7 @@ export default function App({ tenantSlug = 'default' }) {
             setIsEmployeeModalOpen(false);
             setEditingEmployeeId(null);
             setEmployeeForm(createEmptyEmployeeForm());
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível salvar o funcionário agora.');
         }
     };
@@ -2648,7 +2808,7 @@ export default function App({ tenantSlug = 'default' }) {
                 ...(employee.discounts || []),
                 { id: Date.now() + Math.random(), category, amount }
             ]);
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível salvar o desconto do funcionário.');
             return;
         }
@@ -2675,7 +2835,7 @@ export default function App({ tenantSlug = 'default' }) {
                         : discount
                 )
             );
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível atualizar o desconto.');
         }
     };
@@ -2693,7 +2853,7 @@ export default function App({ tenantSlug = 'default' }) {
                         : discount
                 )
             );
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível atualizar a categoria do desconto.');
         }
     };
@@ -2707,7 +2867,7 @@ export default function App({ tenantSlug = 'default' }) {
                 employeeId,
                 (employee.discounts || []).filter((discount) => discount.id !== discountId)
             );
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível remover o desconto.');
         }
     };
@@ -2727,8 +2887,7 @@ export default function App({ tenantSlug = 'default' }) {
         setIngredientForm({
             name: '',
             unit: ingredientUnits[0]?.label || 'g',
-            packageQuantity: '',
-            packageCost: ''
+            unitCost: ''
         });
     };
 
@@ -2766,27 +2925,39 @@ export default function App({ tenantSlug = 'default' }) {
         setIngredientForm((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleSubmitIngredient = (e) => {
+    const handleSubmitIngredient = async (e) => {
         e.preventDefault();
+        const referenceCost = parseFloat(ingredientForm.unitCost) || 0;
+        const referenceFactor = getIngredientCostReferenceFactor(ingredientForm.unit);
 
         const payload = {
             name: ingredientForm.name.trim(),
             unit: ingredientForm.unit,
-            packageQuantity: parseFloat(ingredientForm.packageQuantity) || 0,
-            packageCost: parseFloat(ingredientForm.packageCost) || 0
+            packageQuantity: referenceFactor,
+            packageCost: referenceCost,
+            unitCost: referenceFactor > 0 ? referenceCost / referenceFactor : referenceCost
         };
 
-        if (!payload.name || !payload.unit || payload.packageQuantity <= 0 || payload.packageCost <= 0) return;
+        if (!payload.name || !payload.unit || payload.unitCost <= 0) return;
 
-        if (editingIngredientId) {
-            setIngredients((prev) =>
-                prev.map((ingredient) => ingredient.id === editingIngredientId ? { ...ingredient, ...payload } : ingredient)
-            );
-        } else {
-            setIngredients((prev) => [...prev, { id: Date.now(), ...payload }]);
+        try {
+            const savedIngredient = await catalogApi.saveIngredient(tenantSlug, {
+                id: editingIngredientId || undefined,
+                ...payload
+            });
+
+            if (editingIngredientId) {
+                setIngredients((prev) =>
+                    prev.map((ingredient) => ingredient.id === savedIngredient.id ? savedIngredient : ingredient)
+                );
+            } else {
+                setIngredients((prev) => [...prev, savedIngredient]);
+            }
+
+            resetIngredientForm();
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar o insumo.');
         }
-
-        resetIngredientForm();
     };
 
     const handleEditIngredient = (ingredient) => {
@@ -2794,54 +2965,37 @@ export default function App({ tenantSlug = 'default' }) {
         setIngredientForm({
             name: ingredient.name,
             unit: ingredient.unit,
-            packageQuantity: String(ingredient.packageQuantity),
-            packageCost: String(ingredient.packageCost)
+            unitCost: String(getIngredientCostReferenceValue(ingredient))
         });
     };
 
-    const handleDeleteIngredient = (ingredientId) => {
-        setIngredients((prev) => prev.filter((item) => item.id !== ingredientId));
-        setPreparations((prev) =>
-            prev
-                .map((preparation) => ({
-                    ...preparation,
-                    recipe: preparation.recipe.filter((line) => !(line.componentType === 'ingredient' && line.componentId === ingredientId))
-                }))
-                .filter((preparation) => preparation.recipe.length > 0)
-        );
-        setProducts((prev) =>
-            prev
-                .map((product) => ({
-                    ...product,
-                    recipe: product.recipe.filter((line) => !(line.componentType === 'ingredient' && line.componentId === ingredientId))
-                }))
-                .filter((product) => product.recipe.length > 0)
-        );
+    const handleDeleteIngredient = async (ingredientId) => {
+        try {
+            await catalogApi.deleteIngredient(tenantSlug, ingredientId);
+            setIngredients((prev) => prev.filter((item) => item.id !== ingredientId));
+            setPreparations((prev) =>
+                prev
+                    .map((preparation) => ({
+                        ...preparation,
+                        recipe: preparation.recipe.filter((line) => !(line.componentType === 'ingredient' && line.componentId === ingredientId))
+                    }))
+                    .filter((preparation) => preparation.recipe.length > 0)
+            );
+            setProducts((prev) =>
+                prev
+                    .map((product) => ({
+                        ...product,
+                        recipe: product.recipe.filter((line) => !(line.componentType === 'ingredient' && line.componentId === ingredientId))
+                    }))
+                    .filter((product) => product.recipe.length > 0)
+            );
 
-        if (editingIngredientId === ingredientId) {
-            resetIngredientForm();
+            if (editingIngredientId === ingredientId) {
+                resetIngredientForm();
+            }
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível remover o insumo.');
         }
-    };
-
-    const handleDeletePreparation = (preparationId) => {
-        setPreparations((prev) =>
-            prev
-                .filter((preparation) => preparation.id !== preparationId)
-                .map((preparation) => ({
-                    ...preparation,
-                    recipe: preparation.recipe.filter((line) => !(line.componentType === 'preparation' && line.componentId === preparationId))
-                }))
-                .filter((preparation) => preparation.recipe.length > 0)
-        );
-
-        setProducts((prev) =>
-            prev
-                .map((product) => ({
-                    ...product,
-                    recipe: product.recipe.filter((line) => !(line.componentType === 'preparation' && line.componentId === preparationId))
-                }))
-                .filter((product) => product.recipe.length > 0)
-        );
     };
 
     const handleAddRecipeLine = () => {
@@ -2900,7 +3054,7 @@ export default function App({ tenantSlug = 'default' }) {
         setPreparationRecipeDraft((prev) => prev.filter((line) => line.id !== id));
     };
 
-    const handleAddProduct = (e) => {
+    const handleAddProduct = async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
 
@@ -2918,20 +3072,30 @@ export default function App({ tenantSlug = 'default' }) {
 
         if (recipe.length === 0) return;
 
-        setProducts((prev) => [
-            ...prev,
-            {
-                id: Date.now(),
+        try {
+            const savedProduct = await catalogApi.saveProduct(tenantSlug, {
                 name: fd.get('name'),
                 salePrice: parseFloat(fd.get('salePrice')) || 0,
                 yieldQuantity: parseFloat(fd.get('yieldQuantity')) || 1,
                 targetCmvPercent: parseFloat(fd.get('targetCmvPercent')) || 30,
                 recipe
-            }
-        ]);
+            });
 
-        setProductRecipeDraft([{ id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }]);
-        e.target.reset();
+            setProducts((prev) => [...prev, savedProduct]);
+            setProductRecipeDraft([{ id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }]);
+            e.target.reset();
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar o produto.');
+        }
+    };
+
+    const handleDeleteProduct = async (productId) => {
+        try {
+            await catalogApi.deleteProduct(tenantSlug, productId);
+            setProducts((prev) => prev.filter((item) => item.id !== productId));
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível remover o produto.');
+        }
     };
 
     const resetMenuItemForm = () => {
@@ -3103,7 +3267,7 @@ export default function App({ tenantSlug = 'default' }) {
         }));
     };
 
-    const handleSubmitMenuItem = (e) => {
+    const handleSubmitMenuItem = async (e) => {
         e.preventDefault();
 
         const payload = {
@@ -3125,15 +3289,25 @@ export default function App({ tenantSlug = 'default' }) {
 
         if (!payload.name || !payload.description || payload.salePrice <= 0) return;
 
-        if (editingMenuItemId) {
-            setMenuItems((prev) => prev.map((item) => item.id === editingMenuItemId ? { ...item, ...payload } : item));
-        } else {
-            setMenuItems((prev) => [{ id: Date.now(), ...payload }, ...prev]);
-        }
+        try {
+            const savedItem = await menuApi.saveItem(tenantSlug, {
+                id: editingMenuItemId || undefined,
+                itemType: 'regular',
+                ...payload
+            });
 
-        resetMenuItemForm();
-        setIsMenuItemModalOpen(false);
-        e.target.reset();
+            if (editingMenuItemId) {
+                setMenuItems((prev) => prev.map((item) => item.id === savedItem.id ? savedItem : item));
+            } else {
+                setMenuItems((prev) => [savedItem, ...prev]);
+            }
+
+            resetMenuItemForm();
+            setIsMenuItemModalOpen(false);
+            e.target.reset();
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar o item do cardápio.');
+        }
     };
 
     const handleEditMenuItem = (item) => {
@@ -3150,7 +3324,7 @@ export default function App({ tenantSlug = 'default' }) {
         setIsMenuItemModalOpen(true);
     };
 
-    const handleSubmitCombo = (e) => {
+    const handleSubmitCombo = async (e) => {
         e.preventDefault();
 
         const normalizedGroups = comboForm.comboGroups.map((group) => ({
@@ -3191,13 +3365,22 @@ export default function App({ tenantSlug = 'default' }) {
 
         if (!payload.name || !payload.description || payload.basePrice < 0 || invalidGroup) return;
 
-        if (editingComboId) {
-            setMenuItems((prev) => prev.map((item) => item.id === editingComboId ? { ...item, ...payload } : item));
-        } else {
-            setMenuItems((prev) => [{ id: createId(), ...payload }, ...prev]);
-        }
+        try {
+            const savedCombo = await menuApi.saveItem(tenantSlug, {
+                id: editingComboId || undefined,
+                ...payload
+            });
 
-        closeComboModal();
+            if (editingComboId) {
+                setMenuItems((prev) => prev.map((item) => item.id === savedCombo.id ? savedCombo : item));
+            } else {
+                setMenuItems((prev) => [savedCombo, ...prev]);
+            }
+
+            closeComboModal();
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar o combo.');
+        }
     };
 
     const handleEditCombo = (item) => {
@@ -3230,19 +3413,24 @@ export default function App({ tenantSlug = 'default' }) {
         setIsComboModalOpen(true);
     };
 
-    const handleDeleteMenuItem = (itemId) => {
-        setMenuItems((prev) => prev.filter((item) => item.id !== itemId));
-        setExpandedMenuItems((prev) => {
-            const next = { ...prev };
-            delete next[itemId];
-            return next;
-        });
+    const handleDeleteMenuItem = async (itemId) => {
+        try {
+            await menuApi.deleteItem(tenantSlug, itemId);
+            setMenuItems((prev) => prev.filter((item) => item.id !== itemId));
+            setExpandedMenuItems((prev) => {
+                const next = { ...prev };
+                delete next[itemId];
+                return next;
+            });
 
-        if (editingMenuItemId === itemId) {
-            resetMenuItemForm();
-        }
-        if (editingComboId === itemId) {
-            resetComboForm();
+            if (editingMenuItemId === itemId) {
+                resetMenuItemForm();
+            }
+            if (editingComboId === itemId) {
+                resetComboForm();
+            }
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível remover o item do cardápio.');
         }
     };
 
@@ -3260,42 +3448,50 @@ export default function App({ tenantSlug = 'default' }) {
         resetMenuCategoryForm();
     };
 
-    const handleSubmitMenuCategory = (e) => {
+    const handleSubmitMenuCategory = async (e) => {
         e.preventDefault();
 
         const normalizedName = menuCategoryForm.name.trim();
         if (!normalizedName) return;
 
-        if (editingMenuCategoryId) {
-            const previousCategory = menuCategories.find((category) => category.id === editingMenuCategoryId);
-            setMenuCategories((prev) => prev.map((category) => category.id === editingMenuCategoryId ? { ...category, name: normalizedName } : category));
+        try {
+            const savedCategory = await menuApi.saveCategory(tenantSlug, {
+                id: editingMenuCategoryId || undefined,
+                name: normalizedName
+            });
 
-            if (previousCategory && previousCategory.name !== normalizedName) {
-                setMenuItems((prev) => prev.map((item) => item.category === previousCategory.name ? { ...item, category: normalizedName } : item));
-                setExpandedMenuCategories((prev) => {
-                    const next = { ...prev };
-                    delete next[previousCategory.name];
-                    next[normalizedName] = true;
-                    return next;
-                });
-                setMenuItemForm((prev) => prev.category === previousCategory.name ? { ...prev, category: normalizedName } : prev);
-                setComboForm((prev) => prev.category === previousCategory.name ? { ...prev, category: normalizedName } : prev);
-            }
-        } else {
-            const newCategory = { id: Date.now(), name: normalizedName };
-            setMenuCategories((prev) => [...prev, newCategory]);
-            setExpandedMenuCategories((prev) => ({ ...prev, [normalizedName]: true }));
+            if (editingMenuCategoryId) {
+                const previousCategory = menuCategories.find((category) => category.id === editingMenuCategoryId);
+                setMenuCategories((prev) => prev.map((category) => category.id === savedCategory.id ? savedCategory : category));
 
-            if (!menuItemForm.category) {
-                setMenuItemForm((prev) => ({ ...prev, category: normalizedName }));
+                if (previousCategory && previousCategory.name !== savedCategory.name) {
+                    setMenuItems((prev) => prev.map((item) => item.category === previousCategory.name ? { ...item, category: savedCategory.name } : item));
+                    setExpandedMenuCategories((prev) => {
+                        const next = { ...prev };
+                        delete next[previousCategory.name];
+                        next[savedCategory.name] = true;
+                        return next;
+                    });
+                    setMenuItemForm((prev) => prev.category === previousCategory.name ? { ...prev, category: savedCategory.name } : prev);
+                    setComboForm((prev) => prev.category === previousCategory.name ? { ...prev, category: savedCategory.name } : prev);
+                }
+            } else {
+                setMenuCategories((prev) => [...prev, savedCategory]);
+                setExpandedMenuCategories((prev) => ({ ...prev, [savedCategory.name]: true }));
+
+                if (!menuItemForm.category) {
+                    setMenuItemForm((prev) => ({ ...prev, category: savedCategory.name }));
+                }
+                if (!comboForm.category) {
+                    setComboForm((prev) => ({ ...prev, category: savedCategory.name }));
+                }
             }
-            if (!comboForm.category) {
-                setComboForm((prev) => ({ ...prev, category: normalizedName }));
-            }
+
+            resetMenuCategoryForm();
+            setIsMenuCategoryModalOpen(false);
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar a categoria.');
         }
-
-        resetMenuCategoryForm();
-        setIsMenuCategoryModalOpen(false);
     };
 
     const handleEditMenuCategory = (category) => {
@@ -3304,27 +3500,32 @@ export default function App({ tenantSlug = 'default' }) {
         setIsMenuCategoryModalOpen(true);
     };
 
-    const handleDeleteMenuCategory = (categoryId) => {
+    const handleDeleteMenuCategory = async (categoryId) => {
         const category = menuCategories.find((item) => item.id === categoryId);
         if (!category) return;
 
-        setMenuCategories((prev) => prev.filter((item) => item.id !== categoryId));
-        setMenuItems((prev) => prev.map((item) => item.category === category.name ? { ...item, category: '' } : item));
-        setExpandedMenuCategories((prev) => {
-            const next = { ...prev };
-            delete next[category.name];
-            return next;
-        });
+        try {
+            await menuApi.deleteCategory(tenantSlug, categoryId);
+            setMenuCategories((prev) => prev.filter((item) => item.id !== categoryId));
+            setMenuItems((prev) => prev.map((item) => item.category === category.name ? { ...item, category: '' } : item));
+            setExpandedMenuCategories((prev) => {
+                const next = { ...prev };
+                delete next[category.name];
+                return next;
+            });
 
-        if (menuItemForm.category === category.name) {
-            setMenuItemForm((prev) => ({ ...prev, category: menuCategoryOptions.find((name) => name !== category.name) || '' }));
-        }
-        if (comboForm.category === category.name) {
-            setComboForm((prev) => ({ ...prev, category: menuCategoryOptions.find((name) => name !== category.name) || 'Combo' }));
-        }
+            if (menuItemForm.category === category.name) {
+                setMenuItemForm((prev) => ({ ...prev, category: menuCategoryOptions.find((name) => name !== category.name) || '' }));
+            }
+            if (comboForm.category === category.name) {
+                setComboForm((prev) => ({ ...prev, category: menuCategoryOptions.find((name) => name !== category.name) || 'Combo' }));
+            }
 
-        if (editingMenuCategoryId === categoryId) {
-            resetMenuCategoryForm();
+            if (editingMenuCategoryId === categoryId) {
+                resetMenuCategoryForm();
+            }
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível remover a categoria.');
         }
     };
 
@@ -3336,7 +3537,7 @@ export default function App({ tenantSlug = 'default' }) {
         setExpandedMenuItems((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
     };
 
-    const handleAddPreparation = (e) => {
+    const handleAddPreparation = async (e) => {
         e.preventDefault();
 
         const recipe = preparationRecipeDraft
@@ -3353,27 +3554,28 @@ export default function App({ tenantSlug = 'default' }) {
 
         if (!preparationForm.name.trim() || recipe.length === 0) return;
 
-        setPreparations((prev) => [
-            ...prev,
-            {
-                id: Date.now(),
+        try {
+            const savedPreparation = await catalogApi.savePreparation(tenantSlug, {
                 name: preparationForm.name.trim(),
                 yieldQuantity: parseFloat(preparationForm.yieldQuantity) || 1,
                 yieldUnit: preparationForm.yieldUnit || ingredientUnits[0]?.label || 'g',
                 recipe
-            }
-        ]);
+            });
 
-        setPreparationForm({ name: '', yieldQuantity: '1', yieldUnit: ingredientUnits[0]?.label || 'g' });
-        setPreparationRecipeDraft([{ id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }]);
-        setIsPreparationModalOpen(false);
+            setPreparations((prev) => [...prev, savedPreparation]);
+            setPreparationForm({ name: '', yieldQuantity: '1', yieldUnit: ingredientUnits[0]?.label || 'g' });
+            setPreparationRecipeDraft([{ id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }]);
+            setIsPreparationModalOpen(false);
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar a receita base.');
+        }
     };
 
     const handleUpdateCost = async (id, newAmount) => {
         try {
             const recurringCost = await financeApi.updateRecurringCostAmount(tenantSlug, id, parseFloat(newAmount) || 0);
             setRecurringCosts((prev) => prev.map((cost) => cost.id === id ? recurringCost : cost));
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível atualizar o custo fixo.');
         }
     };
@@ -3389,7 +3591,7 @@ export default function App({ tenantSlug = 'default' }) {
                 cost.lastPaidMonth === currentMonthYear ? '' : currentMonthYear
             );
             setRecurringCosts((prev) => prev.map((current) => current.id === id ? recurringCost : current));
-        } catch (_error) {
+        } catch {
             setSettingsError('Não foi possível atualizar o status de pagamento.');
         }
     };
@@ -3463,11 +3665,11 @@ export default function App({ tenantSlug = 'default' }) {
 
     if (bootstrapLoading) {
         return (
-            <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 md:p-6 font-sans">
-                <div className="bg-[#fdfffd] w-full max-w-[440px] rounded-[2rem] p-8 shadow-2xl border border-gray-100 text-center space-y-4 italic">
+            <div className="min-h-screen bg-[#2A1E15] flex items-center justify-center p-4 md:p-6 font-sans">
+                <div className="bg-[#FFFFFF] w-full max-w-[440px] rounded-[2rem] p-8 shadow-2xl border border-gray-100 text-center space-y-4 italic">
                     <Logo className="w-16 h-16 mx-auto" />
-                    <p className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Carregando dados do tenant</p>
-                    <p className="text-xs font-bold text-[#696965]">Agora existe backend. Se isso falhar, o problema não é mais teatro de mock.</p>
+                    <p className="text-sm font-black text-[#2A1E15] uppercase tracking-widest">Carregando painel</p>
+                    <p className="text-xs font-bold text-[#6F6258]">Aguarde um instante.</p>
                 </div>
             </div>
         );
@@ -3475,15 +3677,15 @@ export default function App({ tenantSlug = 'default' }) {
 
     if (bootstrapError) {
         return (
-            <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 md:p-6 font-sans">
-                <div className="bg-[#fdfffd] w-full max-w-[520px] rounded-[2rem] p-8 shadow-2xl border border-gray-100 text-center space-y-4 italic">
+            <div className="min-h-screen bg-[#2A1E15] flex items-center justify-center p-4 md:p-6 font-sans">
+                <div className="bg-[#FFFFFF] w-full max-w-[520px] rounded-[2rem] p-8 shadow-2xl border border-gray-100 text-center space-y-4 italic">
                     <Logo className="w-16 h-16 mx-auto" />
                     <p className="text-sm font-black text-red-700 uppercase tracking-widest">Falha ao carregar o backend</p>
-                    <p className="text-xs font-bold text-[#696965]">{bootstrapError}</p>
+                    <p className="text-xs font-bold text-[#6F6258]">{bootstrapError}</p>
                     <button
                         type="button"
                         onClick={() => window.location.reload()}
-                        className="w-full bg-[#5c1f20] text-[#fdfffd] py-3 rounded-2xl font-black uppercase text-xs hover:bg-[#c5a04a] transition-all shadow-xl"
+                        className="w-full bg-[#2A1E15] text-[#FFFFFF] py-3 rounded-2xl font-black uppercase text-xs hover:bg-[#3A281B] transition-all shadow-xl"
                     >
                         Tentar novamente
                     </button>
@@ -3494,21 +3696,21 @@ export default function App({ tenantSlug = 'default' }) {
 
     if (!session) {
         return (
-            <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 md:p-6 font-sans">
-                <div className="bg-[#fdfffd] w-full max-w-[440px] xl:max-w-[520px] rounded-[2rem] p-8 sm:p-10 xl:p-12 shadow-2xl border border-gray-100 italic">
+            <div className="min-h-screen bg-[#2A1E15] flex items-center justify-center p-4 md:p-6 font-sans">
+                <div className="bg-[#FFFFFF] w-full max-w-[440px] xl:max-w-[520px] rounded-[2rem] p-8 sm:p-10 xl:p-12 shadow-2xl border border-gray-100 italic">
                     <div className="flex flex-col items-center mb-8 text-center font-black">
                         <Logo className="w-20 h-20 xl:w-24 xl:h-24 mb-4" />
-                        <h1 className="text-2xl xl:text-3xl font-black text-[#5c1f20] tracking-tight uppercase tracking-tighter">{settings.businessName}</h1>
-                        <p className="text-[#696965] text-[11px] xl:text-xs font-bold uppercase tracking-widest mt-1">Painel Administrativo</p>
+                        <h1 className="text-2xl xl:text-3xl font-black text-[#2A1E15] tracking-tight uppercase tracking-tighter">{settings.businessName}</h1>
+                        <p className="text-[#6F6258] text-[11px] xl:text-xs font-bold uppercase tracking-widest mt-1">Painel Administrativo</p>
                     </div>
                     <div className="space-y-4">
-                        <p className="text-sm font-bold text-[#696965] text-center">
+                        <p className="text-sm font-bold text-[#6F6258] text-center">
                             Sessão não encontrada. Faça login para acessar o dashboard.
                         </p>
                         <button
                             type="button"
                             onClick={() => navigate('/login')}
-                            className="w-full bg-[#5c1f20] text-[#fdfffd] py-4 rounded-2xl font-black uppercase text-xs hover:bg-[#c5a04a] transition-all shadow-xl"
+                            className="w-full bg-[#2A1E15] text-[#FFFFFF] py-4 rounded-2xl font-black uppercase text-xs hover:bg-[#3A281B] transition-all shadow-xl"
                         >
                             Ir para Login
                         </button>
@@ -3519,7 +3721,7 @@ export default function App({ tenantSlug = 'default' }) {
     }
 
     return (
-        <div className="app-shell flex min-h-screen bg-[#fdfffd] text-gray-900 font-sans italic relative">
+        <div className="app-shell flex min-h-screen bg-[#FFFFFF] text-gray-900 font-sans italic relative">
             {isCatModalOpen && (
                 <LegacyMenuCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={costCategories} setCategories={setCostCategories} />
             )}
@@ -3641,13 +3843,13 @@ export default function App({ tenantSlug = 'default' }) {
 
             {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-[45] lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
 
-            <aside className={`fixed lg:sticky top-0 left-0 z-50 w-64 xl:w-72 2xl:w-80 bg-gradient-to-b from-[#4b1718] via-[#5c1f20] to-[#341011] border-r border-[#7a3738] flex flex-col h-screen transition-transform duration-300 shadow-[10px_0_30px_rgba(52,16,17,0.35)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+            <aside className={`fixed lg:sticky top-0 left-0 z-50 w-64 xl:w-72 2xl:w-80 bg-gradient-to-b from-[#2E1C14] via-[#3A2114] to-[#A85A2B] border-r border-white/15 flex flex-col h-screen transition-transform duration-300 shadow-[10px_0_30px_rgba(42,30,21,0.22)] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="p-6 xl:p-8 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-2xl bg-white/8 ring-1 ring-[#c5a04a]/35 shadow-sm">
+                        <div className="p-2 rounded-2xl bg-white/8 ring-1 ring-[#D4A373]/35 shadow-sm">
                             <Logo className="w-8 h-8 xl:w-10 xl:h-10" />
                         </div>
-                        <span className="font-black text-lg xl:text-xl 2xl:text-2xl tracking-tighter text-white uppercase not-italic">REI DAS<span className="text-[#c5a04a] italic ml-1">ESFIHAS</span></span>
+                        <span className="font-black text-lg xl:text-xl 2xl:text-2xl tracking-tighter text-white uppercase not-italic">REI DAS<span className="text-[#F6B52E] italic ml-1">ESFIHAS</span></span>
                     </div>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-white/60"><X size={20} /></button>
                 </div>
@@ -3657,8 +3859,8 @@ export default function App({ tenantSlug = 'default' }) {
                     <button
                         onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeTab === 'dashboard'
-                            ? 'bg-white/12 text-[#f6d98b] ring-1 ring-[#c5a04a]/35 shadow-lg shadow-black/20 font-black'
-                            : 'text-white hover:bg-white/8 hover:text-[#f6d98b] font-bold'
+                            ? 'menu-item-active bg-[#EED9B0] text-[#2A1E15] ring-1 ring-[#D4A373]/35 shadow-lg shadow-black/10 font-black'
+                            : 'text-[#EAD8BF] hover:bg-white/10 hover:text-[#FFF7EA] font-bold'
                             }`}
                     >
                         <LayoutDashboard size={16} className="shrink-0" />
@@ -3672,6 +3874,7 @@ export default function App({ tenantSlug = 'default' }) {
                         icon: Briefcase,
                         items: [
                             { id: 'menu', label: 'Cardápio Operacional', icon: ChefHat },
+                            { id: 'orders', label: 'Pedidos', icon: ShoppingBag },
                             { id: 'reviews', label: 'Gestão de Avaliações', icon: Star },
                             { id: 'cmv', label: 'CMV / Ficha Técnica', icon: Wallet },
                         ]
@@ -3707,11 +3910,11 @@ export default function App({ tenantSlug = 'default' }) {
                                 <button
                                     onClick={() => setOpenGroups(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
                                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all mt-1 ${hasActive && !isOpen
-                                        ? 'text-[#f6d98b] font-black bg-white/10 border border-[#c5a04a]/35 shadow-md'
-                                        : 'text-[#f0d9da] hover:bg-white/8 hover:text-[#f6d98b] font-bold border border-transparent'
+                                        ? 'text-[#F3E8DA] font-black bg-white/10 border border-[#D4A373]/35 shadow-md'
+                                        : 'text-[#EAD8BF] hover:bg-white/10 hover:text-[#FFF7EA] font-bold border border-transparent'
                                         }`}
                                 >
-                                    <group.icon size={15} className={`shrink-0 ${hasActive && !isOpen ? 'text-[#f6d98b]' : 'text-[#c5a04a]'}`} />
+                                    <group.icon size={15} className={`shrink-0 ${hasActive && !isOpen ? 'text-[#EED9B0]' : 'text-[#E6CDA8]'}`} />
                                     <span className="text-[11px] tracking-[0.18em] uppercase flex-1 text-left">{group.label}</span>
                                     <svg
                                         className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : 'rotate-0'
@@ -3725,17 +3928,17 @@ export default function App({ tenantSlug = 'default' }) {
                                 {/* Submenus */}
                                 <div className={`overflow-hidden transition-all duration-200 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                                     }`}>
-                                    <div className="ml-3 pl-3 border-l-2 border-[#c5a04a]/30 space-y-1 py-2">
+                                    <div className="ml-3 pl-3 border-l-2 border-[#D4A373]/30 space-y-1 py-2">
                                         {group.items.map(item => (
                                             <button
                                                 key={item.id}
                                                 onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
                                                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left ${activeTab === item.id
-                                                    ? 'bg-[#c5a04a] text-[#4b1718] font-black shadow-md shadow-black/20'
-                                                    : 'text-[#f4e9ea] hover:bg-white/10 hover:text-[#f6d98b] font-semibold'
+                                                    ? 'menu-item-active bg-[#EED9B0] text-[#2A1E15] font-black shadow-md shadow-black/10 border-l-4 border-[#D4A373]'
+                                                    : 'text-[#EAD8BF] hover:bg-white/10 hover:text-[#FFF7EA] font-semibold'
                                                     }`}
                                             >
-                                                <item.icon size={14} className={`shrink-0 ${activeTab === item.id ? 'text-[#4b1718]' : 'text-[#c5a04a]'}`} />
+                                                <item.icon size={14} className={`shrink-0 ${activeTab === item.id ? 'text-[#2A1E15]' : 'text-[#F5E8D3]'}`} />
                                                 <span className="text-[11px] tracking-[0.08em] uppercase">{item.label}</span>
                                             </button>
                                         ))}
@@ -3751,7 +3954,7 @@ export default function App({ tenantSlug = 'default' }) {
                             setSession(null);
                             supabase.auth.signOut().finally(() => navigate('/login'));
                         }}
-                        className="text-[9px] font-black text-white uppercase tracking-widest hover:text-[#f6d98b] flex items-center justify-center gap-2 w-full transition-colors"
+                        className="text-[9px] font-black text-white uppercase tracking-widest hover:text-[#F3E8DA] flex items-center justify-center gap-2 w-full transition-colors"
                     >
                         <LogOut size={12} /> Sair do Reino
                     </button>
@@ -3761,17 +3964,17 @@ export default function App({ tenantSlug = 'default' }) {
             <main className="flex-1 min-w-0">
                 <header className="h-16 sm:h-20 xl:h-24 bg-white/80 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between px-4 sm:px-8 xl:px-10 2xl:px-12 sticky top-0 z-40">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-[#5c1f20] bg-gray-50 rounded-xl"><Menu size={20} /></button>
-                        <h2 className="text-base sm:text-xl xl:text-2xl 2xl:text-3xl font-black text-[#5c1f20] uppercase italic tracking-tighter truncate">{activeTab}</h2>
+                        <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-[#2A1E15] bg-gray-50 rounded-xl"><Menu size={20} /></button>
+                        <h2 className="text-base sm:text-xl xl:text-2xl 2xl:text-3xl font-black text-[#2A1E15] uppercase italic tracking-tighter truncate">{activeTab}</h2>
                     </div>
-                    <div className="bg-[#fdfffd] border border-[#c5a04a]/20 px-2 py-1 xl:px-3 xl:py-1.5 rounded-lg text-[9px] sm:text-[10px] xl:text-xs font-black text-[#c5a04a] uppercase tracking-widest italic">Painel Administrativo</div>
+                    <div className="bg-[#FFFFFF] border border-[#D4A373]/20 px-2 py-1 xl:px-3 xl:py-1.5 rounded-lg text-[9px] sm:text-[10px] xl:text-xs font-black text-[#D4A373] uppercase tracking-widest italic">Painel Administrativo</div>
                 </header>
 
                 <div className="p-4 sm:p-8 xl:p-10 2xl:p-12 max-w-[1800px] 2xl:max-w-[2000px] mx-auto space-y-6 sm:space-y-8 xl:space-y-10 font-sans w-full">
                     {/* Notificações */}
                     <div className="space-y-2">
                         {primaryAlert && (
-                            <div className="flex items-center justify-between gap-3 bg-[#5c1f20] text-[#fdfffd] p-3 rounded-2xl border border-white/20 shadow-md">
+                            <div className="flex items-center justify-between gap-3 bg-[#F3E8DA] text-[#2B2520] p-3 rounded-2xl border border-[#D4A373] shadow-md">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -3785,9 +3988,9 @@ export default function App({ tenantSlug = 'default' }) {
                                     }}
                                     className="flex items-center gap-3 overflow-hidden text-left flex-1"
                                 >
-                                    <Bell size={14} className="text-[#c5a04a] shrink-0 animate-pulse" />
+                                    <Bell size={14} className="text-[#D4A373] shrink-0 animate-pulse" />
                                     <p className="text-[9px] sm:text-xs font-bold uppercase tracking-tight truncate">
-                                        {primaryAlert.title}: <span className="text-[#c5a04a] font-black">{primaryAlert.label}</span>
+                                        {primaryAlert.title}: <span className="text-[#D4A373] font-black">{primaryAlert.label}</span>
                                         {additionalAlertsCount > 0 && (
                                             <span className="ml-2 text-white/80">+{additionalAlertsCount}</span>
                                         )}
@@ -3809,18 +4012,18 @@ export default function App({ tenantSlug = 'default' }) {
                             {/* --- STAT CARDS --- */}
                             <div className="dashboard-stats-grid grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 xl:gap-6">
                                 <StatCard title="Receita Bruta" value={formatMoney(stats.receitaBruta)} icon={TrendingUp} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
-                                <StatCard title="Pedidos" value={stats.totalOrders} icon={ShoppingBag} colorClass="text-[#696965]" bgColorClass="bg-gray-100" iconColorClass="text-[#696965]" />
+                                <StatCard title="Pedidos" value={stats.totalOrders} icon={ShoppingBag} colorClass="text-[#6F6258]" bgColorClass="bg-gray-100" iconColorClass="text-[#6F6258]" />
                                 <StatCard title="Ticket Médio" value={formatMoney(stats.ticketMedio)} icon={CreditCard} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
                                 <StatCard title="CMV Catálogo" value={`${stats.catalogAverageCmv.toFixed(1)}%`} icon={BarChart3} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
                                 <StatCard title="Markup Médio" value={`${stats.catalogAverageMarkup.toFixed(1)}%`} icon={DollarSign} colorClass="text-purple-700" bgColorClass="bg-purple-50" iconColorClass="text-purple-700" />
-                                <StatCard title="Custos Fixos" value={formatMoney(stats.custosFixosTotal)} icon={Receipt} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Custos Fixos" value={formatMoney(stats.custosFixosTotal)} icon={Receipt} colorClass="text-[#2A1E15]" bgColorClass="bg-[#2A1E15]/10" iconColorClass="text-[#2A1E15]" />
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 xl:gap-8">
                                 <div className="bg-white p-5 sm:p-7 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic font-sans tracking-tight">Receita por Canal</h3>
-                                        <span className="text-lg sm:text-xl font-black text-[#0f172a] tracking-tighter">{formatMoney(stats.receitaBruta)}</span>
+                                        <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#2A1E15] uppercase italic font-sans tracking-tight">Receita por Canal</h3>
+                                        <span className="text-lg sm:text-xl font-black text-[#2A1E15] tracking-tighter">{formatMoney(stats.receitaBruta)}</span>
                                     </div>
                                     <div className="space-y-5">
                                         {stats.financialData.filter((item) => item.name !== 'Total').map((channel, index) => {
@@ -3833,11 +4036,11 @@ export default function App({ tenantSlug = 'default' }) {
                                                     <div className="flex items-center justify-between mb-1.5">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: channel.color }} />
-                                                            <span className="text-xs font-bold text-[#696965] uppercase tracking-wider">{channel.name}</span>
+                                                            <span className="text-xs font-bold text-[#6F6258] uppercase tracking-wider">{channel.name}</span>
                                                         </div>
                                                         <div className="flex items-center gap-3">
-                                                            <span className="text-[10px] font-black text-[#696965] bg-gray-100 px-2 py-0.5 rounded-md">{pct}%</span>
-                                                            <span className="text-sm font-black text-[#0f172a]">{formatMoney(channel.value)}</span>
+                                                            <span className="text-[10px] font-black text-[#6F6258] bg-gray-100 px-2 py-0.5 rounded-md">{pct}%</span>
+                                                            <span className="text-sm font-black text-[#2A1E15]">{formatMoney(channel.value)}</span>
                                                         </div>
                                                     </div>
                                                     <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
@@ -3851,24 +4054,24 @@ export default function App({ tenantSlug = 'default' }) {
 
                     <div className="bg-white p-5 sm:p-7 xl:p-8 rounded-[1.5rem] border border-gray-100 shadow-sm">
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#5c1f20] uppercase italic font-sans tracking-tight">Resumo Operacional</h3>
-                                        <span className="text-lg sm:text-xl font-black text-[#0f172a] tracking-tighter">{stats.totalOrders} pedidos</span>
+                                        <h3 className="text-[11px] sm:text-xs xl:text-sm font-black text-[#2A1E15] uppercase italic font-sans tracking-tight">Resumo Operacional</h3>
+                                        <span className="text-lg sm:text-xl font-black text-[#2A1E15] tracking-tighter">{stats.totalOrders} pedidos</span>
                                     </div>
                                     <div className="space-y-4">
                                         {stats.orderCountData.filter((item) => item.name !== 'Total').map((channel, index) => (
-                                            <div key={`${channel.name}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-100 bg-[#fcfbf7] px-4 py-3">
+                                            <div key={`${channel.name}-${index}`} className="flex items-center justify-between rounded-2xl border border-gray-100 bg-[#F3E8DA] px-4 py-3">
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#696965]">{channel.name}</p>
-                                                    <p className="text-sm font-black text-[#5c1f20]">{channel.value} pedidos</p>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#6F6258]">{channel.name}</p>
+                                                    <p className="text-sm font-black text-[#2A1E15]">{channel.value} pedidos</p>
                                                 </div>
-                                                <span className="text-[10px] font-black text-[#c5a04a] uppercase">
+                                                <span className="text-[10px] font-black text-[#D4A373] uppercase">
                                                     {(((channel.value || 0) / (stats.totalOrders || 1)) * 100).toFixed(1)}%
                                                 </span>
                                             </div>
                                         ))}
-                                        <div className="rounded-2xl border border-dashed border-[#c5a04a]/40 bg-[#fffaf0] px-4 py-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-[#5c1f20]">Visão Geral</p>
-                                            <p className="mt-2 text-sm font-bold text-[#696965]">
+                                        <div className="rounded-2xl border border-dashed border-[#D4A373]/40 bg-[#fffaf0] px-4 py-4">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-[#2A1E15]">Visão Geral</p>
+                                            <p className="mt-2 text-sm font-bold text-[#6F6258]">
                                                 Acompanhe rapidamente o peso de cada canal no faturamento e no volume de pedidos do período.
                                             </p>
                                         </div>
@@ -3944,7 +4147,7 @@ export default function App({ tenantSlug = 'default' }) {
                             </section>
 
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 xl:gap-8">
-                                <StatCard title="Itens do Cardápio" value={menuItems.length} icon={ChefHat} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Itens do Cardápio" value={menuItems.length} icon={ChefHat} colorClass="text-[#2A1E15]" bgColorClass="bg-[#2A1E15]/10" iconColorClass="text-[#2A1E15]" />
                                 <StatCard title="Disponíveis" value={menuDashboard.activeCount} icon={CheckCircle} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
                                 <StatCard title="Com Foto" value={menuDashboard.itemsWithPhoto} icon={Camera} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
                                 <StatCard title="Visíveis" value={menuDashboard.visibleCount} icon={Eye} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
@@ -4016,8 +4219,8 @@ export default function App({ tenantSlug = 'default' }) {
                                 <div className="menu-catalog-panel menu-catalog-panel--full" id="menu-production-panel">
                                     <div className="menu-catalog-panel__header">
                                         <div>
-                                            <p className="text-[11px] font-black text-[#c5a04a] uppercase tracking-[0.25em]">Leitura operacional</p>
-                                            <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Categorias e itens em produção</h3>
+                                            <p className="text-[11px] font-black text-[#D4A373] uppercase tracking-[0.25em]">Leitura operacional</p>
+                                            <h3 className="text-lg font-black text-[#2A1E15] uppercase tracking-tighter">Categorias e itens em produção</h3>
                                             <p className="menu-catalog-panel__description">O catálogo precisa mostrar rápido o que está vendável, o que está escondido e o que ainda está frouxo.</p>
                                         </div>
                                         <div className="menu-link-counter">{menuDashboard.highlightedCount} destaque(s)</div>
@@ -4025,8 +4228,8 @@ export default function App({ tenantSlug = 'default' }) {
 
                                     <div className="menu-catalog-panel__toolbar">
                                         <div className="relative">
-                                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#696965]" />
-                                            <input type="text" value={menuSearchTerm} onChange={(e) => setMenuSearchTerm(e.target.value)} placeholder="Buscar categoria ou item do cardápio..." className="w-full pl-10 pr-4 py-3 bg-[#fdfffd] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#c5a04a]" />
+                                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" />
+                                            <input type="text" value={menuSearchTerm} onChange={(e) => setMenuSearchTerm(e.target.value)} placeholder="Buscar categoria ou item do cardápio..." className="w-full pl-10 pr-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" />
                                         </div>
 
                                         <div className="menu-status-summary">
@@ -4070,7 +4273,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                     <button type="button" onClick={() => toggleMenuCategoryExpansion(categoryGroup.name)} className="menu-category-accordion__trigger">
                                                         <div className="menu-category-accordion__heading">
                                                             <p className="menu-category-accordion__eyebrow">Categoria</p>
-                                                            <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight">{categoryGroup.name}</p>
+                                                            <p className="text-sm font-black text-[#2A1E15] uppercase tracking-tight">{categoryGroup.name}</p>
                                                         </div>
                                                         <div className="menu-category-accordion__meta">
                                                             <span className="menu-category-badge">{categoryGroup.items.length} item(ns)</span>
@@ -4140,15 +4343,15 @@ export default function App({ tenantSlug = 'default' }) {
                                                                                             {linkedDetails.length > 0 && <span className="menu-component-tag">{linkedDetails.length} vínculo(s)</span>}
                                                                                             {item.itemType === 'combo' && <span className="menu-component-tag">{comboGroups.length} grupo(s)</span>}
                                                                                         </div>
-                                                                                        <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight truncate leading-tight">{item.name}</p>
+                                                                                        <p className="text-sm font-black text-[#2A1E15] uppercase tracking-tight truncate leading-tight">{item.name}</p>
                                                                                         <p className="menu-item-accordion__description">{item.description}</p>
                                                                                         {item.itemType === 'combo' && <p className="menu-item-accordion__support">{comboSummary}</p>}
                                                                                     </div>
                                                                                 </div>
                                                                                 <div className="menu-item-accordion__aside">
                                                                                     <div className="text-right shrink-0">
-                                                                                        <p className="text-[9px] font-black text-[#696965] uppercase tracking-widest hidden sm:block">{item.itemType === 'combo' ? 'A partir de' : 'Preço'}</p>
-                                                                                        <p className="text-sm font-black text-[#5c1f20] whitespace-nowrap">{formatMoney(item.itemType === 'combo' ? item.basePrice || 0 : item.salePrice || 0)}</p>
+                                                                                        <p className="text-[9px] font-black text-[#6F6258] uppercase tracking-widest hidden sm:block">{item.itemType === 'combo' ? 'A partir de' : 'Preço'}</p>
+                                                                                        <p className="text-sm font-black text-[#2A1E15] whitespace-nowrap">{formatMoney(item.itemType === 'combo' ? item.basePrice || 0 : item.salePrice || 0)}</p>
                                                                                         <p className="menu-item-accordion__support">
                                                                                             {item.itemType === 'combo'
                                                                                                 ? `${comboGroups.reduce((acc, group) => acc + group.options.length, 0)} opção(ões)`
@@ -4177,8 +4380,8 @@ export default function App({ tenantSlug = 'default' }) {
                                                                                 {item.itemType === 'combo' ? (
                                                                                     <div className="space-y-3">
                                                                                         <div className="flex items-center justify-between gap-3">
-                                                                                            <p className="text-[10px] font-black text-[#696965] uppercase tracking-widest">Grupos do combo</p>
-                                                                                            <span className="text-[10px] font-black text-[#5c1f20] uppercase">{comboGroups.length} grupo(s)</span>
+                                                                                            <p className="text-[10px] font-black text-[#6F6258] uppercase tracking-widest">Grupos do combo</p>
+                                                                                            <span className="text-[10px] font-black text-[#2A1E15] uppercase">{comboGroups.length} grupo(s)</span>
                                                                                         </div>
                                                                                         <div className="combo-preview-grid">
                                                                                             {comboGroups.map((group) => (
@@ -4212,19 +4415,19 @@ export default function App({ tenantSlug = 'default' }) {
                                                                                 ) : (
                                                                                     <div className="space-y-2">
                                                                                         <div className="flex items-center justify-between gap-3">
-                                                                                            <p className="text-[10px] font-black text-[#696965] uppercase tracking-widest">Relacionamentos</p>
-                                                                                            <span className="text-[10px] font-black text-[#5c1f20] uppercase">{linkedDetails.length} item(ns)</span>
+                                                                                            <p className="text-[10px] font-black text-[#6F6258] uppercase tracking-widest">Relacionamentos</p>
+                                                                                            <span className="text-[10px] font-black text-[#2A1E15] uppercase">{linkedDetails.length} item(ns)</span>
                                                                                         </div>
                                                                                         <div className="menu-related-grid">
                                                                                             {linkedDetails.length > 0 ? linkedDetails.map((detail, index) => (
                                                                                                 <div key={`${item.id}-${detail.name}-${index}`} className="menu-related-card">
                                                                                                     <span className="menu-component-tag">{detail.tag}</span>
-                                                                                                    <p className="text-sm font-black text-[#5c1f20] uppercase tracking-tight mt-3">{detail.name}</p>
-                                                                                                    <p className="text-[11px] text-[#696965] font-semibold mt-1">{detail.detail}</p>
+                                                                                                    <p className="text-sm font-black text-[#2A1E15] uppercase tracking-tight mt-3">{detail.name}</p>
+                                                                                                    <p className="text-[11px] text-[#6F6258] font-semibold mt-1">{detail.detail}</p>
                                                                                                 </div>
                                                                                             )) : (
                                                                                                 <div className="menu-empty-state">
-                                                                                                    <Sparkles size={16} className="text-[#c5a04a]" />
+                                                                                                    <Sparkles size={16} className="text-[#D4A373]" />
                                                                                                     <span>Nenhum relacionamento adicional para este item.</span>
                                                                                                 </div>
                                                                                             )}
@@ -4246,7 +4449,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                                 );
                                                             }) : (
                                                                 <div className="menu-empty-state">
-                                                                    <ChefHat size={18} className="text-[#c5a04a]" />
+                                                                    <ChefHat size={18} className="text-[#D4A373]" />
                                                                     <span>Nenhum item nesta categoria.</span>
                                                                 </div>
                                                             )}
@@ -4258,7 +4461,7 @@ export default function App({ tenantSlug = 'default' }) {
 
                                         {menuItemsByCategory.length === 0 && (
                                             <div className="menu-empty-state menu-empty-state--large">
-                                                <ChefHat size={18} className="text-[#c5a04a]" />
+                                                <ChefHat size={18} className="text-[#D4A373]" />
                                                 <span>Nenhum item de cardápio encontrado.</span>
                                             </div>
                                         )}
@@ -4266,6 +4469,23 @@ export default function App({ tenantSlug = 'default' }) {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'orders' && (
+                        <OrderOperationsPage
+                            tenantSlug={tenantSlug}
+                            menuItems={menuItems}
+                            orders={orders}
+                            customers={customers}
+                            paymentMethods={paymentMethods}
+                            deliveryDrivers={deliveryDrivers}
+                            autoAcceptOrders={autoAcceptOrders}
+                            onCreateCustomer={handleCreateCustomer}
+                            onCreateOrder={handleCreateOrder}
+                            onUpdateOrder={handleUpdateOrder}
+                            onCreatePaymentMethod={handleCreatePaymentMethod}
+                            onToggleAutoAcceptOrders={() => setAutoAcceptOrders((current) => !current)}
+                        />
                     )}
 
                     {activeTab === 'reviews' && (
@@ -4277,7 +4497,7 @@ export default function App({ tenantSlug = 'default' }) {
                     {activeTab === 'cmv' && (
                         <div className="space-y-6 xl:space-y-8">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 xl:gap-8">
-                                <StatCard title="Insumos" value={ingredients.length} icon={Receipt} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Insumos" value={ingredients.length} icon={Receipt} colorClass="text-[#2A1E15]" bgColorClass="bg-[#2A1E15]/10" iconColorClass="text-[#2A1E15]" />
                                 <StatCard title="Produtos" value={products.length} icon={ShoppingBag} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
                                 <StatCard title="CMV Médio" value={`${catalogMetrics.averageCmvPercent.toFixed(1)}%`} icon={PieChart} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
                                 <StatCard title="Markup Médio" value={`${catalogMetrics.averageMarkupPercent.toFixed(1)}%`} icon={DollarSign} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
@@ -4285,20 +4505,20 @@ export default function App({ tenantSlug = 'default' }) {
 
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-8">
                                 <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
-                                    <h3 className="text-lg font-black text-[#5c1f20] uppercase mb-6 tracking-tighter">Cadastro de Insumos</h3>
+                                    <h3 className="text-lg font-black text-[#2A1E15] uppercase mb-6 tracking-tighter">Cadastro de Insumos</h3>
                                     <form onSubmit={handleSubmitIngredient} className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                                         <CustomInput label="Nome do Insumo" value={ingredientForm.name} onChange={(e) => handleIngredientFormChange('name', e.target.value)} required />
                                         <div className="space-y-1">
                                             <div className="flex items-center justify-between gap-2">
-                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Unidade</label>
-                                                <button type="button" onClick={() => setIsUnitModalOpen(true)} className="text-[10px] font-black text-[#c5a04a] uppercase hover:text-[#5c1f20] transition-colors">
+                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
+                                                <button type="button" onClick={() => setIsUnitModalOpen(true)} className="text-[10px] font-black text-[#D4A373] uppercase hover:text-[#2A1E15] transition-colors">
                                                     Cadastrar Unidades
                                                 </button>
                                             </div>
                                             <select
                                                 value={ingredientForm.unit}
                                                 onChange={(e) => handleIngredientFormChange('unit', e.target.value)}
-                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                 required
                                             >
                                                 {ingredientUnits.map((unit) => (
@@ -4306,14 +4526,13 @@ export default function App({ tenantSlug = 'default' }) {
                                                 ))}
                                             </select>
                                         </div>
-                                        <CustomInput label="Quantidade Comprada" type="number" step="0.01" value={ingredientForm.packageQuantity} onChange={(e) => handleIngredientFormChange('packageQuantity', e.target.value)} required />
-                                        <CustomInput label="Custo da Compra" type="number" step="0.01" value={ingredientForm.packageCost} onChange={(e) => handleIngredientFormChange('packageCost', e.target.value)} required />
+                                        <CustomInput label={`Custo por ${getIngredientCostReferenceUnit(ingredientForm.unit)}`} type="number" step="0.0001" value={ingredientForm.unitCost} onChange={(e) => handleIngredientFormChange('unitCost', e.target.value)} required />
                                         <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3">
-                                            <button type="submit" className="flex-1 bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                                            <button type="submit" className="flex-1 bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                                                 {editingIngredientId ? 'Salvar Insumo' : 'Registrar Insumo'}
                                             </button>
                                             {editingIngredientId && (
-                                                <button type="button" onClick={resetIngredientForm} className="flex-1 bg-gray-100 text-[#696965] h-11 rounded-xl font-black uppercase text-[10px]">
+                                                <button type="button" onClick={resetIngredientForm} className="flex-1 bg-gray-100 text-[#6F6258] h-11 rounded-xl font-black uppercase text-[10px]">
                                                     Cancelar Edição
                                                 </button>
                                             )}
@@ -4324,9 +4543,9 @@ export default function App({ tenantSlug = 'default' }) {
                                         {ingredients.map((ingredient) => (
                                             <div key={ingredient.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between gap-4">
                                                 <div className="min-w-0">
-                                                    <p className="font-black text-[#5c1f20] uppercase truncate">{ingredient.name}</p>
-                                                    <p className="text-xs text-[#696965] font-bold uppercase">
-                                                        {ingredient.packageQuantity} {ingredient.unit} por {formatMoney(ingredient.packageCost)} | custo unitário {formatMoney(calculateIngredientUnitCost(ingredient))}
+                                                    <p className="font-black text-[#2A1E15] uppercase truncate">{ingredient.name}</p>
+                                                    <p className="text-xs text-[#6F6258] font-bold uppercase">
+                                                        Custo por {getIngredientCostReferenceUnit(ingredient.unit)}: {formatMoney(getIngredientCostReferenceValue(ingredient))}
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
@@ -4344,8 +4563,8 @@ export default function App({ tenantSlug = 'default' }) {
 
                                 <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                                        <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Ficha Técnica do Produto</h3>
-                                        <button type="button" onClick={() => setIsPreparationModalOpen(true)} className="text-[10px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-2 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all w-full sm:w-auto">
+                                        <h3 className="text-lg font-black text-[#2A1E15] uppercase tracking-tighter">Ficha Técnica do Produto</h3>
+                                        <button type="button" onClick={() => setIsPreparationModalOpen(true)} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto">
                                             Registrar Receita
                                         </button>
                                     </div>
@@ -4360,8 +4579,8 @@ export default function App({ tenantSlug = 'default' }) {
 
                                         <div className="space-y-3 max-h-[26rem] overflow-y-auto pr-2">
                                             <div className="flex items-center justify-between">
-                                                <p className="text-sm font-black text-[#5c1f20] uppercase">Receita / Componentes</p>
-                                                <button type="button" onClick={handleAddRecipeLine} className="text-[10px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-2 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all">
+                                                <p className="text-sm font-black text-[#2A1E15] uppercase">Receita / Componentes</p>
+                                                <button type="button" onClick={handleAddRecipeLine} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all">
                                                     Adicionar Componente
                                                 </button>
                                             </div>
@@ -4375,11 +4594,11 @@ export default function App({ tenantSlug = 'default' }) {
                                                 return (
                                                     <div key={line.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_48px] gap-3 items-end">
                                                         <div className="space-y-1">
-                                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Componente</label>
+                                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Componente</label>
                                                             <select
                                                                 value={line.componentRef}
                                                                 onChange={(e) => handleRecipeDraftChange(line.id, 'componentRef', e.target.value)}
-                                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                             >
                                                                 <option value="">Selecione</option>
                                                                 <optgroup label="Insumos">
@@ -4409,11 +4628,11 @@ export default function App({ tenantSlug = 'default' }) {
                                                         />
 
                                                         <div className="space-y-1">
-                                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Unidade</label>
+                                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
                                                             <select
                                                                 value={line.quantityUnit}
                                                                 onChange={(e) => handleRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
-                                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#c5a04a]"
+                                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                                 disabled={!line.componentRef}
                                                             >
                                                                 <option value="">Selecione</option>
@@ -4436,7 +4655,7 @@ export default function App({ tenantSlug = 'default' }) {
                                             })}
                                         </div>
 
-                                        <button type="submit" className="w-full bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                                        <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                                             Cadastrar Produto
                                         </button>
                                     </form>
@@ -4446,7 +4665,7 @@ export default function App({ tenantSlug = 'default' }) {
                             {/* ── Campo de busca ── */}
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                    <svg className="w-4 h-4 text-[#696965]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 text-[#6F6258]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                                     </svg>
                                 </div>
@@ -4455,7 +4674,7 @@ export default function App({ tenantSlug = 'default' }) {
                                     value={productSearchTerm}
                                     onChange={(e) => setProductSearchTerm(e.target.value)}
                                     placeholder="Buscar produto por nome..."
-                                    className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-medium text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#c5a04a] focus:border-transparent shadow-sm transition-all"
+                                    className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-medium text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#D4A373] focus:border-transparent shadow-sm transition-all"
                                 />
                                 {productSearchTerm && (
                                     <button
@@ -4477,9 +4696,9 @@ export default function App({ tenantSlug = 'default' }) {
                                             <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col">
 
                                                 {/* ── Header: Nome do produto ── */}
-                                                <div className="bg-[#5c1f20] px-4 py-3 rounded-t-2xl">
+                                                <div className="bg-[#2A1E15] px-4 py-3 rounded-t-2xl">
                                                     <h3 className="text-sm font-black text-white uppercase tracking-tight leading-tight">{product.name}</h3>
-                                                    <p className="text-[10px] text-[#c5a04a] font-semibold mt-0.5">
+                                                    <p className="text-[10px] text-[#D4A373] font-semibold mt-0.5">
                                                         Venda: {formatMoney(product.metrics.salePrice)}
                                                     </p>
                                                 </div>
@@ -4487,30 +4706,30 @@ export default function App({ tenantSlug = 'default' }) {
                                                 {/* ── Métricas em grid de badges ── */}
                                                 <div className="px-4 pt-4 pb-3">
                                                     <div className="grid grid-cols-3 gap-1.5">
-                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-[#5c1f20]/5 rounded-lg">
-                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Custo Receita</span>
-                                                            <span className="text-xs font-black text-[#5c1f20]">{formatMoney(product.metrics.recipeCost)}</span>
+                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-[#2A1E15]/5 rounded-lg">
+                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Custo Receita</span>
+                                                            <span className="text-xs font-black text-[#2A1E15]">{formatMoney(product.metrics.recipeCost)}</span>
                                                         </div>
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-blue-50 rounded-lg">
-                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Custo Unit.</span>
+                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Custo Unit.</span>
                                                             <span className="text-xs font-black text-blue-700">{formatMoney(product.metrics.unitCost)}</span>
                                                         </div>
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50 rounded-lg">
-                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Markup</span>
+                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Markup</span>
                                                             <span className="text-xs font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-3 gap-1.5 mt-1.5">
                                                         <div className={`flex flex-col items-center px-2 py-1.5 rounded-lg ${cmvOk ? 'bg-green-50' : 'bg-red-50'}`}>
-                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">CMV Atual</span>
+                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">CMV Atual</span>
                                                             <span className={`text-xs font-black ${cmvOk ? 'text-green-700' : 'text-red-600'}`}>{product.metrics.cmvPercent.toFixed(1)}%</span>
                                                         </div>
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50 rounded-lg">
-                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Markup</span>
+                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Markup</span>
                                                             <span className="text-xs font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
                                                         </div>
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50/60 rounded-lg border border-amber-100">
-                                                            <span className="text-[8px] font-bold text-[#696965] uppercase tracking-wider leading-tight">Preço Sug.</span>
+                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Preço Sug.</span>
                                                             <span className="text-xs font-black text-amber-600">{formatMoney(product.metrics.suggestedPrice)}</span>
                                                         </div>
                                                     </div>
@@ -4540,8 +4759,8 @@ export default function App({ tenantSlug = 'default' }) {
                                                                     <div className="flex items-center gap-2 min-w-0">
                                                                         <span className="text-sm shrink-0">🧂</span>
                                                                         <div className="min-w-0">
-                                                                            <p className="text-[10px] font-black text-[#5c1f20] uppercase leading-tight truncate">{componentName}</p>
-                                                                            <p className="text-[9px] text-[#696965] font-semibold">{item.quantity} {componentUnit}</p>
+                                                                            <p className="text-[10px] font-black text-[#2A1E15] uppercase leading-tight truncate">{componentName}</p>
+                                                                            <p className="text-[9px] text-[#6F6258] font-semibold">{item.quantity} {componentUnit}</p>
                                                                         </div>
                                                                     </div>
                                                                     <span className="text-[10px] font-black text-gray-600 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">{formatMoney(lineCost)}</span>
@@ -4554,10 +4773,10 @@ export default function App({ tenantSlug = 'default' }) {
                                                 {/* ── Footer com indicadores ── */}
                                                 <div className="border-t border-gray-100 px-4 py-2.5 mt-auto">
                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-bold">
-                                                        <span className="text-[#5c1f20]">
+                                                        <span className="text-[#2A1E15]">
                                                             Lucro bruto: <strong className="font-black">{formatMoney(product.metrics.grossMargin)}</strong>
                                                         </span>
-                                                        <span className="text-[#696965]">
+                                                        <span className="text-[#6F6258]">
                                                             CMV alvo: <strong className="font-black">{product.metrics.targetCmvPercent.toFixed(1)}%</strong>
                                                         </span>
                                                         <span className="text-blue-600">
@@ -4566,7 +4785,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                     </div>
                                                     <div className="flex justify-end mt-1">
                                                         <button
-                                                            onClick={() => setProducts((prev) => prev.filter((item) => item.id !== product.id))}
+                                                            onClick={() => handleDeleteProduct(product.id)}
                                                             className="flex items-center gap-1 text-[9px] font-bold text-red-400 hover:text-red-600 uppercase tracking-wide transition-colors"
                                                         >
                                                             <Trash2 size={11} /> Excluir
@@ -4577,7 +4796,7 @@ export default function App({ tenantSlug = 'default' }) {
                                         );
                                     })}
                                 {catalogMetrics.productSummaries.filter((p) => p.name.toLowerCase().includes(productSearchTerm.toLowerCase().trim())).length === 0 && (
-                                    <p className="text-center text-sm font-bold text-[#696965] py-8 uppercase tracking-widest col-span-full">
+                                    <p className="text-center text-sm font-bold text-[#6F6258] py-8 uppercase tracking-widest col-span-full">
                                         Nenhum produto encontrado para &ldquo;{productSearchTerm}&rdquo;
                                     </p>
                                 )}
@@ -4594,19 +4813,19 @@ export default function App({ tenantSlug = 'default' }) {
                         <div className="space-y-6">
                             <div className="bg-white p-6 sm:p-10 rounded-[2rem] border border-gray-100 shadow-sm italic">
                                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-8">
-                                    <h3 className="text-lg font-black text-[#5c1f20] uppercase tracking-tighter">Central Financeira</h3>
+                                    <h3 className="text-lg font-black text-[#2A1E15] uppercase tracking-tighter">Central Financeira</h3>
                                     <div className="flex flex-wrap gap-2">
                                         <button
                                             type="button"
                                             onClick={() => setIsCatModalOpen(true)}
-                                            className="text-[9px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-1.5 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all"
+                                            className="text-[9px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-1.5 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all"
                                         >
                                             Categorias de Custos Fixos
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setIsFinanceCategoryModalOpen(true)}
-                                            className="text-[9px] font-black text-[#5c1f20] border border-[#5c1f20]/20 px-3 py-1.5 rounded-full uppercase hover:bg-[#5c1f20]/5 transition-all"
+                                            className="text-[9px] font-black text-[#2A1E15] border border-[#2A1E15]/20 px-3 py-1.5 rounded-full uppercase hover:bg-[#2A1E15]/5 transition-all"
                                         >
                                             Categorias Financeiras
                                         </button>
@@ -4614,8 +4833,8 @@ export default function App({ tenantSlug = 'default' }) {
                                 </div>
                                 <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-end italic">
                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">Tipo</label>
-                                        <select name="type" value={financeFormType} onChange={(e) => setFinanceFormType(e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
+                                        <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 not-italic tracking-widest">Tipo</label>
+                                        <select name="type" value={financeFormType} onChange={(e) => setFinanceFormType(e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#D4A373]">
                                             <option value="receita">Entrada</option>
                                             <option value="despesa">Saída</option>
                                             <option value="custo_fixo">Custo Fixo</option>
@@ -4629,10 +4848,10 @@ export default function App({ tenantSlug = 'default' }) {
                                         required
                                     />
                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">
+                                        <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 not-italic tracking-widest">
                                             {financeFormType === 'receita' ? 'Canal' : financeFormType === 'despesa' ? 'Categoria' : 'Descrição'}
                                         </label>
-                                        <select name="reference" className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
+                                        <select name="reference" className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#D4A373]">
                                             {(financeFormType === 'receita' ? salesChannels : financeFormType === 'despesa' ? financeExpenseCategories : costCategories).map((item) => (
                                                 <option key={item.id} value={item.name}>{item.name}</option>
                                             ))}
@@ -4642,8 +4861,8 @@ export default function App({ tenantSlug = 'default' }) {
                                         <CustomInput label="Dia de Vencimento" name="dueDay" type="number" min="1" max="31" required />
                                     ) : (
                                         <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-[#696965] uppercase ml-1 not-italic tracking-widest">Pagamento</label>
-                                            <select name="payment" className="w-full px-3 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]">
+                                            <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 not-italic tracking-widest">Pagamento</label>
+                                            <select name="payment" className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#D4A373]">
                                                 <option value="pix">PIX</option>
                                                 <option value="cartao">Cartão</option>
                                                 <option value="online">Online</option>
@@ -4658,7 +4877,7 @@ export default function App({ tenantSlug = 'default' }) {
                                         defaultValue={new Date().toISOString().split('T')[0]}
                                     />
                                     <CustomInput label="Observação" name="note" />
-                                    <button type="submit" className="bg-[#5c1f20] text-[#c5a04a] h-11 rounded-xl font-black uppercase text-[10px] shadow-lg">
+                                    <button type="submit" className="bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-lg">
                                         {financeFormType === 'custo_fixo' ? 'Registrar Custo Fixo' : 'Lançar'}
                                     </button>
                                 </form>
@@ -4666,20 +4885,20 @@ export default function App({ tenantSlug = 'default' }) {
                             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                 <StatCard title="Entradas" value={formatMoney(stats.receitaLiquida)} icon={TrendingUp} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
                                 <StatCard title="Saídas" value={formatMoney(stats.saidasLancadas)} icon={Receipt} colorClass="text-red-600" bgColorClass="bg-red-50" iconColorClass="text-red-600" />
-                                <StatCard title="Custos Fixos" value={formatMoney(stats.custosFixosTotal - stats.folhaSalarial)} icon={Calendar} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Custos Fixos" value={formatMoney(stats.custosFixosTotal - stats.folhaSalarial)} icon={Calendar} colorClass="text-[#2A1E15]" bgColorClass="bg-[#2A1E15]/10" iconColorClass="text-[#2A1E15]" />
                                 <StatCard title="Taxas Canais" value={formatMoney(stats.taxasCanais)} icon={CreditCard} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
                                 <StatCard title="Saldo Operac." value={formatMoney(stats.saldoOperacional)} icon={Wallet} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
                             </div>
                             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
                                 <div className="flex items-center justify-between gap-3">
-                                    <h4 className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Custos Fixos</h4>
-                                    <span className="text-[10px] font-black text-[#696965] uppercase">{sortedRecurringCosts.length} itens</span>
+                                    <h4 className="text-sm font-black text-[#2A1E15] uppercase tracking-widest">Custos Fixos</h4>
+                                    <span className="text-[10px] font-black text-[#6F6258] uppercase">{sortedRecurringCosts.length} itens</span>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
                                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between opacity-70 italic">
                                         <div className="min-w-0">
                                             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Folha Salarial Real (Automático RH)</p>
-                                            <p className="text-xs font-black text-[#5c1f20]">R$ {stats.folhaSalarial.toLocaleString()}</p>
+                                            <p className="text-xs font-black text-[#2A1E15]">R$ {stats.folhaSalarial.toLocaleString()}</p>
                                         </div>
                                         <CheckCircle className="text-green-500" size={24} />
                                     </div>
@@ -4690,9 +4909,9 @@ export default function App({ tenantSlug = 'default' }) {
                                             <div key={c.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 italic ${isPaid ? 'bg-green-50/10 border-green-100 opacity-60' : isHighlighted ? 'bg-amber-50 border-amber-200 shadow-md' : 'bg-white border-gray-100 shadow-sm'}`}>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[8px] uppercase font-black ${!isPaid && new Date().getDate() === c.dueDay ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-[#c5a04a]/10 text-[#c5a04a]'}`}>Dia {c.dueDay}</span>
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[8px] uppercase font-black ${!isPaid && new Date().getDate() === c.dueDay ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-[#D4A373]/10 text-[#D4A373]'}`}>Dia {c.dueDay}</span>
                                                         {isHighlighted && <span className="px-2 py-0.5 rounded-lg text-[8px] uppercase font-black bg-amber-200 text-amber-800">Vencimento próximo</span>}
-                                                        <p className={`text-xs font-black uppercase truncate ${isPaid ? 'line-through text-gray-400' : 'text-[#5c1f20]'}`}>{c.desc}</p>
+                                                        <p className={`text-xs font-black uppercase truncate ${isPaid ? 'line-through text-gray-400' : 'text-[#2A1E15]'}`}>{c.desc}</p>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <p className={`text-xs font-black ${isPaid ? 'line-through text-gray-400' : 'text-gray-900'}`}>R$ {c.amount.toFixed(2)}</p>
@@ -4704,7 +4923,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <button type="button" onClick={() => setRecurringCosts(prev => prev.filter(x => x.id !== c.id))} className="text-red-200 hover:text-red-500 p-1 transition-colors"><Trash2 size={16} /></button>
-                                                    <button type="button" onClick={() => togglePaymentStatus(c.id)} className={`transition-all ${isPaid ? 'text-green-600 scale-110' : 'text-gray-300 hover:text-[#5c1f20]'}`}>
+                                                    <button type="button" onClick={() => togglePaymentStatus(c.id)} className={`transition-all ${isPaid ? 'text-green-600 scale-110' : 'text-gray-300 hover:text-[#2A1E15]'}`}>
                                                         {isPaid ? <CheckCircle size={28} fill="rgba(34, 197, 94, 0.1)" /> : <Circle size={28} />}
                                                     </button>
                                                 </div>
@@ -4715,16 +4934,16 @@ export default function App({ tenantSlug = 'default' }) {
                             </div>
                             <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
                                 <div className="flex items-center justify-between gap-3">
-                                    <h4 className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Lançamentos Financeiros</h4>
-                                    <span className="text-[10px] font-black text-[#696965] uppercase">{transactions.length} registros</span>
+                                    <h4 className="text-sm font-black text-[#2A1E15] uppercase tracking-widest">Lançamentos Financeiros</h4>
+                                    <span className="text-[10px] font-black text-[#6F6258] uppercase">{transactions.length} registros</span>
                                 </div>
                                 <div className="space-y-2">
                                     {transactions.map(t => (
                                         <div key={t.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between italic">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-1 h-8 rounded-full ${t.type === 'receita' ? (t.platform === 'ifood' ? 'bg-[#5c1f20]' : 'bg-[#c5a04a]') : 'bg-red-500'}`} />
+                                                <div className={`w-1 h-8 rounded-full ${t.type === 'receita' ? (t.platform === 'ifood' ? 'bg-[#2A1E15]' : 'bg-[#D4A373]') : 'bg-red-500'}`} />
                                                 <div className="min-w-0">
-                                                    <p className="text-[10px] font-black text-[#5c1f20] uppercase truncate font-sans">
+                                                    <p className="text-[10px] font-black text-[#2A1E15] uppercase truncate font-sans">
                                                         {t.type === 'receita' ? 'Entrada' : 'Saída'} - {t.category}
                                                     </p>
                                                     <p className="text-[9px] font-bold text-gray-400 font-mono uppercase">
@@ -4753,33 +4972,33 @@ export default function App({ tenantSlug = 'default' }) {
                                     <button
                                         type="button"
                                         onClick={() => setRhView('fixed')}
-                                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${rhView === 'fixed' ? 'bg-[#5c1f20] text-[#c5a04a]' : 'bg-stone-100 text-[#5c1f20]'}`}
+                                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${rhView === 'fixed' ? 'bg-[#2A1E15] text-[#FFFFFF]' : 'bg-stone-100 text-[#2A1E15]'}`}
                                     >
                                         Funcionários Fixos
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setRhView('external')}
-                                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${rhView === 'external' ? 'bg-[#5c1f20] text-[#c5a04a]' : 'bg-stone-100 text-[#5c1f20]'}`}
+                                        className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${rhView === 'external' ? 'bg-[#2A1E15] text-[#FFFFFF]' : 'bg-stone-100 text-[#2A1E15]'}`}
                                     >
                                         Funcionários Por Fora
                                     </button>
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                                     {rhView === 'fixed' && (
-                                        <button onClick={() => setIsRoleModalOpen(true)} className="text-[10px] font-black text-[#c5a04a] border border-[#c5a04a] px-3 py-2 rounded-full uppercase hover:bg-[#c5a04a] hover:text-white transition-all w-full sm:w-auto">
+                                        <button onClick={() => setIsRoleModalOpen(true)} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto">
                                             Cargos RH
                                         </button>
                                     )}
                                     {rhView === 'fixed' && (
-                                        <button onClick={() => setIsDiscountCategoryModalOpen(true)} className="text-[10px] font-black text-[#5c1f20] border border-[#5c1f20]/20 px-3 py-2 rounded-full uppercase hover:bg-[#5c1f20]/5 transition-all w-full sm:w-auto">
+                                        <button onClick={() => setIsDiscountCategoryModalOpen(true)} className="text-[10px] font-black text-[#2A1E15] border border-[#2A1E15]/20 px-3 py-2 rounded-full uppercase hover:bg-[#2A1E15]/5 transition-all w-full sm:w-auto">
                                             Configurar Descontos
                                         </button>
                                     )}
                                     <button
                                         type="button"
                                         onClick={() => openCreateEmployeeModal(rhView === 'fixed' ? 'fixed' : 'external')}
-                                        className="text-[10px] font-black bg-[#5c1f20] text-[#c5a04a] px-4 py-2 rounded-full uppercase shadow-md hover:bg-[#c5a04a] hover:text-white transition-all w-full sm:w-auto"
+                                        className="text-[10px] font-black bg-[#2A1E15] text-[#FFFFFF] px-4 py-2 rounded-full uppercase shadow-md hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto"
                                     >
                                         Cadastrar Funcionário
                                     </button>
@@ -4789,22 +5008,22 @@ export default function App({ tenantSlug = 'default' }) {
                             {rhView === 'fixed' && (
                                 <>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <StatCard title="Folha Bruta" value={formatMoney(payrollSummary.totals.grossPayroll)} icon={Users} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
-                                        <StatCard title="Pagamento 60%" value={formatMoney(payrollSummary.totals.salaryPaymentTotal)} icon={DollarSign} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
-                                        <StatCard title="Vale 40%" value={formatMoney(payrollSummary.totals.advanceTotal)} icon={Wallet} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
-                                        <StatCard title="Descontos" value={formatMoney(payrollSummary.totals.extraDiscountTotal)} icon={Receipt} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
+                                        <StatCard title="Folha Bruta" value={formatMoney(payrollSummary.totals.grossPayroll)} icon={Users} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
+                                        <StatCard title="Pagamento 60%" value={formatMoney(payrollSummary.totals.salaryPaymentTotal)} icon={DollarSign} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
+                                        <StatCard title="Vale 40%" value={formatMoney(payrollSummary.totals.advanceTotal)} icon={Wallet} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
+                                        <StatCard title="Descontos" value={formatMoney(payrollSummary.totals.extraDiscountTotal)} icon={Receipt} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {payrollAlerts.filter((alert) => !String(alert.id).startsWith('external-')).map((alert) => (
                                             <div key={alert.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                                                 <div className="min-w-0">
-                                                    <p className="text-[10px] font-black text-[#696965] uppercase tracking-widest">{alert.title}</p>
-                                                    <p className="text-sm font-black text-[#5c1f20] uppercase truncate">{formatDateBr(alert.date)}</p>
+                                                    <p className="text-[10px] font-black text-[#6F6258] uppercase tracking-widest">{alert.title}</p>
+                                                    <p className="text-sm font-black text-[#2A1E15] uppercase truncate">{formatDateBr(alert.date)}</p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{alert.description}</p>
                                                 </div>
                                                 <div className="text-right shrink-0">
-                                                    <p className="text-lg font-black text-[#5c1f20]">{formatMoney(alert.amount)}</p>
+                                                    <p className="text-lg font-black text-[#2A1E15]">{formatMoney(alert.amount)}</p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase">{alert.daysUntil === 0 ? 'Hoje' : alert.daysUntil > 0 ? `Em ${alert.daysUntil} dia(s)` : 'Vencido'}</p>
                                                 </div>
                                             </div>
@@ -4812,7 +5031,7 @@ export default function App({ tenantSlug = 'default' }) {
                                     </div>
 
                                     <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm italic">
-                                        <h3 className="text-lg font-black text-[#5c1f20] uppercase flex items-center gap-2 mb-6 tracking-tighter"><Briefcase size={20} /> Regras de Pagamento RH</h3>
+                                        <h3 className="text-lg font-black text-[#2A1E15] uppercase flex items-center gap-2 mb-6 tracking-tighter"><Briefcase size={20} /> Regras de Pagamento RH</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                                             <CustomInput label="Salário (%)" type="number" step="0.1" value={payrollConfig.salaryPercentage} onChange={(e) => setPayrollConfig((prev) => ({ ...prev, salaryPercentage: parseFloat(e.target.value) || 0 }))} />
                                             <CustomInput label="Dia Útil do Salário" type="number" step="1" value={payrollConfig.salaryBusinessDayOrdinal} onChange={(e) => setPayrollConfig((prev) => ({ ...prev, salaryBusinessDayOrdinal: parseInt(e.target.value) || 1 }))} />
@@ -4829,16 +5048,16 @@ export default function App({ tenantSlug = 'default' }) {
                                             <div key={emp.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm italic">
                                                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,1.2fr)_minmax(0,2fr)] gap-4 items-start">
                                                     <div className="min-w-0 pr-0 xl:pr-4">
-                                                        <p className="font-black text-[#5c1f20] uppercase text-base italic break-words leading-tight whitespace-normal">{emp.name}</p>
+                                                        <p className="font-black text-[#2A1E15] uppercase text-base italic break-words leading-tight whitespace-normal">{emp.name}</p>
                                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest break-words mt-2 whitespace-normal">{emp.role}</p>
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">{emp.phone || 'SEM TELEFONE'} {emp.email ? `| ${emp.email}` : ''}</p>
                                                     </div>
                                                     <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 min-w-0">
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Salário</p><p className="text-sm font-black text-[#5c1f20]">{formatMoney(emp.grossSalary)}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Descontos</p><p className="text-sm font-black text-[#5c1f20]">{formatMoney(emp.extraDiscount)}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Líquido</p><p className="text-sm font-black text-gray-900">{formatMoney(emp.netSalary)}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Vale 40%</p><p className="text-sm font-black text-[#5c1f20]">{formatMoney(emp.advanceAmount)}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Salário 60%</p><p className="text-sm font-black text-[#5c1f20]">{formatMoney(emp.finalSalaryPayment)}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Salário</p><p className="text-sm font-black text-[#2A1E15]">{formatMoney(emp.grossSalary)}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Descontos</p><p className="text-sm font-black text-[#2A1E15]">{formatMoney(emp.extraDiscount)}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Líquido</p><p className="text-sm font-black text-gray-900">{formatMoney(emp.netSalary)}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Vale 40%</p><p className="text-sm font-black text-[#2A1E15]">{formatMoney(emp.advanceAmount)}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Salário 60%</p><p className="text-sm font-black text-[#2A1E15]">{formatMoney(emp.finalSalaryPayment)}</p></div>
                                                     </div>
                                                 </div>
                                                 <div className="mt-4 flex flex-wrap gap-3 items-center justify-between">
@@ -4847,10 +5066,10 @@ export default function App({ tenantSlug = 'default' }) {
                                                         <span className="px-3 py-2 rounded-full bg-blue-50 text-blue-700 text-xs font-black uppercase">Vale em {formatDateBr(payrollSummary.advancePaymentDate)}</span>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <button type="button" onClick={() => openEmployeeDiscountsModal(emp.id)} className="bg-stone-100 text-[#5c1f20] h-10 px-4 rounded-xl font-black uppercase text-[10px]">
+                                                        <button type="button" onClick={() => openEmployeeDiscountsModal(emp.id)} className="bg-stone-100 text-[#2A1E15] h-10 px-4 rounded-xl font-black uppercase text-[10px]">
                                                             Ver Descontos
                                                         </button>
-                                                        <button type="button" onClick={() => openEditEmployeeModal(emp)} className="bg-stone-200 text-[#5c1f20] h-10 px-4 rounded-xl font-black uppercase text-[10px]">Ver/Editar</button>
+                                                        <button type="button" onClick={() => openEditEmployeeModal(emp)} className="bg-stone-200 text-[#2A1E15] h-10 px-4 rounded-xl font-black uppercase text-[10px]">Ver/Editar</button>
                                                         <button onClick={() => setEmployees(prev => prev.filter(e => e.id !== emp.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={16} /></button>
                                                     </div>
                                                 </div>
@@ -4863,21 +5082,21 @@ export default function App({ tenantSlug = 'default' }) {
                             {rhView === 'external' && (
                                 <>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <StatCard title="Prestadores Ativos" value={externalWorkersSummary.filter((worker) => worker.status !== 'inactive').length} icon={Users} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
-                                        <StatCard title="Próx. Pagamentos" value={externalWorkersSummary.filter((worker) => worker.nextPaymentDate).length} icon={Calendar} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
-                                        <StatCard title="Total Previsto" value={formatMoney(externalWorkersSummary.reduce((acc, worker) => acc + worker.baseAmountNumber, 0))} icon={Wallet} colorClass="text-[#5c1f20]" bgColorClass="bg-stone-100" iconColorClass="text-[#5c1f20]" />
+                                        <StatCard title="Prestadores Ativos" value={externalWorkersSummary.filter((worker) => worker.status !== 'inactive').length} icon={Users} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
+                                        <StatCard title="Próx. Pagamentos" value={externalWorkersSummary.filter((worker) => worker.nextPaymentDate).length} icon={Calendar} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
+                                        <StatCard title="Total Previsto" value={formatMoney(externalWorkersSummary.reduce((acc, worker) => acc + worker.baseAmountNumber, 0))} icon={Wallet} colorClass="text-[#2A1E15]" bgColorClass="bg-stone-100" iconColorClass="text-[#2A1E15]" />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {payrollAlerts.filter((alert) => String(alert.id).startsWith('external-')).map((alert) => (
                                             <div key={alert.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                                                 <div className="min-w-0">
-                                                    <p className="text-[10px] font-black text-[#696965] uppercase tracking-widest">{alert.title}</p>
-                                                    <p className="text-sm font-black text-[#5c1f20] uppercase truncate">{formatDateBr(alert.date)}</p>
+                                                    <p className="text-[10px] font-black text-[#6F6258] uppercase tracking-widest">{alert.title}</p>
+                                                    <p className="text-sm font-black text-[#2A1E15] uppercase truncate">{formatDateBr(alert.date)}</p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{alert.description}</p>
                                                 </div>
                                                 <div className="text-right shrink-0">
-                                                    <p className="text-lg font-black text-[#5c1f20]">{formatMoney(alert.amount)}</p>
+                                                    <p className="text-lg font-black text-[#2A1E15]">{formatMoney(alert.amount)}</p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase">{alert.daysUntil === 0 ? 'Hoje' : alert.daysUntil > 0 ? `Em ${alert.daysUntil} dia(s)` : 'Vencido'}</p>
                                                 </div>
                                             </div>
@@ -4889,26 +5108,26 @@ export default function App({ tenantSlug = 'default' }) {
                                             <div key={worker.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
                                                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                                                     <div className="min-w-0 max-w-full">
-                                                        <p className="font-black text-[#5c1f20] uppercase text-base break-words leading-tight whitespace-normal">{worker.name}</p>
+                                                        <p className="font-black text-[#2A1E15] uppercase text-base break-words leading-tight whitespace-normal">{worker.name}</p>
                                                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest break-words mt-2 whitespace-normal">{worker.role}</p>
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">{worker.phone || 'SEM TELEFONE'} {worker.email ? `| ${worker.email}` : ''}</p>
                                                     </div>
                                                     <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 min-w-0 xl:min-w-[620px]">
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Valor Base</p><p className="text-sm font-black text-[#5c1f20]">{formatMoney(worker.baseAmountNumber)}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Frequência</p><p className="text-sm font-black text-[#5c1f20] uppercase">{worker.paymentMode === 'weekly' ? 'Semanal' : 'Avulso'}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Próx. Data</p><p className="text-sm font-black text-[#5c1f20]">{worker.nextPaymentDate ? formatDateBr(worker.nextPaymentDate) : '--'}</p></div>
-                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#696965]">Status</p><p className="text-sm font-black text-[#5c1f20] uppercase">{worker.status === 'active' ? 'Ativo' : 'Inativo'}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Valor Base</p><p className="text-sm font-black text-[#2A1E15]">{formatMoney(worker.baseAmountNumber)}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Frequência</p><p className="text-sm font-black text-[#2A1E15] uppercase">{worker.paymentMode === 'weekly' ? 'Semanal' : 'Avulso'}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Próx. Data</p><p className="text-sm font-black text-[#2A1E15]">{worker.nextPaymentDate ? formatDateBr(worker.nextPaymentDate) : '--'}</p></div>
+                                                        <div className="bg-stone-50 rounded-2xl p-3 border border-stone-200"><p className="text-[10px] font-black uppercase text-[#6F6258]">Status</p><p className="text-sm font-black text-[#2A1E15] uppercase">{worker.status === 'active' ? 'Ativo' : 'Inativo'}</p></div>
                                                     </div>
                                                 </div>
                                                 <div className="mt-4 flex flex-wrap gap-3 items-center justify-between">
                                                     <div className="flex flex-wrap gap-3">
-                                                        <span className="px-3 py-2 rounded-full bg-stone-100 text-[#5c1f20] text-xs font-black uppercase">
+                                                        <span className="px-3 py-2 rounded-full bg-stone-100 text-[#2A1E15] text-xs font-black uppercase">
                                                             {worker.paymentMode === 'weekly' ? ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][Number(worker.weekday)] || 'Semanal' : 'Pagamento Avulso'}
                                                         </span>
-                                                        {worker.notes && <span className="px-3 py-2 rounded-full bg-stone-100 text-[#5c1f20] text-xs font-black uppercase">{worker.notes}</span>}
+                                                        {worker.notes && <span className="px-3 py-2 rounded-full bg-stone-100 text-[#2A1E15] text-xs font-black uppercase">{worker.notes}</span>}
                                                     </div>
                                                     <div className="flex gap-3 items-center">
-                                                        <button type="button" onClick={() => openEditEmployeeModal(worker)} className="text-[#5c1f20] hover:text-[#c5a04a]"><Edit size={16} /></button>
+                                                        <button type="button" onClick={() => openEditEmployeeModal(worker)} className="text-[#2A1E15] hover:text-[#D4A373]"><Edit size={16} /></button>
                                                         <button onClick={() => setEmployees(prev => prev.filter(e => e.id !== worker.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={16} /></button>
                                                     </div>
                                                 </div>
@@ -4925,16 +5144,16 @@ export default function App({ tenantSlug = 'default' }) {
                             <div className="bg-white p-6 sm:p-10 rounded-[2rem] border border-gray-100 shadow-sm space-y-6 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 rotate-12 opacity-5"><Logo className="w-48 h-48" /></div>
                                 <div className="relative z-10">
-                                    <h3 className="text-2xl sm:text-3xl xl:text-4xl font-black text-[#5c1f20] uppercase tracking-tighter font-sans">Extrato Financeiro</h3>
-                                    <p className="text-xs font-bold text-[#696965] uppercase tracking-widest mt-2">{closingRange.label}</p>
+                                    <h3 className="text-2xl sm:text-3xl xl:text-4xl font-black text-[#2A1E15] uppercase tracking-tighter font-sans">Extrato Financeiro</h3>
+                                    <p className="text-xs font-bold text-[#6F6258] uppercase tracking-widest mt-2">{closingRange.label}</p>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 relative z-10">
                                     <div className="space-y-1 xl:col-span-2">
-                                        <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Visualização</label>
+                                        <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 tracking-widest not-italic">Visualização</label>
                                         <select
                                             value={closingFilterType}
                                             onChange={(e) => setClosingFilterType(e.target.value)}
-                                            className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                            className="w-full px-3 py-2.5 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#D4A373]"
                                         >
                                             <option value="dia">Fechamento do Dia</option>
                                             <option value="mes">Fechamento do Mês</option>
@@ -4945,12 +5164,12 @@ export default function App({ tenantSlug = 'default' }) {
 
                                     {closingFilterType !== 'intervalo' && (
                                         <div className="space-y-1">
-                                            <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Data de Referência</label>
+                                            <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 tracking-widest not-italic">Data de Referência</label>
                                             <input
                                                 type="date"
                                                 value={closingReferenceDate}
                                                 onChange={(e) => setClosingReferenceDate(e.target.value)}
-                                                className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                                className="w-full px-3 py-2.5 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#D4A373]"
                                             />
                                         </div>
                                     )}
@@ -4958,21 +5177,21 @@ export default function App({ tenantSlug = 'default' }) {
                                     {closingFilterType === 'intervalo' && (
                                         <>
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Data Inicial</label>
+                                                <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 tracking-widest not-italic">Data Inicial</label>
                                                 <input
                                                     type="date"
                                                     value={closingRangeStart}
                                                     onChange={(e) => setClosingRangeStart(e.target.value)}
-                                                    className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                                    className="w-full px-3 py-2.5 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#D4A373]"
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[9px] font-black text-[#696965] uppercase ml-1 tracking-widest not-italic">Data Final</label>
+                                                <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 tracking-widest not-italic">Data Final</label>
                                                 <input
                                                     type="date"
                                                     value={closingRangeEnd}
                                                     onChange={(e) => setClosingRangeEnd(e.target.value)}
-                                                    className="w-full px-3 py-2.5 bg-[#fdfffd] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#c5a04a]"
+                                                    className="w-full px-3 py-2.5 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#D4A373]"
                                                 />
                                             </div>
                                         </>
@@ -4983,29 +5202,29 @@ export default function App({ tenantSlug = 'default' }) {
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                 <StatCard title="Entradas Líquidas" value={formatMoney(closingSummary.receitaLiquida)} icon={TrendingUp} colorClass="text-green-700" bgColorClass="bg-green-50" iconColorClass="text-green-700" />
                                 <StatCard title="Saídas Lançadas" value={formatMoney(closingSummary.saidasLancadas)} icon={Receipt} colorClass="text-red-600" bgColorClass="bg-red-50" iconColorClass="text-red-600" />
-                                <StatCard title="Custos + RH" value={formatMoney(closingSummary.custosFixos + closingSummary.folhaSalarial)} icon={Users} colorClass="text-[#5c1f20]" bgColorClass="bg-[#5c1f20]/10" iconColorClass="text-[#5c1f20]" />
+                                <StatCard title="Custos + RH" value={formatMoney(closingSummary.custosFixos + closingSummary.folhaSalarial)} icon={Users} colorClass="text-[#2A1E15]" bgColorClass="bg-[#2A1E15]/10" iconColorClass="text-[#2A1E15]" />
                                 <StatCard title="Saldo do Período" value={formatMoney(closingSummary.saldoPeriodo)} icon={Wallet} colorClass="text-blue-700" bgColorClass="bg-blue-50" iconColorClass="text-blue-700" />
                             </div>
 
                             <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                                     <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-                                        <p className="text-[10px] font-black uppercase text-[#696965]">Entradas Brutas</p>
+                                        <p className="text-[10px] font-black uppercase text-[#6F6258]">Entradas Brutas</p>
                                         <p className="text-lg font-black text-green-700">{formatMoney(closingSummary.receitaBruta)}</p>
                                     </div>
                                     <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-                                        <p className="text-[10px] font-black uppercase text-[#696965]">Taxas de Canal</p>
+                                        <p className="text-[10px] font-black uppercase text-[#6F6258]">Taxas de Canal</p>
                                         <p className="text-lg font-black text-amber-700">{formatMoney(closingSummary.taxasCanais)}</p>
                                     </div>
                                     <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-                                        <p className="text-[10px] font-black uppercase text-[#696965]">Itens no Extrato</p>
-                                        <p className="text-lg font-black text-[#5c1f20]">{closingSummary.ledgerEntries.length}</p>
+                                        <p className="text-[10px] font-black uppercase text-[#6F6258]">Itens no Extrato</p>
+                                        <p className="text-lg font-black text-[#2A1E15]">{closingSummary.ledgerEntries.length}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center justify-between gap-3 mb-4">
-                                    <h4 className="text-sm font-black text-[#5c1f20] uppercase tracking-widest">Movimentações do Período</h4>
-                                    <span className="text-[10px] font-black text-[#696965] uppercase">
+                                    <h4 className="text-sm font-black text-[#2A1E15] uppercase tracking-widest">Movimentações do Período</h4>
+                                    <span className="text-[10px] font-black text-[#6F6258] uppercase">
                                         {closingSummary.receitasCount} entrada(s) • {closingSummary.despesasCount} saída(s)
                                     </span>
                                 </div>
@@ -5013,7 +5232,7 @@ export default function App({ tenantSlug = 'default' }) {
                                 <div className="space-y-3">
                                     {closingSummary.ledgerEntries.length === 0 && (
                                         <div className="rounded-2xl border border-dashed border-gray-200 bg-stone-50 px-4 py-8 text-center">
-                                            <p className="text-xs font-black text-[#696965] uppercase tracking-widest">Nenhuma movimentação encontrada para o período selecionado.</p>
+                                            <p className="text-xs font-black text-[#6F6258] uppercase tracking-widest">Nenhuma movimentação encontrada para o período selecionado.</p>
                                         </div>
                                     )}
 
@@ -5024,9 +5243,9 @@ export default function App({ tenantSlug = 'default' }) {
                                         return (
                                             <div key={entry.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`w-1 h-10 rounded-full ${isIncome ? 'bg-green-600' : isFixedCost ? 'bg-[#c5a04a]' : isPayroll ? 'bg-[#5c1f20]' : 'bg-red-500'}`} />
+                                                    <div className={`w-1 h-10 rounded-full ${isIncome ? 'bg-green-600' : isFixedCost ? 'bg-[#D4A373]' : isPayroll ? 'bg-[#2A1E15]' : 'bg-red-500'}`} />
                                                     <div className="min-w-0">
-                                                        <p className="text-[10px] font-black text-[#5c1f20] uppercase truncate font-sans">
+                                                        <p className="text-[10px] font-black text-[#2A1E15] uppercase truncate font-sans">
                                                             {entry.title} • {entry.category}
                                                         </p>
                                                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
@@ -5056,12 +5275,12 @@ export default function App({ tenantSlug = 'default' }) {
                     {activeTab === 'settings' && (
                         <div className="max-w-5xl 2xl:max-w-6xl mx-auto font-black italic">
                             <div className="bg-white p-6 sm:p-10 rounded-[2rem] border border-gray-100 shadow-sm">
-                                <h3 className="text-lg font-black text-[#5c1f20] uppercase mb-8 flex items-center gap-3 font-sans"><Settings size={22} /> Configurações</h3>
+                                <h3 className="text-lg font-black text-[#2A1E15] uppercase mb-8 flex items-center gap-3 font-sans"><Settings size={22} /> Configurações</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                                    <button type="button" onClick={() => setIsChannelModalOpen(true)} className="bg-[#5c1f20]/5 text-[#5c1f20] py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#5c1f20]/10">
+                                    <button type="button" onClick={() => setIsChannelModalOpen(true)} className="bg-[#2A1E15]/5 text-[#2A1E15] py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#2A1E15]/10">
                                         Cadastrar Canais
                                     </button>
-                                    <button type="button" onClick={() => setIsFinanceCategoryModalOpen(true)} className="bg-[#c5a04a]/10 text-[#5c1f20] py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#c5a04a]/20">
+                                    <button type="button" onClick={() => setIsFinanceCategoryModalOpen(true)} className="bg-[#D4A373]/10 text-[#2A1E15] py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#D4A373]/20">
                                         Cadastrar Categorias Financeiras
                                     </button>
                                 </div>
@@ -5072,23 +5291,23 @@ export default function App({ tenantSlug = 'default' }) {
                                         <CustomInput label="Taxa iFood (%)" name="ifoodTax" type="number" step="0.1" defaultValue={settings.ifoodTax} />
                                         <CustomInput label="Taxa Anota AI (%)" name="anotaaiTax" type="number" step="0.1" defaultValue={settings.anotaaiTax} />
                                         <div className="space-y-1">
-                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Nova Senha</label>
+                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Nova Senha</label>
                                             <input
                                                 name="appPassword"
                                                 type="password"
                                                 onKeyUp={handlePasswordKeyboardState}
                                                 onKeyDown={handlePasswordKeyboardState}
-                                                className="w-full px-4 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium"
+                                                className="w-full px-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium"
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Confirmar Senha</label>
+                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Confirmar Senha</label>
                                             <input
                                                 name="confirmPassword"
                                                 type="password"
                                                 onKeyUp={handlePasswordKeyboardState}
                                                 onKeyDown={handlePasswordKeyboardState}
-                                                className="w-full px-4 py-2.5 xl:py-3 bg-[#fdfffd] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#c5a04a] outline-none transition-all text-sm xl:text-base font-medium"
+                                                className="w-full px-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium"
                                             />
                                         </div>
                                         <CustomInput label="Lembrete de Senha" name="passwordReminder" type="text" defaultValue={settings.passwordReminder} />
@@ -5108,7 +5327,7 @@ export default function App({ tenantSlug = 'default' }) {
                                             {settingsSuccess}
                                         </p>
                                     )}
-                                    <button type="submit" className="w-full bg-[#5c1f20] text-[#fdfffd] py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#c5a04a] shadow-xl">Salvar</button>
+                                    <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#D4A373] shadow-xl">Salvar</button>
                                 </form>
                             </div>
                         </div>

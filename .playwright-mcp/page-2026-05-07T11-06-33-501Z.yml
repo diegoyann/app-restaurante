@@ -1,0 +1,81 @@
+- generic [ref=e41]:
+  - banner [ref=e42]:
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - paragraph [ref=e45]: Super Admin
+        - heading "Painel global de tenants" [level=1] [ref=e46]
+        - paragraph [ref=e47]: Selecione a empresa, a filial e o escopo de acesso. Multi-tenant sem essa separação vira vazamento de dado com interface bonita.
+      - button "Sair" [ref=e48]:
+        - img [ref=e49]
+        - text: Sair
+  - main [ref=e52]:
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - paragraph [ref=e56]: Tenants
+          - img [ref=e58]
+        - paragraph [ref=e62]: "3"
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - paragraph [ref=e65]: Usuários
+          - img [ref=e67]
+        - paragraph [ref=e72]: "1"
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - paragraph [ref=e75]: Equipe
+          - img [ref=e77]
+        - paragraph [ref=e89]: "3"
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - paragraph [ref=e92]: Custos fixos
+          - img [ref=e94]
+        - paragraph [ref=e97]: "2"
+    - generic [ref=e98]:
+      - generic [ref=e99]:
+        - generic [ref=e100]:
+          - paragraph [ref=e101]: Administração
+          - heading "Empresa selecionada" [level=2] [ref=e102]
+        - generic [ref=e103]:
+          - button "Nova empresa" [ref=e104]:
+            - img [ref=e105]
+            - text: Nova empresa
+          - button "Nova filial" [ref=e109]:
+            - img [ref=e110]
+            - text: Nova filial
+          - button "Excluir empresa" [ref=e114]:
+            - img [ref=e115]
+            - text: Excluir empresa
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - text: Filtrar empresa
+            - combobox "Filtrar empresa" [ref=e122]:
+              - option "Demo Restaurante"
+              - option "Empresa Sem Filial QA" [selected]
+              - option "Esfiharia Express"
+              - option "Rei das Esfihas"
+          - generic [ref=e123]:
+            - paragraph [ref=e124]: Filial ativa
+            - paragraph [ref=e125]: Rei das Esfihas
+            - paragraph [ref=e126]: Selecione uma filial
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - text: Nome da empresa
+              - textbox "Nome da empresa" [ref=e130]: Empresa Sem Filial QA
+            - generic [ref=e131]:
+              - text: Slug da empresa
+              - textbox "Slug da empresa" [ref=e132]:
+                - /placeholder: slug-da-empresa
+                - text: empresa-sem-filial-qa
+          - generic [ref=e133]:
+            - button "Salvar empresa" [ref=e134]:
+              - img [ref=e135]
+              - text: Salvar empresa
+            - button "Editar filial ativa" [disabled] [ref=e139]:
+              - img [ref=e140]
+              - text: Editar filial ativa
+          - generic [ref=e145]:
+            - paragraph [ref=e146]: Filiais da empresa
+            - paragraph [ref=e147]: Empresa Sem Filial QA · 0 filial(is)
+    - generic [ref=e246]: Empresa Empresa Sem Filial QA criada.

@@ -1,5 +1,5 @@
-import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { getTenantBootstrap, saveSettings } from '../../src/repositories/appRepository.js';
+import { resolveIdentity, requireTenantPermission } from '../../src/auth/identity.js';
+import { getTenantBootstrap, saveSettings } from '../../src/modules/settings/index.js';
 import {
   badRequest,
   getTenantSlug,
@@ -13,7 +13,6 @@ function sanitizeGeneralSettings(settings) {
   const normalized = {
     ifoodTax: Number(settings.ifoodTax),
     anotaaiTax: Number(settings.anotaaiTax),
-    passwordReminder: String(settings.passwordReminder || ''),
     businessName: String(settings.businessName || '').trim(),
     alertDaysBefore: Number(settings.alertDaysBefore)
   };
@@ -36,7 +35,7 @@ export default async function handler(req, res) {
 
   try {
     const identity = await resolveIdentity(req);
-    requireTenantAccess(identity, tenantSlug, ['tenant_admin']);
+    await requireTenantPermission(identity, tenantSlug, 'settings.general.view');
 
     if (req.method === 'GET') {
       const bootstrap = await getTenantBootstrap(tenantSlug);

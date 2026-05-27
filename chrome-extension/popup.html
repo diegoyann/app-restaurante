@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rei das Esfihas - Pedidos</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Rei das Esfihas</p>
+          <h1>Pedidos</h1>
+        </div>
+        <button id="logoutButton" class="icon-button hidden" type="button" title="Sair" aria-label="Sair">
+          <span aria-hidden="true">↳</span>
+        </button>
+      </header>
+
+      <section id="message" class="message hidden" role="status"></section>
+
+      <section id="configView" class="view hidden">
+        <h2>Configuração</h2>
+        <p class="hint">Sem isso a extensão não sabe em qual API e Supabase bater. Não tem mágica aqui.</p>
+        <form id="configForm" class="form">
+          <label>
+            API base URL
+            <input id="apiBaseUrl" name="apiBaseUrl" type="url" placeholder="http://localhost:3000/api" required />
+          </label>
+          <label>
+            Supabase URL
+            <input id="supabaseUrl" name="supabaseUrl" type="url" placeholder="https://seu-projeto.supabase.co" required />
+          </label>
+          <label>
+            Supabase publishable key
+            <input id="supabaseAnonKey" name="supabaseAnonKey" type="password" placeholder="sb_publishable_..." required />
+          </label>
+          <button class="primary" type="submit">Salvar configuração</button>
+        </form>
+      </section>
+
+      <section id="loginView" class="view hidden">
+        <h2>Login</h2>
+        <form id="loginForm" class="form">
+          <label>
+            E-mail
+            <input id="email" name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Senha
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="primary" type="submit">Entrar</button>
+          <button id="editConfigFromLogin" class="ghost" type="button">Editar configuração</button>
+        </form>
+      </section>
+
+      <section id="tenantView" class="view hidden">
+        <h2>Selecionar loja</h2>
+        <form id="tenantForm" class="form">
+          <label>
+            Loja
+            <select id="tenantSelect" name="tenantSelect" required></select>
+          </label>
+          <button class="primary" type="submit">Carregar base</button>
+          <button id="editConfigFromTenant" class="ghost" type="button">Editar configuração</button>
+        </form>
+      </section>
+
+      <section id="orderView" class="view hidden">
+        <div class="tenant-line">
+          <div>
+            <p class="eyebrow">Loja ativa</p>
+            <strong id="tenantName"></strong>
+          </div>
+          <button id="changeTenantButton" class="ghost compact" type="button">Trocar</button>
+        </div>
+
+        <form id="orderForm" class="form order-form">
+          <fieldset>
+            <legend>Cliente</legend>
+            <label>
+              Buscar cliente da base
+              <input id="customerSearch" name="customerSearch" type="search" placeholder="Nome ou telefone" list="customerOptions" />
+              <datalist id="customerOptions"></datalist>
+            </label>
+            <div class="grid two">
+              <label>
+                Nome
+                <input id="customerName" name="customerName" type="text" required />
+              </label>
+              <label>
+                Telefone
+                <input id="customerPhone" name="customerPhone" type="tel" required />
+              </label>
+            </div>
+            <label>
+              Rua
+              <input id="addressLine" name="addressLine" type="text" />
+            </label>
+            <div class="grid three">
+              <label>
+                Número
+                <input id="addressNumber" name="addressNumber" type="text" />
+              </label>
+              <label>
+                Bairro
+                <input id="district" name="district" type="text" />
+              </label>
+              <label>
+                Cidade
+                <input id="city" name="city" type="text" />
+              </label>
+            </div>
+            <div class="grid two">
+              <label>
+                UF
+                <input id="state" name="state" type="text" maxlength="2" value="SP" />
+              </label>
+              <label>
+                Complemento
+                <input id="addressComplement" name="addressComplement" type="text" />
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Itens</legend>
+            <div class="item-picker">
+              <label>
+                Item do cardápio
+                <select id="menuItemSelect" name="menuItemSelect"></select>
+              </label>
+              <label>
+                Qtd.
+                <input id="quantity" name="quantity" type="number" min="1" step="1" value="1" />
+              </label>
+            </div>
+            <label>
+              Observação do item
+              <input id="itemNotes" name="itemNotes" type="text" placeholder="Sem cebola, bem assada..." />
+            </label>
+            <button id="addItemButton" class="secondary" type="button">Adicionar item</button>
+            <ul id="cartList" class="cart-list"></ul>
+          </fieldset>
+
+          <fieldset>
+            <legend>Fechamento</legend>
+            <div class="grid two">
+              <label>
+                Pagamento
+                <select id="paymentMethodId" name="paymentMethodId"></select>
+              </label>
+              <label>
+                Entrega
+                <input id="deliveryFee" name="deliveryFee" type="number" min="0" step="0.01" value="0" />
+              </label>
+            </div>
+            <label>
+              Observação do pedido
+              <textarea id="orderNotes" name="orderNotes" rows="2"></textarea>
+            </label>
+            <div class="total-row">
+              <span>Total</span>
+              <strong id="orderTotal">R$ 0,00</strong>
+            </div>
+          </fieldset>
+
+          <button class="primary" type="submit">Enviar pedido</button>
+        </form>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

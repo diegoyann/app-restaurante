@@ -1,0 +1,149 @@
+- generic [ref=e41]:
+  - banner [ref=e42]:
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - paragraph [ref=e45]: Super Admin
+        - heading "Painel global de tenants" [level=1] [ref=e46]
+        - paragraph [ref=e47]: Selecione a empresa, a filial e o escopo de acesso. Multi-tenant sem essa separação vira vazamento de dado com interface bonita.
+      - button "Sair" [ref=e48]:
+        - img [ref=e49]
+        - text: Sair
+  - main [ref=e52]:
+    - generic [ref=e272]:
+      - generic [ref=e273]:
+        - generic [ref=e274]:
+          - paragraph [ref=e275]: Tenants
+          - img [ref=e277]
+        - paragraph [ref=e281]: "4"
+      - generic [ref=e282]:
+        - generic [ref=e283]:
+          - paragraph [ref=e284]: Usuários
+          - img [ref=e286]
+        - paragraph [ref=e291]: "0"
+      - generic [ref=e292]:
+        - generic [ref=e293]:
+          - paragraph [ref=e294]: Equipe
+          - img [ref=e296]
+        - paragraph [ref=e308]: "3"
+      - generic [ref=e309]:
+        - generic [ref=e310]:
+          - paragraph [ref=e311]: Custos fixos
+          - img [ref=e313]
+        - paragraph [ref=e316]: "2"
+    - generic [ref=e317]:
+      - generic [ref=e318]:
+        - generic [ref=e319]:
+          - paragraph [ref=e320]: Administração
+          - heading "Empresa selecionada" [level=2] [ref=e321]
+        - generic [ref=e322]:
+          - button "Nova empresa" [ref=e323]:
+            - img [ref=e324]
+            - text: Nova empresa
+          - button "Nova filial" [ref=e328]:
+            - img [ref=e329]
+            - text: Nova filial
+          - button "Excluir empresa" [ref=e333]:
+            - img [ref=e334]
+            - text: Excluir empresa
+      - generic [ref=e338]:
+        - generic [ref=e339]:
+          - generic [ref=e340]:
+            - text: Filtrar empresa
+            - combobox "Filtrar empresa" [ref=e341]:
+              - option "Demo Restaurante"
+              - option "Empresa Sem Filial QA" [selected]
+              - option "Esfiharia Express"
+              - option "Rei das Esfihas"
+          - generic [ref=e342]:
+            - paragraph [ref=e343]: Filial ativa
+            - paragraph [ref=e344]: Centro
+            - paragraph [ref=e345]: filial-qa-centro
+        - generic [ref=e346]:
+          - generic [ref=e347]:
+            - generic [ref=e348]:
+              - text: Nome da empresa
+              - textbox "Nome da empresa" [ref=e349]: Empresa Sem Filial QA
+            - generic [ref=e350]:
+              - text: Slug da empresa
+              - textbox "Slug da empresa" [ref=e351]:
+                - /placeholder: slug-da-empresa
+                - text: empresa-sem-filial-qa
+          - generic [ref=e352]:
+            - button "Salvar empresa" [ref=e353]:
+              - img [ref=e354]
+              - text: Salvar empresa
+            - button "Editar filial ativa" [ref=e358]:
+              - img [ref=e359]
+              - text: Editar filial ativa
+          - generic [ref=e362]:
+            - generic [ref=e364]:
+              - paragraph [ref=e365]: Filiais da empresa
+              - paragraph [ref=e366]: Empresa Sem Filial QA · 1 filial(is)
+            - button "Centro filial-qa-centro" [ref=e368]:
+              - generic [ref=e369]: Centro
+              - generic [ref=e370]: filial-qa-centro
+    - generic [ref=e371]:
+      - generic [ref=e373]:
+        - paragraph [ref=e374]: Configuração
+        - heading "Parâmetros operacionais" [level=2] [ref=e375]
+        - paragraph [ref=e376]: Só ficam aqui dados necessários para renderização e operação. Senha não é configuração de UI.
+      - generic [ref=e378]:
+        - generic [ref=e379]:
+          - text: Taxa iFood (%)
+          - textbox "Taxa iFood (%)" [ref=e380]: "23"
+        - generic [ref=e381]:
+          - text: Taxa Anota AI (%)
+          - textbox "Taxa Anota AI (%)" [ref=e382]: "5"
+        - generic [ref=e383]:
+          - text: Alerta de vencimento (dias)
+          - textbox "Alerta de vencimento (dias)" [ref=e384]: "3"
+        - generic [ref=e385]:
+          - text: Nome exibido no app
+          - textbox "Nome exibido no app" [ref=e386]: Empresa Sem Filial QA
+        - button "Salvar configurações" [ref=e387]:
+          - img [ref=e388]
+          - text: Salvar configurações
+    - generic [ref=e390]:
+      - generic [ref=e392]:
+        - generic [ref=e393]:
+          - paragraph [ref=e394]: Acesso
+          - heading "Usuários e escopo" [level=2] [ref=e395]
+          - paragraph [ref=e396]: Usuário pertence ao tenant selecionado. Escopo de empresa só faz sentido para admin.
+        - button "Novo usuário" [ref=e397]:
+          - img [ref=e398]
+          - text: Novo usuário
+      - generic [ref=e399]:
+        - generic [ref=e400]:
+          - generic [ref=e401]:
+            - paragraph [ref=e402]: Operação
+            - heading "Equipe do tenant" [level=2] [ref=e403]
+            - paragraph [ref=e404]: Equipe operacional da filial ativa. Cadastro e edição ficam em modal para não competir com usuários e escopo.
+          - button "Novo funcionário" [ref=e405]:
+            - img [ref=e406]
+            - text: Novo funcionário
+        - generic [ref=e408]:
+          - generic [ref=e410]:
+            - generic [ref=e411]:
+              - paragraph [ref=e412]: João da Massa
+              - paragraph [ref=e413]: Esfiharia
+              - paragraph [ref=e414]: Fixo • R$ 2200.00
+            - generic [ref=e415]:
+              - button "Editar" [ref=e416]
+              - button "Excluir" [ref=e417]
+          - generic [ref=e419]:
+            - generic [ref=e420]:
+              - paragraph [ref=e421]: Maria do Balcão
+              - paragraph [ref=e422]: Atendimento
+              - paragraph [ref=e423]: Fixo • R$ 1800.00
+            - generic [ref=e424]:
+              - button "Editar" [ref=e425]
+              - button "Excluir" [ref=e426]
+          - generic [ref=e428]:
+            - generic [ref=e429]:
+              - paragraph [ref=e430]: Carlos da Fornalha
+              - paragraph [ref=e431]: Pizzaiolo
+              - paragraph [ref=e432]: Por fora • R$ 450.00
+            - generic [ref=e433]:
+              - button "Editar" [ref=e434]
+              - button "Excluir" [ref=e435]
+    - generic [ref=e436]: Filial Filial QA Centro criada.

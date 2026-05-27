@@ -1,0 +1,311 @@
+- generic [ref=e41]:
+  - complementary [ref=e46]:
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - img "Logo" [ref=e50]
+        - generic [ref=e51]: REI DASESFIHAS
+      - button [ref=e52]:
+        - img [ref=e53]
+    - navigation [ref=e56]:
+      - button "Dashboard" [ref=e57]:
+        - img [ref=e58]
+        - generic [ref=e63]: Dashboard
+      - generic [ref=e64]:
+        - button "Operacional" [ref=e65]:
+          - img [ref=e66]
+          - generic [ref=e69]: Operacional
+          - img [ref=e70]
+        - generic [ref=e73]:
+          - button "Pedidos Próprios" [ref=e74]:
+            - img [ref=e75]
+            - generic [ref=e78]: Pedidos Próprios
+          - button "Cardápio Operacional" [ref=e79]:
+            - img [ref=e80]
+            - generic [ref=e82]: Cardápio Operacional
+          - button "Gestão de Avaliações" [ref=e83]:
+            - img [ref=e84]
+            - generic [ref=e86]: Gestão de Avaliações
+          - button "CMV / Ficha Técnica" [ref=e87]:
+            - img [ref=e88]
+            - generic [ref=e91]: CMV / Ficha Técnica
+      - generic [ref=e92]:
+        - button "Financeiro" [ref=e93]:
+          - img [ref=e94]
+          - generic [ref=e96]: Financeiro
+          - img [ref=e97]
+        - generic [ref=e99]:
+          - button "Lançamentos" [ref=e100]:
+            - img [ref=e101]
+            - generic [ref=e104]: Lançamentos
+          - button "Fechamento" [ref=e105]:
+            - img [ref=e106]
+            - generic [ref=e109]: Fechamento
+      - generic [ref=e110]:
+        - button "Pessoas" [ref=e111]:
+          - img [ref=e112]
+          - generic [ref=e117]: Pessoas
+          - img [ref=e118]
+        - button "RH / Pessoal" [ref=e121]:
+          - img [ref=e122]
+          - generic [ref=e127]: RH / Pessoal
+      - generic [ref=e128]:
+        - button "Sistema" [ref=e129]:
+          - img [ref=e130]
+          - generic [ref=e133]: Sistema
+          - img [ref=e134]
+        - generic [ref=e136]:
+          - button "Configurações" [ref=e137]:
+            - img [ref=e138]
+            - generic [ref=e141]: Configurações
+          - button "Comportamento da IA" [ref=e142]:
+            - img [ref=e143]
+            - generic [ref=e146]: Comportamento da IA
+    - button "Sair do Reino" [ref=e148]:
+      - img [ref=e149]
+      - text: Sair do Reino
+  - main [ref=e152]:
+    - generic [ref=e153]:
+      - generic [ref=e154]:
+        - button [ref=e155]:
+          - img [ref=e156]
+        - heading "pedidos" [level=2] [ref=e263]
+      - generic [ref=e158]: Painel Administrativo
+    - generic [ref=e159]:
+      - generic [ref=e161]:
+        - 'button "Pagamento 60%: 5º dia útil de maio+2" [ref=e162]':
+          - img [ref=e163]
+          - paragraph [ref=e166]:
+            - text: "Pagamento 60%: 5º dia útil de maio"
+            - generic [ref=e167]: "+2"
+        - button [ref=e168]:
+          - img [ref=e169]
+      - generic [ref=e264]:
+        - generic [ref=e266]:
+          - generic [ref=e267]:
+            - paragraph [ref=e268]: Canal próprio
+            - heading "Pedidos nascem aqui" [level=3] [ref=e269]
+            - paragraph [ref=e270]: Link público, caixa, cozinha, status e impressão no mesmo fluxo. Isso é o mínimo para começar a desligar Anota Aí.
+          - generic [ref=e271]:
+            - link "Abrir link" [ref=e272] [cursor=pointer]:
+              - /url: https://rei-das-esfihas-frontend.vercel.app/cardapio/reidasesfihas
+              - img [ref=e273]
+              - text: Abrir link
+            - button "Copiar link" [ref=e277]:
+              - img [ref=e278]
+              - text: Copiar link
+        - generic [ref=e281]:
+          - generic [ref=e282]:
+            - paragraph [ref=e283]: Itens vendáveis
+            - strong [ref=e284]: "4"
+          - generic [ref=e285]:
+            - paragraph [ref=e286]: Pedidos abertos
+            - strong [ref=e287]: "3"
+          - generic [ref=e288]:
+            - paragraph [ref=e289]: Clientes
+            - strong [ref=e290]: "2"
+          - generic [ref=e291]:
+            - paragraph [ref=e292]: Pagamentos
+            - strong [ref=e293]: "0"
+        - generic [ref=e294]:
+          - generic [ref=e295]:
+            - generic [ref=e296]:
+              - generic [ref=e297]:
+                - paragraph [ref=e298]: Tela do caixa
+                - heading "Novo pedido" [level=4] [ref=e299]
+              - img [ref=e300]
+            - generic [ref=e303]:
+              - paragraph [ref=e304]: Sem formas de pagamento
+              - button "Criar padrão" [ref=e305]
+            - generic [ref=e306]:
+              - generic [ref=e307]:
+                - text: Cliente
+                - textbox "Cliente" [ref=e308]
+              - generic [ref=e309]:
+                - text: Telefone
+                - textbox "Telefone" [ref=e310]
+              - generic [ref=e311]:
+                - text: Endereço
+                - textbox "Endereço" [ref=e312]
+              - generic [ref=e313]:
+                - text: Número
+                - textbox "Número" [ref=e314]
+              - generic [ref=e315]:
+                - text: Bairro
+                - textbox "Bairro" [ref=e316]
+              - generic [ref=e317]:
+                - text: Cidade
+                - textbox "Cidade" [ref=e318]
+              - generic [ref=e319]:
+                - text: Complemento
+                - textbox "Complemento" [ref=e320]
+            - generic [ref=e321]:
+              - generic [ref=e322]:
+                - text: Item
+                - combobox "Item" [ref=e323]:
+                  - option "Selecione" [selected]
+                  - option "Banquete Real - R$ 80,00"
+                  - option "Esfiha Premium de Carne - R$ 11,90"
+                  - option "Pizza Brotinho Casa - R$ 29,90"
+                  - option "teste - R$ 10,00"
+              - generic [ref=e324]:
+                - text: Qtd
+                - spinbutton "Qtd" [ref=e325]: "1"
+            - generic [ref=e326]:
+              - textbox "Observação do item" [ref=e327]
+              - button "Adicionar" [ref=e328]:
+                - img [ref=e329]
+                - text: Adicionar
+            - generic [ref=e331]: Carrinho vazio.
+            - generic [ref=e332]:
+              - generic [ref=e333]:
+                - text: Pagamento
+                - combobox "Pagamento" [ref=e334]:
+                  - option "A combinar" [selected]
+              - generic [ref=e335]:
+                - text: Entrega
+                - spinbutton "Entrega" [ref=e336]: "0"
+            - textbox "Observações gerais do pedido" [ref=e337]
+            - generic [ref=e338]:
+              - generic [ref=e339]:
+                - paragraph [ref=e340]: Total
+                - strong [ref=e341]: R$ 0,00
+              - button "Criar e imprimir" [ref=e342]:
+                - img [ref=e343]
+                - text: Criar e imprimir
+          - generic [ref=e346]:
+            - generic [ref=e347]:
+              - generic [ref=e348]:
+                - generic [ref=e349]:
+                  - paragraph [ref=e350]: Tela da cozinha
+                  - heading "Fila de preparo" [level=4] [ref=e351]
+                - img [ref=e352]
+              - generic [ref=e354]:
+                - article [ref=e486]:
+                  - generic [ref=e487]:
+                    - generic [ref=e488]:
+                      - paragraph [ref=e489]: WEB-0405-47209
+                      - paragraph [ref=e490]: Cliente TESTE-CODEX-AUTO-1777911652547 - Pagamento não informado
+                    - generic [ref=e491]: Caixa
+                  - generic [ref=e492]:
+                    - generic [ref=e493]:
+                      - generic [ref=e494]:
+                        - img [ref=e495]
+                        - text: Comida
+                      - paragraph [ref=e499]: 1x Banquete Real - TESTE-CODEX-AUTO-1777911652547
+                    - generic [ref=e500]:
+                      - generic [ref=e501]:
+                        - img [ref=e502]
+                        - text: Bebida / Obs
+                      - paragraph [ref=e505]: "Obs: TESTE-CODEX-AUTO-1777911652547"
+                  - generic [ref=e506]:
+                    - button "Imprimir" [ref=e507]:
+                      - img [ref=e508]
+                      - text: Imprimir
+                    - button "Avançar" [ref=e512]:
+                      - img [ref=e513]
+                      - text: Avançar
+                - article [ref=e355]:
+                  - generic [ref=e356]:
+                    - generic [ref=e357]:
+                      - paragraph [ref=e358]: WEB-0405-45929
+                      - paragraph [ref=e359]: Diego - Pagamento não informado
+                    - generic [ref=e360]: Caixa
+                  - generic [ref=e361]:
+                    - generic [ref=e362]:
+                      - generic [ref=e363]:
+                        - img [ref=e364]
+                        - text: Comida
+                      - generic [ref=e367]:
+                        - paragraph [ref=e368]: 1x Pizza Brotinho Casa
+                        - paragraph [ref=e369]: 1x Banquete Real
+                    - generic [ref=e370]:
+                      - generic [ref=e371]:
+                        - img [ref=e372]
+                        - text: Bebida / Obs
+                      - paragraph [ref=e375]: Sem bebida ou observação.
+                  - generic [ref=e376]:
+                    - button "Imprimir" [ref=e377]:
+                      - img [ref=e378]
+                      - text: Imprimir
+                    - button "Avançar" [ref=e382]:
+                      - img [ref=e383]
+                      - text: Avançar
+                - article [ref=e386]:
+                  - generic [ref=e387]:
+                    - generic [ref=e388]:
+                      - paragraph [ref=e389]: WEB-0405-25182
+                      - paragraph [ref=e390]: Cliente Teste Codex Agora - Pagamento não informado
+                    - generic [ref=e391]: Caixa
+                  - generic [ref=e392]:
+                    - generic [ref=e393]:
+                      - generic [ref=e394]:
+                        - img [ref=e395]
+                        - text: Comida
+                      - paragraph [ref=e399]: 1x Banquete Real
+                    - generic [ref=e400]:
+                      - generic [ref=e401]:
+                        - img [ref=e402]
+                        - text: Bebida / Obs
+                      - paragraph [ref=e405]: "Obs: TESTE-CODEX-APARECER-PAINEL"
+                  - generic [ref=e406]:
+                    - button "Imprimir" [ref=e407]:
+                      - img [ref=e408]
+                      - text: Imprimir
+                    - button "Avançar" [ref=e412]:
+                      - img [ref=e413]
+                      - text: Avançar
+            - generic [ref=e416]:
+              - generic [ref=e417]:
+                - generic [ref=e418]:
+                  - paragraph [ref=e419]: Status
+                  - heading "Painel do pedido" [level=4] [ref=e420]
+                - img [ref=e421]
+              - generic [ref=e426]:
+                - generic [ref=e427]:
+                  - paragraph [ref=e428]: Caixa
+                  - generic [ref=e429]:
+                    - generic [ref=e516]:
+                      - paragraph [ref=e517]: WEB-0405-47209
+                      - paragraph [ref=e518]: R$ 80,00
+                    - generic [ref=e430]:
+                      - paragraph [ref=e431]: WEB-0405-45929
+                      - paragraph [ref=e432]: R$ 109,90
+                    - generic [ref=e433]:
+                      - paragraph [ref=e434]: WEB-0405-25182
+                      - paragraph [ref=e435]: R$ 80,00
+                - paragraph [ref=e437]: Aceito
+                - paragraph [ref=e439]: Cozinha
+                - paragraph [ref=e441]: Pronto
+                - paragraph [ref=e443]: Entregue
+            - generic [ref=e444]:
+              - generic [ref=e445]:
+                - generic [ref=e446]:
+                  - paragraph [ref=e447]: Expedição
+                  - heading "Prontos para sair" [level=4] [ref=e448]
+                - img [ref=e449]
+              - generic [ref=e454]:
+                - textbox "Motoboy" [ref=e455]
+                - textbox "Telefone" [ref=e456]
+                - spinbutton [ref=e457]
+                - spinbutton [ref=e458]
+                - button "Salvar" [ref=e459]:
+                  - img [ref=e460]
+                  - text: Salvar
+              - generic [ref=e465]: Nenhum pedido pronto aguardando expedição.
+            - generic [ref=e466]:
+              - generic [ref=e467]:
+                - generic [ref=e468]:
+                  - paragraph [ref=e469]: Entrega
+                  - heading "Na rua e custos" [level=4] [ref=e470]
+                - img [ref=e471]
+              - generic [ref=e474]:
+                - generic [ref=e475]:
+                  - paragraph [ref=e476]: Prontos
+                  - strong [ref=e477]: "0"
+                - generic [ref=e478]:
+                  - paragraph [ref=e479]: Na rua
+                  - strong [ref=e480]: "0"
+                - generic [ref=e481]:
+                  - paragraph [ref=e482]: Entregues
+                  - strong [ref=e483]: "0"
+              - generic [ref=e485]: Nenhuma entrega na rua.

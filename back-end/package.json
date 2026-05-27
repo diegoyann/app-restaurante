@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vercel dev",
-    "start": "vercel dev",
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
     "seed:supabase": "node ./scripts/bootstrap-supabase.mjs"
   },
   "dependencies": {

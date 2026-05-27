@@ -1,0 +1,14 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - paragraph [ref=e7]: Super Admin
+        - heading "Painel global de tenants" [level=1] [ref=e8]
+        - paragraph [ref=e9]: Selecione a empresa, a filial e o escopo de acesso. Multi-tenant sem essa separação vira vazamento de dado com interface bonita.
+      - button "Sair" [ref=e10]:
+        - img [ref=e11]
+        - text: Sair
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - img [ref=e16]
+      - text: Carregando snapshot administrativo

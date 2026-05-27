@@ -1,11 +1,33 @@
 import { env } from '../../src/lib/env.js';
 
+function isLocalViteOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    const port = Number(url.port);
+
+    return ['localhost', '127.0.0.1'].includes(url.hostname)
+      && port >= 5173
+      && port <= 5199;
+  } catch {
+    return false;
+  }
+}
+
+function isChromeExtensionOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'chrome-extension:';
+  } catch {
+    return false;
+  }
+}
+
 export function setCors(res) {
   const allowedOrigins = env.corsAllowedOrigins;
   const origin = res.req?.headers?.origin;
   const resolvedOrigin = allowedOrigins.length === 0
     ? origin || '*'
-    : allowedOrigins.includes(origin)
+    : allowedOrigins.includes(origin) || isLocalViteOrigin(origin) || isChromeExtensionOrigin(origin)
       ? origin
       : allowedOrigins[0];
 

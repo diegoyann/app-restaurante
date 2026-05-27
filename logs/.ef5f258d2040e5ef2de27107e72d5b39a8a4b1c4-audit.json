@@ -6,9 +6,29 @@
     "auditLog": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\.ef5f258d2040e5ef2de27107e72d5b39a8a4b1c4-audit.json",
     "files": [
         {
-            "date": 1775780184852,
-            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-04-09.log",
-            "hash": "5aef14167b7563b960528074dd86a3c1045b1357855f13941172117b075601a5"
+            "date": 1778779274219,
+            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-05-14.log",
+            "hash": "003d1b5926d1af17fbc5532a991594769509bdc0121d6540dfe225dc2d5385d5"
+        },
+        {
+            "date": 1779414645226,
+            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-05-21.log",
+            "hash": "ad78efcd6819cd4d8388e5d1c5f06222723fca12dbe893c90a9fd99c6b9b1392"
+        },
+        {
+            "date": 1779445583596,
+            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-05-22.log",
+            "hash": "135462e648e413e861f8f6ad367b0f13bec92b5928e937100a3d0f69b78af480"
+        },
+        {
+            "date": 1779803876451,
+            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-05-26.log",
+            "hash": "f62efe51cb0c8539a6fbfa336c252e5a4735827c660da85dbca92e178bb07ab5"
+        },
+        {
+            "date": 1779902232044,
+            "name": "D:\\Git\\binho\\ReiDasEsfihas\\logs\\mcp-puppeteer-2026-05-27.log",
+            "hash": "2e994628acfdc6cc81dc4ba7db3bfc5127d6ace2fafed04477bfe679ab6a10b4"
         }
     ],
     "hashType": "sha256"

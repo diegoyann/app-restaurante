@@ -1,0 +1,66 @@
+- main [ref=e3]:
+  - generic [ref=e5]:
+    - paragraph [ref=e6]: Cardápio digital
+    - heading "Rei das Esfihas" [level=1] [ref=e7]
+    - paragraph [ref=e8]: Monte seu pedido direto pelo canal próprio.
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - heading "Esfiha" [level=2] [ref=e12]
+        - article [ref=e14]:
+          - generic [ref=e16]:
+            - heading "Esfiha Premium de Carne" [level=3] [ref=e17]
+            - paragraph [ref=e18]: Massa leve com recheio bem temperado, toque de limão e apresentação individual.
+            - generic [ref=e19]:
+              - strong [ref=e20]: R$ 11,90
+              - button "Adicionar" [ref=e21]:
+                - img [ref=e22]
+                - text: Adicionar
+      - generic [ref=e23]:
+        - heading "Pizza" [level=2] [ref=e24]
+        - article [ref=e26]:
+          - generic [ref=e28]:
+            - heading "Pizza Brotinho Casa" [level=3] [ref=e29]
+            - paragraph [ref=e30]: Massa artesanal, molho da casa, queijo derretido e sabor clássico para compartilhar.
+            - generic [ref=e31]:
+              - strong [ref=e32]: R$ 29,90
+              - button "Adicionar" [ref=e33]:
+                - img [ref=e34]
+                - text: Adicionar
+      - generic [ref=e35]:
+        - heading "Combo" [level=2] [ref=e36]
+        - article [ref=e38]:
+          - generic [ref=e40]:
+            - heading "Banquete Real" [level=3] [ref=e41]
+            - paragraph [ref=e42]: Combo grande com sabores clássicos e uma bebida obrigatória, inspirado no fluxo operacional de marketplaces.
+            - generic [ref=e43]:
+              - strong [ref=e44]: R$ 80,00
+              - button "Adicionar" [ref=e45]:
+                - img [ref=e46]
+                - text: Adicionar
+    - generic [ref=e47]:
+      - generic [ref=e48]:
+        - heading "Seu pedido" [level=2] [ref=e49]
+        - img [ref=e50]
+      - paragraph [ref=e54]: Carrinho vazio.
+      - generic [ref=e55]:
+        - textbox "Nome" [ref=e56]
+        - textbox "Telefone" [ref=e57]
+        - textbox "Rua" [ref=e58]
+        - generic [ref=e59]:
+          - textbox "Número" [ref=e60]
+          - textbox "Bairro" [ref=e61]
+        - textbox "Cidade" [ref=e62]
+        - textbox "Complemento" [ref=e63]
+        - combobox [ref=e64]:
+          - option "Pagamento a combinar" [selected]
+          - option "Dinheiro"
+          - option "Pix"
+          - option "Cartão de crédito"
+          - option "Cartão de débito"
+        - textbox "Observações" [ref=e65]
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - paragraph [ref=e68]: Total
+          - strong [ref=e69]: R$ 0,00
+        - button "Enviar" [ref=e70]

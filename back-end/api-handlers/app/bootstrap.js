@@ -1,5 +1,5 @@
 import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { getTenantBootstrap } from '../../src/repositories/appRepository.js';
+import { getEffectivePermissionsForIdentity, getTenantBootstrap } from '../../src/modules/app/index.js';
 import {
   badRequest,
   getTenantSlug,
@@ -27,7 +27,10 @@ export default async function handler(req, res) {
   try {
     const identity = await resolveIdentity(req);
     requireTenantAccess(identity, tenantSlug);
-    return sendJson(res, 200, await getTenantBootstrap(tenantSlug));
+    return sendJson(res, 200, {
+      ...await getTenantBootstrap(tenantSlug),
+      currentUserPermissions: await getEffectivePermissionsForIdentity(identity, tenantSlug)
+    });
   } catch (error) {
     return sendError(res, error, 400);
   }

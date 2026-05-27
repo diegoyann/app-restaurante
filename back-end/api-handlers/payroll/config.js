@@ -1,5 +1,5 @@
 import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { getTenantBootstrap, savePayrollConfig } from '../../src/repositories/appRepository.js';
+import { getTenantBootstrap, savePayrollConfig } from '../../src/modules/hr/index.js';
 import { sanitizePayrollSettings } from '../../src/services/payrollService.js';
 import {
   badRequest,

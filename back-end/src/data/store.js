@@ -1,3 +1,5 @@
+import { createMockDataset } from '../../../shared/mock-data/index.js';
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -16,209 +18,37 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '');
 }
 
-const baseTenantData = {
-  settings: {
-    ifoodTax: 23,
-    anotaaiTax: 5,
-    appPassword: 'admin',
-    passwordReminder: 'A senha padrão é "admin".',
-    businessName: 'Rei das Esfihas',
-    alertDaysBefore: 3
-  },
-  aiBehaviorSettings: {
-    positiveTone: 'friendly',
-    crisisStrategy: 'whatsapp',
-    additionalInstructions: '',
-    autoPublishPositive: true
-  },
-  payrollConfig: {
-    salaryPercentage: 60,
-    salaryBusinessDayOrdinal: 5,
-    advancePercentage: 40,
-    advanceFixedDay: 20,
-    advanceBusinessDayPolicy: 'next',
-    holidayDates: []
-  },
-  salesChannels: [
-    { id: 1, name: 'ifood' },
-    { id: 2, name: 'anotaai' }
-  ],
-  financeExpenseCategories: [
-    { id: 1, name: 'Compra de Insumos' },
-    { id: 2, name: 'Fornecedor' },
-    { id: 3, name: 'Manutenção' },
-    { id: 4, name: 'Marketing' },
-    { id: 5, name: 'Imposto' },
-    { id: 6, name: 'Retirada' },
-    { id: 7, name: 'Outras Saídas' }
-  ],
-  recurringCosts: [
-    { id: 1, desc: 'Aluguel', amount: 3000, dueDay: 10, lastPaidMonth: '' },
-    { id: 2, desc: 'Energia Elétrica', amount: 850, dueDay: 15, lastPaidMonth: '' }
-  ],
-  employees: [
-    {
-      id: 1,
-      name: 'João da Massa',
-      phone: '',
-      email: '',
-      address: '',
-      maritalStatus: '',
-      role: 'Esfiharia',
-      notes: '',
-      employmentType: 'fixed',
-      status: 'active',
-      salary: 2200,
-      admissionDate: '',
-      discounts: [{ id: 1, category: 'Falta', amount: 0 }]
-    },
-    {
-      id: 2,
-      name: 'Maria do Balcão',
-      phone: '',
-      email: '',
-      address: '',
-      maritalStatus: '',
-      role: 'Atendimento',
-      notes: '',
-      employmentType: 'fixed',
-      status: 'active',
-      salary: 1800,
-      admissionDate: '',
-      discounts: [{ id: 1, category: 'Outros', amount: 0 }]
-    },
-    {
-      id: 3,
-      name: 'Carlos da Fornalha',
-      phone: '',
-      email: '',
-      address: '',
-      maritalStatus: '',
-      role: 'Pizzaiolo',
-      notes: 'Prestador semanal',
-      employmentType: 'external',
-      status: 'active',
-      paymentMode: 'weekly',
-      baseAmount: 450,
-      weekday: '5',
-      specificDate: '',
-      startDate: ''
-    }
-  ],
-  transactions: [
-    { id: 1, date: '2024-04-09', platform: 'ifood', payment: 'online', amount: 1200, tax: 23, net: 924, type: 'receita', category: 'ifood', note: 'Pedidos iFood' },
-    { id: 2, date: '2024-04-09', platform: 'anotaai', payment: 'pix', amount: 650, tax: 5, net: 617.5, type: 'receita', category: 'anotaai', note: 'Pedidos Anota AI' },
-    { id: 3, date: '2024-04-09', platform: 'despesa', payment: 'pix', amount: 180, tax: 0, net: -180, type: 'despesa', category: 'Compra de Insumos', note: 'Reposição de hortifruti' }
-  ]
-};
+const dataset = createMockDataset();
 
-function createTenantData(overrides = {}) {
-  return {
-    ...clone(baseTenantData),
-    ...clone(overrides),
-    settings: {
-      ...clone(baseTenantData.settings),
-      ...(overrides.settings ? clone(overrides.settings) : {})
-    },
-    aiBehaviorSettings: {
-      ...clone(baseTenantData.aiBehaviorSettings),
-      ...(overrides.aiBehaviorSettings ? clone(overrides.aiBehaviorSettings) : {})
-    },
-    payrollConfig: {
-      ...clone(baseTenantData.payrollConfig),
-      ...(overrides.payrollConfig ? clone(overrides.payrollConfig) : {})
-    }
-  };
+function findTenantIndex(slug) {
+  return dataset.tenants.findIndex((tenant) => tenant.slug === slug);
 }
-
-function createTenantRecord({ slug, name, data = {} }) {
-  return {
-    id: createId('ten'),
-    slug,
-    name,
-    data: createTenantData({
-      ...data,
-      settings: {
-        businessName: name,
-        ...(data.settings || {})
-      }
-    })
-  };
-}
-
-export const db = {
-  users: [
-    {
-      id: 'usr_super_admin',
-      name: 'Administrador Global',
-      email: 'admin@gestaofood.com.br',
-      password: 'admin123',
-      role: 'super_admin',
-      tenantSlug: null
-    },
-    {
-      id: 'usr_rei',
-      name: 'Rei das Esfihas',
-      email: 'rei@reidasesfihas.com',
-      password: 'admin',
-      role: 'tenant_admin',
-      tenantSlug: 'reidasesfihas'
-    },
-    {
-      id: 'usr_demo',
-      name: 'Demo Restaurante',
-      email: 'demo@gestaofood.com.br',
-      password: 'demo',
-      role: 'tenant_admin',
-      tenantSlug: 'demo'
-    },
-    {
-      id: 'usr_express',
-      name: 'Esfiharia Express',
-      email: 'admin@express.com',
-      password: 'admin',
-      role: 'tenant_admin',
-      tenantSlug: 'esfiharia-express'
-    }
-  ],
-  tenants: {
-    reidasesfihas: createTenantRecord({
-      slug: 'reidasesfihas',
-      name: 'Rei das Esfihas'
-    }),
-    demo: createTenantRecord({
-      slug: 'demo',
-      name: 'Demo Restaurante'
-    }),
-    'esfiharia-express': createTenantRecord({
-      slug: 'esfiharia-express',
-      name: 'Esfiharia Express'
-    })
-  }
-};
 
 export function listTenants() {
-  return Object.values(db.tenants).map((tenant) => ({
+  return dataset.tenants.map((tenant) => ({
     id: tenant.id,
     slug: tenant.slug,
-    name: tenant.name
+    name: tenant.name,
+    businessName: tenant.businessName
   }));
 }
 
-export function findUserByCredentials(email, password) {
-  return db.users.find(
-    (user) =>
-      user.email.toLowerCase() === String(email || '').trim().toLowerCase() &&
-      user.password === password
-  );
+export function findUserByCredentials() {
+  return null;
 }
 
 export function listUsers() {
-  return db.users.map((user) => clone(user));
+  return dataset.users.map((user) => ({
+    id: user.id,
+    name: user.fullName,
+    email: user.email,
+    role: user.role,
+    tenantSlug: user.tenantSlug
+  }));
 }
 
 export function getTenant(slug) {
-  return db.tenants[slug] || null;
+  return dataset.tenants.find((tenant) => tenant.slug === slug) || null;
 }
 
 export function assertTenant(slug) {
@@ -232,7 +62,7 @@ export function assertTenant(slug) {
 }
 
 export function getTenantData(slug) {
-  return assertTenant(slug).data;
+  return clone(assertTenant(slug).bootstrap);
 }
 
 export function buildTenantBootstrap(slug) {
@@ -242,38 +72,40 @@ export function buildTenantBootstrap(slug) {
     tenant: {
       id: tenant.id,
       slug: tenant.slug,
-      name: tenant.name
+      name: tenant.name,
+      businessName: tenant.businessName
     },
-    ...clone(tenant.data)
+    ...clone(tenant.bootstrap)
   };
 }
 
 export function buildAdminTenantSnapshot(slug) {
   const tenant = assertTenant(slug);
-  const users = db.users.filter((user) => user.tenantSlug === slug);
-  const tenantData = clone(tenant.data);
+  const users = dataset.users.filter((user) => user.tenantSlug === slug);
+  const bootstrap = clone(tenant.bootstrap);
 
   return {
     tenant: {
       id: tenant.id,
       slug: tenant.slug,
-      name: tenant.name
+      name: tenant.name,
+      businessName: tenant.businessName
     },
     summary: {
       users: users.length,
-      employees: tenantData.employees.length,
-      salesChannels: tenantData.salesChannels.length,
-      recurringCosts: tenantData.recurringCosts.length,
-      transactions: tenantData.transactions.length
+      employees: bootstrap.employees.length,
+      salesChannels: bootstrap.salesChannels.length,
+      recurringCosts: bootstrap.recurringCosts.length,
+      transactions: bootstrap.transactions.length
     },
     users: users.map((user) => ({
       id: user.id,
-      name: user.name,
+      name: user.fullName,
       email: user.email,
       role: user.role,
       tenantSlug: user.tenantSlug
     })),
-    data: tenantData
+    data: bootstrap
   };
 }
 
@@ -290,8 +122,8 @@ export function buildAdminBootstrap(selectedTenantSlug = '') {
 
 export function updateTenantSection(slug, section, value) {
   const tenant = assertTenant(slug);
-  tenant.data[section] = clone(value);
-  return clone(tenant.data[section]);
+  tenant.bootstrap[section] = clone(value);
+  return clone(tenant.bootstrap[section]);
 }
 
 export function createTenant({ name, slug }) {
@@ -306,40 +138,76 @@ export function createTenant({ name, slug }) {
     throw new Error('Slug do tenant é obrigatório.');
   }
 
-  if (db.tenants[normalizedSlug]) {
+  if (getTenant(normalizedSlug)) {
     throw new Error('Já existe um tenant com esse slug.');
   }
 
-  const tenant = createTenantRecord({
+  const template = clone(dataset.tenants[0]?.bootstrap || {});
+  const tenant = {
+    id: createId('ten'),
     slug: normalizedSlug,
-    name: normalizedName
-  });
+    name: normalizedName,
+    businessName: normalizedName,
+    bootstrap: {
+      aiBehaviorSettings: template.aiBehaviorSettings || null,
+      payrollConfig: template.payrollConfig || null,
+      employeeRoles: [],
+      discountCategories: [],
+      employees: [],
+      ingredients: [],
+      ingredientUnits: [],
+      preparations: [],
+      products: [],
+      menuCategories: [],
+      menuItems: [],
+      recurringCosts: [],
+      salesChannels: [],
+      financeExpenseCategories: [],
+      transactions: [],
+      customers: [],
+      paymentMethods: [],
+      orders: [],
+      deliveryDrivers: [],
+      financialClosings: [],
+      reviews: [],
+      settings: {
+        ...template.settings,
+        businessName: normalizedName
+      }
+    }
+  };
 
-  db.tenants[normalizedSlug] = tenant;
+  dataset.tenants.push(tenant);
   return clone(tenant);
 }
 
 export function updateTenantMeta(slug, payload) {
   const tenant = assertTenant(slug);
   const nextName = String(payload.name || tenant.name).trim();
+  const nextBusinessName = String(payload.businessName || tenant.businessName || nextName).trim();
 
   if (!nextName) {
     throw new Error('Nome do tenant é obrigatório.');
   }
 
   tenant.name = nextName;
-  tenant.data.settings.businessName = String(
-    payload.businessName || tenant.data.settings.businessName || nextName
-  ).trim();
+  tenant.businessName = nextBusinessName;
+  tenant.bootstrap.settings = {
+    ...tenant.bootstrap.settings,
+    businessName: nextBusinessName
+  };
 
   return clone(tenant);
 }
 
 export function deleteTenant(slug) {
   const tenant = assertTenant(slug);
+  const tenantIndex = findTenantIndex(slug);
 
-  delete db.tenants[slug];
-  db.users = db.users.filter((user) => user.tenantSlug !== slug);
+  dataset.tenants.splice(tenantIndex, 1);
+
+  const remainingUsers = dataset.users.filter((user) => user.tenantSlug !== slug);
+  dataset.users.splice(0, dataset.users.length, ...remainingUsers);
 
   return clone({
     id: tenant.id,
@@ -350,33 +218,32 @@ export function deleteTenant(slug) {
 
 export function appendTransaction(slug, transaction) {
   const tenant = assertTenant(slug);
-  const newTransaction = {
+  const nextTransaction = {
     id: Date.now(),
     ...clone(transaction)
   };
 
-  tenant.data.transactions = [newTransaction, ...tenant.data.transactions];
-  return clone(newTransaction);
+  tenant.bootstrap.transactions = [nextTransaction, ...tenant.bootstrap.transactions];
+  return clone(nextTransaction);
 }
 
 export function appendRecurringCost(slug, recurringCost) {
   const tenant = assertTenant(slug);
-  const newRecurringCost = {
+  const nextRecurringCost = {
     id: Date.now(),
     ...clone(recurringCost)
   };
 
-  tenant.data.recurringCosts = [newRecurringCost, ...tenant.data.recurringCosts];
-  return clone(newRecurringCost);
+  tenant.bootstrap.recurringCosts = [nextRecurringCost, ...tenant.bootstrap.recurringCosts];
+  return clone(nextRecurringCost);
 }
 
 export function updateRecurringCost(slug, recurringCostId, patch) {
   const tenant = assertTenant(slug);
-  const targetId = Number(recurringCostId);
   let updatedCost = null;
 
-  tenant.data.recurringCosts = tenant.data.recurringCosts.map((cost) => {
-    if (cost.id !== targetId) {
+  tenant.bootstrap.recurringCosts = tenant.bootstrap.recurringCosts.map((cost) => {
+    if (String(cost.id) !== String(recurringCostId)) {
       return cost;
     }
 
@@ -401,11 +268,11 @@ export function upsertEmployee(slug, employee) {
 
   if (!normalized.id) {
     normalized.id = Date.now();
-    tenant.data.employees = [...tenant.data.employees, normalized];
+    tenant.bootstrap.employees = [...tenant.bootstrap.employees, normalized];
     return clone(normalized);
   }
 
-  tenant.data.employees = tenant.data.employees.map((current) =>
+  tenant.bootstrap.employees = tenant.bootstrap.employees.map((current) =>
     current.id === normalized.id ? normalized : current
   );
 
@@ -414,12 +281,13 @@ export function upsertEmployee(slug, employee) {
 
 export function deleteEmployee(slug, employeeId) {
   const tenant = assertTenant(slug);
-  const targetId = Number(employeeId);
-  const currentSize = tenant.data.employees.length;
+  const currentSize = tenant.bootstrap.employees.length;
 
-  tenant.data.employees = tenant.data.employees.filter((employee) => employee.id !== targetId);
+  tenant.bootstrap.employees = tenant.bootstrap.employees.filter(
+    (employee) => String(employee.id) !== String(employeeId)
+  );
 
-  if (tenant.data.employees.length === currentSize) {
+  if (tenant.bootstrap.employees.length === currentSize) {
     throw new Error('Funcionário não encontrado.');
   }
 
@@ -431,7 +299,6 @@ export function upsertTenantUser(slug, payload) {
 
   const normalizedName = String(payload.name || '').trim();
   const normalizedEmail = String(payload.email || '').trim().toLowerCase();
-  const normalizedPassword = String(payload.password || '').trim();
   const normalizedRole = payload.role === 'tenant_staff' ? 'tenant_staff' : 'tenant_admin';
 
   if (!normalizedName) {
@@ -443,7 +310,7 @@ export function upsertTenantUser(slug, payload) {
   }
 
   const currentUserId = payload.id ? String(payload.id) : null;
-  const duplicatedEmail = db.users.find(
+  const duplicatedEmail = dataset.users.find(
     (user) => user.email.toLowerCase() === normalizedEmail && user.id !== currentUserId
   );
 
@@ -451,28 +318,21 @@ export function upsertTenantUser(slug, payload) {
     throw new Error('Já existe um usuário com esse e-mail.');
   }
 
-  if (!payload.id && normalizedPassword.length < 4) {
-    throw new Error('Senha deve ter pelo menos 4 caracteres.');
-  }
-
   if (payload.id) {
     let updatedUser = null;
 
-    db.users = db.users.map((user) => {
-      if (user.id !== currentUserId) {
-        return user;
-      }
+    dataset.users.forEach((user, index) => {
+      if (user.id !== currentUserId) return;
 
       updatedUser = {
         ...user,
-        name: normalizedName,
         email: normalizedEmail,
+        fullName: normalizedName,
         role: normalizedRole,
-        tenantSlug: slug,
-        password: normalizedPassword ? normalizedPassword : user.password
+        tenantSlug: slug
       };
 
-      return updatedUser;
+      dataset.users[index] = updatedUser;
     });
 
     if (!updatedUser) {
@@ -484,24 +344,27 @@ export function upsertTenantUser(slug, payload) {
 
   const createdUser = {
     id: createId('usr'),
-    name: normalizedName,
     email: normalizedEmail,
-    password: normalizedPassword,
+    fullName: normalizedName,
     role: normalizedRole,
     tenantSlug: slug
   };
 
-  db.users.push(createdUser);
+  dataset.users.push(createdUser);
   return clone(createdUser);
 }
 
 export function deleteTenantUser(slug, userId) {
   assertTenant(slug);
 
-  const currentSize = db.users.length;
-  db.users = db.users.filter((user) => !(user.id === String(userId) && user.tenantSlug === slug));
+  const currentSize = dataset.users.length;
+  const remainingUsers = dataset.users.filter(
+    (user) => !(user.id === String(userId) && user.tenantSlug === slug)
+  );
 
-  if (db.users.length === currentSize) {
+  dataset.users.splice(0, dataset.users.length, ...remainingUsers);
+
+  if (dataset.users.length === currentSize) {
     throw new Error('Usuário não encontrado.');
   }
 
@@ -515,7 +378,7 @@ export function replacePayrollSettings(slug, settings) {
 export function ensureEmployeeIds(slug) {
   const tenant = assertTenant(slug);
 
-  tenant.data.employees = tenant.data.employees.map((employee) => ({
+  tenant.bootstrap.employees = tenant.bootstrap.employees.map((employee) => ({
     ...employee,
     id: employee.id || createId('emp')
   }));

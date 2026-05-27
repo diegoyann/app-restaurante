@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Rei das Esfihas - Pedidos",
+  "description": "Login e cadastro de pedidos da base Rei das Esfihas direto pela extensão.",
+  "version": "1.0.0",
+  "action": {
+    "default_title": "Rei das Esfihas",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://*.supabase.co/*",
+    "https://*/*"
+  ]
+}

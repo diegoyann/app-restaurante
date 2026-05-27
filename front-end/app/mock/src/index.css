@@ -7,7 +7,7 @@ html, body, #root {
 
 body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #fdfffd;
+  background: #FAF6EF;
   font-size: 16px;
 }
 
@@ -110,4 +110,366 @@ body {
   .app-shell .dashboard-chart-panel .recharts-text.recharts-label-list-label {
     font-size: 1rem !important;
   }
+}
+
+:root {
+  --color-bg-main: #FAF6EF;
+  --color-bg-card: #FFFFFF;
+  --color-bg-soft: #F3E8DA;
+  --color-bg-sand: #F7EFE6;
+  --color-bg-hover: #F7EFE6;
+
+  --color-sidebar-top: #2E1C14;
+  --color-sidebar-mid: #3A2114;
+  --color-sidebar-warm: #6B3A1C;
+  --color-sidebar-bottom: #A85A2B;
+  --color-sidebar-bg: #2E1C14;
+  --color-sidebar-bg-start: #2E1C14;
+  --color-sidebar-bg-end: #A85A2B;
+  --color-sidebar-footer: rgba(31, 18, 11, 0.32);
+  --color-sidebar-hover: rgba(255, 255, 255, 0.10);
+  --color-sidebar-active-bg: #EED9B0;
+  --color-sidebar-active-hover: #F3E8DA;
+  --color-sidebar-active-text: #2A1E15;
+  --color-sidebar-text: #EAD8BF;
+  --color-sidebar-muted: #C9AA86;
+  --color-sidebar-icon: #E6CDA8;
+  --color-sidebar-divider: rgba(255, 255, 255, 0.16);
+
+  --color-primary: #2A1E15;
+  --color-primary-hover: #3A281B;
+  --color-primary-soft: #F3E8DA;
+  --color-primary-dark: #1F120B;
+  --color-primary-light: #E7DED1;
+  --color-primary-darker: #2A1E15;
+
+  --color-accent: #D4A373;
+  --color-accent-hover: #C58F5E;
+  --color-accent-soft: #F3E8DA;
+  --color-accent-strong: #F6B52E;
+  --color-secondary: #D4A373;
+  --color-secondary-hover: #C58F5E;
+  --color-secondary-light: #F3E8DA;
+  --color-secondary-warm: #B76A22;
+  --color-caramel: #B76A22;
+  --color-brown-medium: #8A5A2B;
+
+  --color-bg-app: var(--color-bg-main);
+  --color-bg-alt: var(--color-bg-soft);
+  --color-text-main: #2A1E15;
+  --color-text-medium: #6F6258;
+  --color-text-secondary: #6F6258;
+  --color-text-weak: #9B8E82;
+  --color-text-muted: #9B8E82;
+  --color-text-disabled: #B8AA9A;
+  --color-text-inverse: #FFF7EA;
+
+  --color-border: #E7DED1;
+  --color-border-strong: #D8C9B8;
+  --color-success: #2F8F55;
+  --color-success-soft: #E4F3E8;
+  --color-warning: #D4A373;
+  --color-warning-soft: #F3E8DA;
+  --color-danger: #C95C49;
+  --color-danger-soft: #F8E2DA;
+  --color-info: #3F6F8F;
+  --color-info-soft: #E8F0F7;
+
+  --shadow-card: 0 10px 28px rgba(42, 30, 21, 0.07);
+  --shadow-card-hover: 0 14px 36px rgba(42, 30, 21, 0.11);
+  --shadow-sidebar: 0 18px 40px rgba(42, 30, 21, 0.22);
+
+  --color-primary-ultra-light: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --color-secondary-ultra-light: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+body {
+  background-color: var(--color-bg-app) !important;
+  color: var(--color-text-main) !important;
+}
+
+/* Remove itálicos cansativos do sistema */
+body, .app-shell, main, header, aside, nav, button, span, p, h1, h2, h3, h4, input, select, label {
+  font-style: normal !important;
+}
+
+/* Sidebar gradiente elegante */
+aside.bg-gradient-to-b {
+  background: linear-gradient(180deg, var(--color-sidebar-top) 0%, var(--color-sidebar-mid) 28%, var(--color-sidebar-warm) 68%, var(--color-sidebar-bottom) 100%) !important;
+  color: var(--color-sidebar-text) !important;
+  box-shadow: var(--shadow-sidebar) !important;
+}
+
+/* Item de menu ativo */
+aside nav button.bg-white\/12,
+aside nav button.bg-\[\#c5a04a\] {
+  background-color: var(--color-sidebar-active-bg) !important;
+  color: var(--color-sidebar-active-text) !important;
+  border-left: 4px solid var(--color-accent) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 22px rgba(42, 30, 21, 0.16) !important;
+}
+aside nav button.bg-white\/12 span,
+aside nav button.bg-\[\#c5a04a\] span {
+  color: var(--color-sidebar-active-text) !important;
+  font-weight: 900 !important;
+}
+aside nav button.bg-white\/12 svg,
+aside nav button.bg-\[\#c5a04a\] svg {
+  color: var(--color-sidebar-active-text) !important;
+}
+
+/* Submenu item ativo */
+aside nav div div button.bg-\[\#c5a04a\] {
+  background-color: var(--color-sidebar-active-bg) !important;
+  color: var(--color-sidebar-active-text) !important;
+  border-left: 3px solid var(--color-accent) !important;
+  border-radius: 0.5rem !important;
+}
+aside nav div div button.bg-\[\#c5a04a\] span {
+  color: var(--color-sidebar-active-text) !important;
+  font-weight: 800 !important;
+}
+aside nav div div button.bg-\[\#c5a04a\] svg {
+  color: var(--color-sidebar-active-text) !important;
+}
+
+/* Menus inativos */
+aside nav button,
+aside nav div div button {
+  color: var(--color-sidebar-text) !important;
+  background-color: transparent !important;
+}
+aside nav button span,
+aside nav div div button span {
+  color: var(--color-sidebar-text) !important;
+}
+
+/* Hover nos menus */
+aside nav button:hover,
+aside nav div div button:hover {
+  background-color: var(--color-sidebar-hover) !important;
+  color: #FFFFFF !important;
+}
+aside nav button:hover span,
+aside nav div div button:hover span {
+  color: #FFFFFF !important;
+}
+
+/* Estilos de Cards com bordas e sombras do tom correto */
+.bg-white.p-5,
+.bg-white.p-4,
+div[class*="rounded-2xl"][class*="shadow-sm"] {
+  background-color: var(--color-bg-card) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.metric-icon-box {
+  background: var(--color-bg-soft) !important;
+  color: var(--color-brown-medium) !important;
+}
+
+.metric-icon-box .metric-icon,
+.metric-icon-box svg {
+  color: var(--color-brown-medium) !important;
+}
+
+[class*="text-gray-900"] { color: var(--color-text-main) !important; }
+[class*="text-[#0f172a]"] { color: var(--color-text-main) !important; }
+[class*="text-[#696965]"] { color: var(--color-text-medium) !important; }
+[class*="text-[#7a6666]"] { color: var(--color-text-medium) !important; }
+[class*="text-[#6b4d4e]"] { color: var(--color-text-medium) !important; }
+
+[class*="bg-[#5c1f20]"] { background-color: var(--color-primary) !important; }
+[class*="text-[#5c1f20]"] { color: var(--color-primary) !important; }
+[class*="border-[#5c1f20]"] { border-color: var(--color-primary) !important; }
+
+[class*="bg-[#4b1718]"] { background-color: var(--color-primary-dark) !important; }
+[class*="text-[#4b1718]"] { color: var(--color-primary-dark) !important; }
+
+[class*="bg-[#7a3738]"] { background-color: var(--color-primary-soft) !important; }
+[class*="border-[#7a3738]"] { border-color: var(--color-border) !important; }
+
+[class*="bg-[#341011]"] { background-color: var(--color-primary-darker) !important; }
+
+[class*="bg-[#c5a04a]"] { background-color: var(--color-accent) !important; }
+[class*="text-[#c5a04a]"] { color: var(--color-accent) !important; }
+[class*="border-[#c5a04a]"] { border-color: var(--color-accent) !important; }
+[class*="ring-[#c5a04a]"] { --tw-ring-color: var(--color-accent) !important; }
+
+[class*="hover:bg-[#c5a04a]"]:hover { background-color: var(--color-accent) !important; }
+[class*="hover:bg-[#d4b35e]"]:hover { background-color: var(--color-accent-hover) !important; }
+[class*="focus:border-[#c5a04a]"]:focus { border-color: var(--color-primary) !important; }
+[class*="hover:text-[#f6d98b]"]:hover { color: #FFFFFF !important; }
+[class*="text-[#f6d98b]"] { color: var(--color-sidebar-muted) !important; }
+
+[class*="bg-[#fdfffd]"] { background-color: var(--color-bg-app) !important; }
+[class*="text-[#fdfffd]"] { color: #ffffff !important; }
+
+[class*="bg-[#fffdf9]"] { background-color: var(--color-bg-card) !important; }
+[class*="bg-[#fffdf8]"] { background-color: var(--color-bg-card) !important; }
+[class*="bg-[#fffaf4]"] { background-color: var(--color-bg-card) !important; }
+[class*="bg-[#fffaf0]"] { background-color: var(--color-bg-card) !important; }
+[class*="bg-white"] { background-color: var(--color-bg-card) !important; }
+
+[class*="bg-[#f8f5ef]"] { background-color: var(--color-bg-sand) !important; }
+[class*="bg-[#fcfbf7]"] { background-color: var(--color-bg-soft) !important; }
+
+[class*="from-[#4b1718]"] {
+  --tw-gradient-from: var(--color-sidebar-top) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(31, 18, 11, 0)) !important;
+}
+[class*="via-[#5c1f20]"] {
+  --tw-gradient-via: var(--color-sidebar-mid) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to, rgba(46, 28, 18, 0)) !important;
+}
+[class*="to-[#341011]"] {
+  --tw-gradient-to: var(--color-sidebar-bottom) !important;
+}
+
+[class*="border-[#5c1f20]/15"] { border-color: color-mix(in srgb, var(--color-primary) 15%, transparent) !important; }
+[class*="border-[#5c1f20]/10"] { border-color: color-mix(in srgb, var(--color-primary) 10%, transparent) !important; }
+[class*="bg-[#5c1f20]/10"] { background-color: var(--color-primary-ultra-light) !important; }
+[class*="bg-[#5c1f20]/5"] { background-color: color-mix(in srgb, var(--color-primary) 5%, transparent) !important; }
+[class*="hover:bg-[#5c1f20]/10"]:hover { background-color: color-mix(in srgb, var(--color-primary) 10%, transparent) !important; }
+
+[class*="border-[#c5a04a]/20"] { border-color: color-mix(in srgb, var(--color-accent) 20%, transparent) !important; }
+[class*="border-[#c5a04a]/35"] { border-color: color-mix(in srgb, var(--color-accent) 35%, transparent) !important; }
+[class*="border-[#c5a04a]/40"] { border-color: color-mix(in srgb, var(--color-accent) 40%, transparent) !important; }
+[class*="bg-[#c5a04a]/10"] { background-color: var(--color-secondary-ultra-light) !important; }
+[class*="hover:bg-[#c5a04a]/20"]:hover { background-color: color-mix(in srgb, var(--color-accent) 20%, transparent) !important; }
+[class*="ring-[#c5a04a]/35"] { --tw-ring-color: color-mix(in srgb, var(--color-accent) 35%, transparent) !important; }
+
+[class*="bg-blue-50"] { background-color: var(--color-info-soft) !important; }
+[class*="text-blue-700"],
+[class*="text-blue-800"] { color: var(--color-info) !important; }
+[class*="bg-red-50"] { background-color: var(--color-danger-soft) !important; }
+[class*="text-red-600"],
+[class*="text-red-700"],
+[class*="text-red-800"] { color: var(--color-danger) !important; }
+[class*="bg-green-50"] { background-color: var(--color-success-soft) !important; }
+[class*="text-green-600"],
+[class*="text-green-700"],
+[class*="text-green-800"] { color: var(--color-success) !important; }
+[class*="bg-yellow-50"],
+[class*="bg-amber-50"] { background-color: var(--color-warning-soft) !important; }
+[class*="text-yellow-700"],
+[class*="text-amber-700"],
+[class*="text-amber-800"] { color: #8A5B10 !important; }
+
+/* Remove uppercase excessivo que cansa a leitura */
+aside nav span,
+aside nav button span,
+.app-shell aside span,
+.app-shell aside button span {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+/* Destaque interno em dourado suave nos alertas */
+[class*="bg-[#5c1f20]"] [class*="text-[#c5a04a]"],
+[class*="bg-[#5c1f20]"] span[class*="text-[#c5a04a]"] {
+  color: var(--color-sidebar-muted) !important;
+}
+
+aside nav button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]),
+aside nav div div button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) {
+  background: transparent !important;
+  color: var(--color-sidebar-text) !important;
+  box-shadow: none !important;
+}
+
+aside nav button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) span,
+aside nav div div button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) span,
+aside nav button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg,
+aside nav div div button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg {
+  color: var(--color-sidebar-text) !important;
+}
+
+aside nav button:not(.menu-item-active):not(.bg-white\/12):not(.bg-\[\#c5a04a\]) {
+  color: #EAD8BF !important;
+}
+
+aside nav button:not(.menu-item-active):not(.bg-white\/12):not(.bg-\[\#c5a04a\]) span {
+  color: #EAD8BF !important;
+}
+
+aside nav button:not(.menu-item-active):not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg {
+  color: #E6CDA8 !important;
+}
+
+aside nav button:not(.menu-item-active):not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover,
+aside nav button:not(.menu-item-active):not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover span,
+aside nav button:not(.menu-item-active):not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover svg {
+  color: #FFF7EA !important;
+}
+
+aside nav button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover,
+aside nav div div button:not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover {
+  background: var(--color-sidebar-hover) !important;
+}
+
+aside nav button[class*="bg-[#F3E8DA]"],
+aside nav div div button[class*="bg-[#F3E8DA]"] {
+  background: var(--color-sidebar-active-bg) !important;
+  color: var(--color-sidebar-active-text) !important;
+  border-left-color: var(--color-accent) !important;
+}
+
+aside nav button[class*="bg-[#F3E8DA]"] span,
+aside nav div div button[class*="bg-[#F3E8DA]"] span,
+aside nav button[class*="bg-[#F3E8DA]"] svg,
+aside nav div div button[class*="bg-[#F3E8DA]"] svg {
+  color: var(--color-sidebar-active-text) !important;
+}
+
+aside nav button[class*="bg-[#F3E8DA]"]:hover,
+aside nav div div button[class*="bg-[#F3E8DA]"]:hover {
+  background: var(--color-sidebar-active-hover) !important;
+}
+
+aside nav button.menu-item-active,
+aside nav div div button.menu-item-active,
+aside nav button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]),
+aside nav div div button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) {
+  background: var(--color-sidebar-active-bg) !important;
+  color: var(--color-sidebar-active-text) !important;
+  box-shadow: 0 10px 22px rgba(42, 30, 21, 0.16) !important;
+}
+
+aside nav button.menu-item-active:hover,
+aside nav div div button.menu-item-active:hover,
+aside nav button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover,
+aside nav div div button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]):hover {
+  background: var(--color-sidebar-active-hover) !important;
+  color: var(--color-sidebar-active-text) !important;
+}
+
+aside nav button.menu-item-active span,
+aside nav div div button.menu-item-active span,
+aside nav button.menu-item-active svg,
+aside nav div div button.menu-item-active svg {
+  color: var(--color-sidebar-active-text) !important;
+}
+
+aside nav button.menu-item-active,
+aside nav button.menu-item-active:hover,
+aside nav div div button.menu-item-active,
+aside nav div div button.menu-item-active:hover {
+  background: #EED9B0 !important;
+  color: #2A1E15 !important;
+}
+
+aside nav button.menu-item-active *,
+aside nav button.menu-item-active:hover *,
+aside nav div div button.menu-item-active *,
+aside nav div div button.menu-item-active:hover * {
+  color: #2A1E15 !important;
+}
+
+aside nav button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) span,
+aside nav button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg,
+aside nav div div button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) span,
+aside nav div div button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg {
+  color: #2A1E15 !important;
 }

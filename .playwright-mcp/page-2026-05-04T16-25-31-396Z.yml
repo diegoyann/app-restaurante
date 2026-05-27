@@ -1,0 +1,301 @@
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "Logo" [ref=e9]
+        - generic [ref=e10]: REI DASESFIHAS
+      - button [ref=e11]:
+        - img [ref=e12]
+    - navigation [ref=e15]:
+      - button "Dashboard" [ref=e16]:
+        - img [ref=e17]
+        - generic [ref=e22]: Dashboard
+      - generic [ref=e23]:
+        - button "Operacional" [ref=e24]:
+          - img [ref=e25]
+          - generic [ref=e28]: Operacional
+          - img [ref=e29]
+        - generic [ref=e32]:
+          - button "Pedidos Próprios" [ref=e33]:
+            - img [ref=e34]
+            - generic [ref=e37]: Pedidos Próprios
+          - button "Cardápio Operacional" [ref=e38]:
+            - img [ref=e39]
+            - generic [ref=e41]: Cardápio Operacional
+          - button "Gestão de Avaliações" [ref=e42]:
+            - img [ref=e43]
+            - generic [ref=e45]: Gestão de Avaliações
+          - button "CMV / Ficha Técnica" [ref=e46]:
+            - img [ref=e47]
+            - generic [ref=e50]: CMV / Ficha Técnica
+      - generic [ref=e51]:
+        - button "Financeiro" [ref=e52]:
+          - img [ref=e53]
+          - generic [ref=e55]: Financeiro
+          - img [ref=e56]
+        - generic [ref=e58]:
+          - button "Lançamentos" [ref=e59]:
+            - img [ref=e60]
+            - generic [ref=e63]: Lançamentos
+          - button "Fechamento" [ref=e64]:
+            - img [ref=e65]
+            - generic [ref=e68]: Fechamento
+      - generic [ref=e69]:
+        - button "Pessoas" [ref=e70]:
+          - img [ref=e71]
+          - generic [ref=e76]: Pessoas
+          - img [ref=e77]
+        - button "RH / Pessoal" [ref=e80]:
+          - img [ref=e81]
+          - generic [ref=e86]: RH / Pessoal
+      - generic [ref=e87]:
+        - button "Sistema" [ref=e88]:
+          - img [ref=e89]
+          - generic [ref=e92]: Sistema
+          - img [ref=e93]
+        - generic [ref=e95]:
+          - button "Configurações" [ref=e96]:
+            - img [ref=e97]
+            - generic [ref=e100]: Configurações
+          - button "Comportamento da IA" [ref=e101]:
+            - img [ref=e102]
+            - generic [ref=e105]: Comportamento da IA
+    - button "Sair do Reino" [ref=e107]:
+      - img [ref=e108]
+      - text: Sair do Reino
+  - main [ref=e111]:
+    - generic [ref=e112]:
+      - generic [ref=e113]:
+        - button [ref=e114]:
+          - img [ref=e115]
+        - heading "pedidos" [level=2] [ref=e222]
+      - generic [ref=e117]: Painel Administrativo
+    - generic [ref=e118]:
+      - generic [ref=e120]:
+        - 'button "Pagamento 60%: 5º dia útil de maio+2" [ref=e121]':
+          - img [ref=e122]
+          - paragraph [ref=e125]:
+            - text: "Pagamento 60%: 5º dia útil de maio"
+            - generic [ref=e126]: "+2"
+        - button [ref=e127]:
+          - img [ref=e128]
+      - generic [ref=e223]:
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - paragraph [ref=e227]: Canal próprio
+            - heading "Pedidos nascem aqui" [level=3] [ref=e228]
+            - paragraph [ref=e229]: Link público, caixa, cozinha, status e impressão no mesmo fluxo. Isso é o mínimo para começar a desligar Anota Aí.
+          - generic [ref=e230]:
+            - link "Abrir link" [ref=e231] [cursor=pointer]:
+              - /url: https://rei-das-esfihas-frontend.vercel.app/cardapio/reidasesfihas
+              - img [ref=e232]
+              - text: Abrir link
+            - button "Copiar link" [ref=e236]:
+              - img [ref=e237]
+              - text: Copiar link
+        - generic [ref=e240]:
+          - generic [ref=e241]:
+            - paragraph [ref=e242]: Itens vendáveis
+            - strong [ref=e243]: "4"
+          - generic [ref=e244]:
+            - paragraph [ref=e245]: Pedidos abertos
+            - strong [ref=e246]: "1"
+          - generic [ref=e247]:
+            - paragraph [ref=e248]: Clientes
+            - strong [ref=e249]: "1"
+          - generic [ref=e250]:
+            - paragraph [ref=e251]: Pagamentos
+            - strong [ref=e252]: "0"
+        - generic [ref=e253]:
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - paragraph [ref=e256]: Esteira operacional
+              - heading "Kanban de pedidos" [level=4] [ref=e257]
+            - paragraph [ref=e258]: O pedido entra em tempo real no primeiro bloco. Se ficar parado aqui, a operação está parada de verdade.
+          - generic [ref=e259]:
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - generic [ref=e262]:
+                  - heading "Pedido realizado" [level=5] [ref=e264]
+                  - paragraph [ref=e265]: Entrou no sistema
+                - generic [ref=e266]: "1"
+              - article [ref=e268]:
+                - generic [ref=e269]:
+                  - generic [ref=e270]:
+                    - paragraph [ref=e271]: WEB-0405-45929
+                    - paragraph [ref=e272]: Diego
+                  - generic [ref=e273]: Pedido realizado
+                - generic [ref=e274]:
+                  - generic [ref=e275]:
+                    - paragraph [ref=e276]: Total
+                    - paragraph [ref=e277]: R$ 109,90
+                  - generic [ref=e278]:
+                    - paragraph [ref=e279]: Itens
+                    - paragraph [ref=e280]: "2"
+                - paragraph [ref=e281]: Pagamento não informado
+                - generic [ref=e282]:
+                  - button "Imprimir" [ref=e283]:
+                    - img [ref=e284]
+                    - text: Imprimir
+                  - button "Avançar" [ref=e288]:
+                    - img [ref=e289]
+                    - text: Avançar
+            - generic [ref=e292]:
+              - generic [ref=e293]:
+                - generic [ref=e294]:
+                  - heading "Aceito" [level=5] [ref=e296]
+                  - paragraph [ref=e297]: Pedido confirmado
+                - generic [ref=e298]: "0"
+              - generic [ref=e300]: Sem pedidos
+            - generic [ref=e301]:
+              - generic [ref=e302]:
+                - generic [ref=e303]:
+                  - heading "Em preparo" [level=5] [ref=e305]
+                  - paragraph [ref=e306]: Cozinha e pronto
+                - generic [ref=e307]: "0"
+              - generic [ref=e309]: Sem pedidos
+            - generic [ref=e310]:
+              - generic [ref=e311]:
+                - generic [ref=e312]:
+                  - heading "Em rota" [level=5] [ref=e314]
+                  - paragraph [ref=e315]: Saiu com motoboy
+                - generic [ref=e316]: "0"
+              - generic [ref=e318]: Sem pedidos
+            - generic [ref=e319]:
+              - generic [ref=e320]:
+                - generic [ref=e321]:
+                  - heading "Entregue" [level=5] [ref=e323]
+                  - paragraph [ref=e324]: Finalizado
+                - generic [ref=e325]: "0"
+              - generic [ref=e327]: Sem pedidos
+        - generic [ref=e328]:
+          - generic [ref=e329]:
+            - generic [ref=e330]:
+              - generic [ref=e331]:
+                - paragraph [ref=e332]: Tela do caixa
+                - heading "Novo pedido" [level=4] [ref=e333]
+              - img [ref=e334]
+            - generic [ref=e337]:
+              - paragraph [ref=e338]: Sem formas de pagamento
+              - button "Criar padrão" [ref=e339]
+            - generic [ref=e340]:
+              - generic [ref=e341]:
+                - text: Cliente
+                - textbox "Cliente" [ref=e342]
+              - generic [ref=e343]:
+                - text: Telefone
+                - textbox "Telefone" [ref=e344]
+              - generic [ref=e345]:
+                - text: Endereço
+                - textbox "Endereço" [ref=e346]
+              - generic [ref=e347]:
+                - text: Número
+                - textbox "Número" [ref=e348]
+              - generic [ref=e349]:
+                - text: Bairro
+                - textbox "Bairro" [ref=e350]
+              - generic [ref=e351]:
+                - text: Cidade
+                - textbox "Cidade" [ref=e352]
+              - generic [ref=e353]:
+                - text: Complemento
+                - textbox "Complemento" [ref=e354]
+            - generic [ref=e355]:
+              - generic [ref=e356]:
+                - text: Item
+                - combobox "Item" [ref=e357]:
+                  - option "Selecione" [selected]
+                  - option "Banquete Real - R$ 80,00"
+                  - option "Esfiha Premium de Carne - R$ 11,90"
+                  - option "Pizza Brotinho Casa - R$ 29,90"
+                  - option "teste - R$ 10,00"
+              - generic [ref=e358]:
+                - text: Qtd
+                - spinbutton "Qtd" [ref=e359]: "1"
+            - generic [ref=e360]:
+              - textbox "Observação do item" [ref=e361]
+              - button "Adicionar" [ref=e362]:
+                - img [ref=e363]
+                - text: Adicionar
+            - generic [ref=e365]: Carrinho vazio.
+            - generic [ref=e366]:
+              - generic [ref=e367]:
+                - text: Pagamento
+                - combobox "Pagamento" [ref=e368]:
+                  - option "A combinar" [selected]
+              - generic [ref=e369]:
+                - text: Entrega
+                - spinbutton "Entrega" [ref=e370]: "0"
+            - textbox "Observações gerais do pedido" [ref=e371]
+            - generic [ref=e372]:
+              - generic [ref=e373]:
+                - paragraph [ref=e374]: Total
+                - strong [ref=e375]: R$ 0,00
+              - button "Criar e imprimir" [ref=e376]:
+                - img [ref=e377]
+                - text: Criar e imprimir
+          - generic [ref=e380]:
+            - generic [ref=e381]:
+              - generic [ref=e382]:
+                - generic [ref=e383]:
+                  - paragraph [ref=e384]: Tela da cozinha
+                  - heading "Fila de preparo" [level=4] [ref=e385]
+                - img [ref=e386]
+              - article [ref=e389]:
+                - generic [ref=e390]:
+                  - generic [ref=e391]:
+                    - paragraph [ref=e392]: WEB-0405-45929
+                    - paragraph [ref=e393]: Diego - Pagamento não informado
+                  - generic [ref=e394]: Caixa
+                - generic [ref=e395]:
+                  - generic [ref=e396]:
+                    - generic [ref=e397]:
+                      - img [ref=e398]
+                      - text: Comida
+                    - generic [ref=e401]:
+                      - paragraph [ref=e402]: 1x Pizza Brotinho Casa
+                      - paragraph [ref=e403]: 1x Banquete Real
+                  - generic [ref=e404]:
+                    - generic [ref=e405]:
+                      - img [ref=e406]
+                      - text: Bebida / Obs
+                    - paragraph [ref=e409]: Sem bebida ou observação.
+                - generic [ref=e410]:
+                  - button "Imprimir" [ref=e411]:
+                    - img [ref=e412]
+                    - text: Imprimir
+                  - button "Avançar" [ref=e416]:
+                    - img [ref=e417]
+                    - text: Avançar
+            - generic [ref=e420]:
+              - generic [ref=e421]:
+                - generic [ref=e422]:
+                  - paragraph [ref=e423]: Expedição
+                  - heading "Prontos para sair" [level=4] [ref=e424]
+                - img [ref=e425]
+              - generic [ref=e430]:
+                - textbox "Motoboy" [ref=e431]
+                - textbox "Telefone" [ref=e432]
+                - spinbutton [ref=e433]
+                - spinbutton [ref=e434]
+                - button "Salvar" [ref=e435]:
+                  - img [ref=e436]
+                  - text: Salvar
+              - generic [ref=e441]: Nenhum pedido pronto aguardando expedição.
+            - generic [ref=e442]:
+              - generic [ref=e443]:
+                - generic [ref=e444]:
+                  - paragraph [ref=e445]: Entrega
+                  - heading "Na rua e custos" [level=4] [ref=e446]
+                - img [ref=e447]
+              - generic [ref=e450]:
+                - generic [ref=e451]:
+                  - paragraph [ref=e452]: Prontos
+                  - strong [ref=e453]: "0"
+                - generic [ref=e454]:
+                  - paragraph [ref=e455]: Na rua
+                  - strong [ref=e456]: "0"
+                - generic [ref=e457]:
+                  - paragraph [ref=e458]: Entregues
+                  - strong [ref=e459]: "0"
+              - generic [ref=e461]: Nenhuma entrega na rua.

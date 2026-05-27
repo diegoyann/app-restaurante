@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin.js';
+import { getEffectivePermissionsForIdentity } from '../modules/auth/index.js';
 
 function getBearerToken(req) {
   const authorization = String(req.headers?.authorization || '');
@@ -34,8 +35,18 @@ export async function resolveIdentity(req) {
     .select(`
       id,
       tenant_id,
+      company_id,
       role,
+      role_profile_id,
       tenants:tenant_id (
+        id,
+        slug,
+        name,
+        business_name,
+        company_id,
+        status
+      ),
+      companies:company_id (
         id,
         slug,
         name,
@@ -52,17 +63,62 @@ export async function resolveIdentity(req) {
   const normalizedMemberships = (memberships || []).map((membership) => ({
     id: membership.id,
     tenantId: membership.tenant_id,
+    companyId: membership.company_id,
     role: membership.role,
+    roleProfileId: membership.role_profile_id || '',
     tenant: membership.tenants
       ? {
           id: membership.tenants.id,
           slug: membership.tenants.slug,
           name: membership.tenants.name,
           businessName: membership.tenants.business_name,
+          companyId: membership.tenants.company_id,
           status: membership.tenants.status
+        }
+      : null,
+    company: membership.companies
+      ? {
+          id: membership.companies.id,
+          slug: membership.companies.slug,
+          name: membership.companies.name,
+          businessName: membership.companies.business_name,
+          status: membership.companies.status
         }
       : null
   }));
+
+  const companyAdminIds = [
+    ...new Set(
+      normalizedMemberships
+        .filter((membership) => membership.role === 'tenant_admin' && membership.companyId)
+        .map((membership) => membership.companyId)
+    )
+  ];
+
+  const companyBranchesResult = companyAdminIds.length === 0
+    ? { data: [], error: null }
+    : await supabaseAdmin
+        .from('tenants')
+        .select('id, slug, name, business_name, company_id, status')
+        .in('company_id', companyAdminIds);
+
+  if (companyBranchesResult.error) {
+    throw companyBranchesResult.error;
+  }
+
+  const companyBranches = companyBranchesResult.data || [];
+
+  const accessibleTenantRoles = new Map();
+
+  normalizedMemberships.forEach((membership) => {
+    if (membership.tenant?.slug) {
+      accessibleTenantRoles.set(membership.tenant.slug, membership.role);
+    }
+  });
+
+  companyBranches.forEach((tenant) => {
+    accessibleTenantRoles.set(tenant.slug, 'tenant_admin');
+  });
 
   return {
     token,
@@ -73,6 +129,10 @@ export async function resolveIdentity(req) {
       appMetadata: user.app_metadata || {}
     },
     memberships: normalizedMemberships,
+    accessibleTenants: [...accessibleTenantRoles.entries()].map(([slug, role]) => ({
+      slug,
+      role
+    })),
     isSuperAdmin: normalizedMemberships.some((membership) => membership.role === 'super_admin')
   };
 }
@@ -101,6 +161,17 @@ export function requireTenantAccess(identity, tenantSlug, allowedRoles = ['tenan
     };
   }
 
+  const accessibleTenant = (identity.accessibleTenants || []).find(
+    (item) => item.slug === tenantSlug && allowedRoles.includes(item.role)
+  );
+
+  if (accessibleTenant) {
+    return {
+      tenantSlug,
+      membership: accessibleTenant
+    };
+  }
+
   const membership = identity.memberships.find(
     (item) => item.tenant?.slug === tenantSlug && allowedRoles.includes(item.role)
   );
@@ -115,4 +186,21 @@ export function requireTenantAccess(identity, tenantSlug, allowedRoles = ['tenan
     tenantSlug,
     membership
   };
+}
+
+export async function requireTenantPermission(identity, tenantSlug, permissionKey) {
+  const access = requireTenantAccess(identity, tenantSlug, ['tenant_admin', 'tenant_staff']);
+
+  if (identity.isSuperAdmin) {
+    return access;
+  }
+
+  const permissions = await getEffectivePermissionsForIdentity(identity, tenantSlug);
+  if (!permissions[permissionKey]) {
+    const error = new Error('Você não tem permissão para este recurso.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return access;
 }

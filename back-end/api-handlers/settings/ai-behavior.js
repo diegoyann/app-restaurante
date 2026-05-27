@@ -1,5 +1,5 @@
 import { resolveIdentity, requireTenantAccess } from '../../src/auth/identity.js';
-import { getTenantBootstrap, saveAiSettings } from '../../src/repositories/appRepository.js';
+import { getTenantBootstrap, saveAiSettings } from '../../src/modules/settings/index.js';
 import {
   badRequest,
   getTenantSlug,

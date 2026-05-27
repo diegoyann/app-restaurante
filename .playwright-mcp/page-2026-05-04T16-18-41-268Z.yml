@@ -1,0 +1,66 @@
+- main [ref=e4]:
+  - generic [ref=e6]:
+    - paragraph [ref=e7]: Cardápio digital
+    - heading "Rei das Esfihas" [level=1] [ref=e8]
+    - paragraph [ref=e9]: Monte seu pedido direto pelo canal próprio.
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - heading "Pizza" [level=2] [ref=e13]
+        - generic [ref=e14]:
+          - article [ref=e15]:
+            - generic [ref=e17]:
+              - heading "Pizza Brotinho Casa" [level=3] [ref=e18]
+              - paragraph [ref=e19]: Massa artesanal, molho da casa, queijo derretido e sabor clássico para compartilhar.
+              - generic [ref=e20]:
+                - strong [ref=e21]: R$ 29,90
+                - button "Adicionar" [ref=e22]:
+                  - img [ref=e23]
+                  - text: Adicionar
+          - article [ref=e24]:
+            - generic [ref=e26]:
+              - heading "teste" [level=3] [ref=e27]
+              - paragraph [ref=e28]: teste
+              - generic [ref=e29]:
+                - strong [ref=e30]: R$ 10,00
+                - button "Adicionar" [ref=e31]:
+                  - img [ref=e32]
+                  - text: Adicionar
+      - generic [ref=e33]:
+        - heading "Combo" [level=2] [ref=e34]
+        - article [ref=e36]:
+          - generic [ref=e38]:
+            - heading "Banquete Real" [level=3] [ref=e39]
+            - paragraph [ref=e40]: Combo grande com sabores clássicos e uma bebida obrigatória, inspirado no fluxo operacional de marketplaces.
+            - generic [ref=e41]:
+              - strong [ref=e42]: R$ 80,00
+              - button "Adicionar" [active] [ref=e43]:
+                - img [ref=e44]
+                - text: Adicionar
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - heading "Seu pedido" [level=2] [ref=e47]
+        - img [ref=e48]
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - paragraph [ref=e71]: Banquete Real
+          - paragraph [ref=e72]: R$ 80,00
+        - button [ref=e73]:
+          - img [ref=e74]
+      - generic [ref=e53]:
+        - textbox "Nome" [ref=e54]
+        - textbox "Telefone" [ref=e55]
+        - textbox "Rua" [ref=e56]
+        - generic [ref=e57]:
+          - textbox "Número" [ref=e58]
+          - textbox "Bairro" [ref=e59]
+        - textbox "Cidade" [ref=e60]
+        - textbox "Complemento" [ref=e61]
+        - combobox [ref=e62]:
+          - option "Pagamento a combinar" [selected]
+        - textbox "Observações" [ref=e63]
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - paragraph [ref=e66]: Total
+          - strong [ref=e67]: R$ 80,00
+        - button "Enviar" [ref=e68]

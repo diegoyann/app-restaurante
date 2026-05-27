@@ -1,0 +1,4 @@
+- generic [ref=e42]:
+  - img "Logo" [ref=e43]
+  - paragraph [ref=e44]: Carregando dados do tenant
+  - paragraph [ref=e45]: Agora existe backend. Se isso falhar, o problema não é mais teatro de mock.

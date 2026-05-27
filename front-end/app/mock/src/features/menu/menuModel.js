@@ -89,8 +89,9 @@ export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredi
   if (!componentRef) return null;
 
   const [componentType, rawId] = String(componentRef).split(':');
-  const componentId = Number(rawId);
-  if (!componentType || Number.isNaN(componentId)) return null;
+  const numericId = Number(rawId);
+  const componentId = rawId && !Number.isNaN(numericId) ? numericId : rawId;
+  if (!componentType || !componentId) return null;
 
   if (componentType === 'menu-item') {
     const menuItem = menuItems.find((item) => item.id === componentId);
@@ -129,7 +130,7 @@ export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredi
     const ingredient = ingredients.find((item) => item.id === componentId);
     return ingredient ? {
       name: ingredient.name,
-      subtitle: `${ingredient.packageQuantity} ${ingredient.unit}`,
+      subtitle: `Custo ${formatMoney(ingredient.unitCost || ingredient.packageCost || 0)}/${ingredient.unit}`,
       tag: getComponentTagLabel(componentType)
     } : null;
   }

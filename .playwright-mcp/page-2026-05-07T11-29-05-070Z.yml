@@ -1,0 +1,122 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - paragraph [ref=e7]: Super Admin
+        - heading "Painel global de tenants" [level=1] [ref=e8]
+        - paragraph [ref=e9]: Selecione a empresa, a filial e o escopo de acesso. Multi-tenant sem essa separação vira vazamento de dado com interface bonita.
+      - button "Sair" [ref=e10]:
+        - img [ref=e11]
+        - text: Sair
+  - main [ref=e14]:
+    - generic [ref=e125]:
+      - generic [ref=e126]:
+        - generic [ref=e127]:
+          - paragraph [ref=e128]: Empresas
+          - img [ref=e130]
+        - paragraph [ref=e134]: "3"
+      - generic [ref=e135]:
+        - generic [ref=e136]:
+          - paragraph [ref=e137]: Tenants
+          - img [ref=e139]
+        - paragraph [ref=e143]: "3"
+      - generic [ref=e144]:
+        - generic [ref=e145]:
+          - paragraph [ref=e146]: Usuários
+          - img [ref=e148]
+        - paragraph [ref=e153]: "1"
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - paragraph [ref=e156]: Custos fixos
+          - img [ref=e158]
+        - paragraph [ref=e161]: "2"
+    - generic [ref=e162]:
+      - generic [ref=e163]:
+        - generic [ref=e164]:
+          - paragraph [ref=e165]: Administração
+          - heading "Empresa selecionada" [level=2] [ref=e166]
+        - generic [ref=e167]:
+          - button "Nova empresa" [ref=e168]:
+            - img [ref=e169]
+            - text: Nova empresa
+          - button "Nova filial" [ref=e173]:
+            - img [ref=e174]
+            - text: Nova filial
+          - button "Excluir empresa" [ref=e178]:
+            - img [ref=e179]
+            - text: Excluir empresa
+      - generic [ref=e183]:
+        - generic [ref=e184]:
+          - generic [ref=e185]:
+            - text: Buscar empresa
+            - generic [ref=e187]:
+              - img [ref=e188]
+              - textbox "Buscar empresa" [ref=e191]:
+                - /placeholder: Digite nome, CNPJ ou slug
+                - text: Demo Restaurante
+          - generic [ref=e192]:
+            - text: Filial ativa
+            - generic [ref=e194]:
+              - img [ref=e195]
+              - textbox "Filial ativa" [ref=e198]:
+                - /placeholder: Demo Restaurante
+                - text: Demo Restaurante
+        - generic [ref=e199]:
+          - generic [ref=e200]:
+            - generic [ref=e201]:
+              - text: Nome da empresa
+              - textbox "Nome da empresa" [ref=e202]: Demo Restaurante
+            - generic [ref=e203]:
+              - text: Razão social
+              - textbox "Razão social" [ref=e204]: Demo Restaurante
+            - generic [ref=e205]:
+              - text: CNPJ
+              - textbox "CNPJ" [ref=e206]:
+                - /placeholder: 00.000.000/0000-00
+            - generic [ref=e207]:
+              - text: Slug da empresa
+              - textbox "Slug da empresa" [ref=e208]:
+                - /placeholder: slug-da-empresa
+                - text: demo
+          - generic [ref=e209]:
+            - text: Endereço
+            - textbox "Endereço" [ref=e210]:
+              - /placeholder: Rua, número, bairro, cidade
+          - generic [ref=e211]:
+            - button "Salvar empresa" [ref=e212]:
+              - img [ref=e213]
+              - text: Salvar empresa
+            - button "Editar filial ativa" [ref=e217]:
+              - img [ref=e218]
+              - text: Editar filial ativa
+    - button "Usuários e escopo" [active] [ref=e222]:
+      - img [ref=e223]
+      - text: Usuários e escopo
+    - dialog "Usuários e escopo" [ref=e229]:
+      - generic [ref=e230]:
+        - generic [ref=e231]:
+          - heading "Usuários e escopo" [level=3] [ref=e232]
+          - paragraph [ref=e233]: Gerencie usuários somente no contexto da filial ativa.
+        - button "Fechar" [ref=e234]
+      - generic [ref=e236]:
+        - generic [ref=e237]:
+          - generic [ref=e238]:
+            - img [ref=e239]
+            - textbox "Filtrar por nome, e-mail, papel ou escopo" [ref=e242]
+          - button "Novo usuário" [ref=e243]:
+            - img [ref=e244]
+            - text: Novo usuário
+        - generic [ref=e247]:
+          - generic [ref=e248]:
+            - paragraph [ref=e249]: Demo Restaurante
+            - paragraph [ref=e250]: demo@gestaofood.com.br
+            - generic [ref=e251]:
+              - generic [ref=e252]: Admin
+              - generic [ref=e253]: "Filial: Demo Restaurante"
+          - generic [ref=e254]:
+            - button "Editar" [ref=e255]:
+              - img [ref=e256]
+              - text: Editar
+            - button "Excluir" [ref=e259]:
+              - img [ref=e260]
+              - text: Excluir

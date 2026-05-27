@@ -1,5 +1,5 @@
 import { resolveIdentity } from '../../src/auth/identity.js';
-import { getAuthSession } from '../../src/repositories/appRepository.js';
+import { getAuthSession } from '../../src/modules/auth/index.js';
 import {
   handleOptions,
   methodNotAllowed,
@@ -15,6 +15,14 @@ export default async function handler(req, res) {
     const identity = await resolveIdentity(req);
     return sendJson(res, 200, await getAuthSession(identity));
   } catch (error) {
-    return sendError(res, error, 401);
+    console.error('[auth/session]', {
+      statusCode: error.statusCode || 500,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint
+    });
+
+    return sendError(res, error, error.statusCode || 500);
   }
 }

@@ -17,7 +17,6 @@ import {
   buildAiReply,
   MOOD_FILTERS,
   normalizeIncomingReview,
-  SEED_REVIEWS,
   SENTIMENT_META,
   SOURCE_META
 } from './reviewModel.js';
@@ -35,14 +34,18 @@ const renderStars = (rating) => (
   </div>
 );
 
-export function ReviewManagementPage() {
+export function ReviewManagementPage({ initialReviews = [] }) {
   const [queue, setQueue] = useState('pending');
   const [sentimentFilter, setSentimentFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [reviews, setReviews] = useState(SEED_REVIEWS.map(normalizeIncomingReview));
+  const normalizedInitialReviews = useMemo(
+    () => initialReviews.map(normalizeIncomingReview),
+    [initialReviews]
+  );
+  const [reviews, setReviews] = useState(normalizedInitialReviews);
   const [draftReplies, setDraftReplies] = useState(() =>
-    Object.fromEntries(SEED_REVIEWS.map((review) => [review.id, review.aiSuggestion]))
+    Object.fromEntries(normalizedInitialReviews.map((review) => [review.id, review.aiSuggestion]))
   );
 
   const summary = useMemo(() => {
@@ -177,7 +180,7 @@ export function ReviewManagementPage() {
         <header className="review-hub__panel-head">
           <div>
             <p className="review-hub__eyebrow">Fila operacional</p>
-            <h3 className="text-2xl font-black text-[#5c1f20] uppercase tracking-tighter">Gestão de Avaliações</h3>
+            <h3 className="text-2xl font-black text-[#2A1E15] uppercase tracking-tighter">Gestão de Avaliações</h3>
           </div>
 
           <div className="review-hub__queue-tabs">
