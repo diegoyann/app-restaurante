@@ -1,5 +1,25 @@
 import { maybeSingle, supabaseAdmin } from '../../shared/db.js';
 
+export const DEFAULT_AI_BEHAVIOR_SETTINGS = {
+  positiveTone: 'friendly',
+  crisisStrategy: 'whatsapp',
+  additionalInstructions: '',
+  autoPublishPositive: true
+};
+
+export function mapAiBehaviorSettings(row) {
+  if (!row) return { ...DEFAULT_AI_BEHAVIOR_SETTINGS };
+
+  return {
+    positiveTone: row.positive_tone || DEFAULT_AI_BEHAVIOR_SETTINGS.positiveTone,
+    crisisStrategy: row.crisis_strategy || DEFAULT_AI_BEHAVIOR_SETTINGS.crisisStrategy,
+    additionalInstructions: row.additional_instructions || DEFAULT_AI_BEHAVIOR_SETTINGS.additionalInstructions,
+    autoPublishPositive: typeof row.auto_publish_positive === 'boolean'
+      ? row.auto_publish_positive
+      : DEFAULT_AI_BEHAVIOR_SETTINGS.autoPublishPositive
+  };
+}
+
 export async function readSettingsProjection(tenant) {
   const [settings, aiSettings] = await Promise.all([
     maybeSingle(await supabaseAdmin.from('tenant_settings').select('*').eq('tenant_id', tenant.id).maybeSingle(), 'Falha ao carregar settings.'),
@@ -15,13 +35,6 @@ export async function readSettingsProjection(tenant) {
           alertDaysBefore: settings.alert_days_before || 0
         }
       : null,
-    aiBehaviorSettings: aiSettings
-      ? {
-          positiveTone: aiSettings.positive_tone,
-          crisisStrategy: aiSettings.crisis_strategy,
-          additionalInstructions: aiSettings.additional_instructions,
-          autoPublishPositive: aiSettings.auto_publish_positive
-        }
-      : null
+    aiBehaviorSettings: mapAiBehaviorSettings(aiSettings)
   };
 }

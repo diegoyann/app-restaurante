@@ -73,6 +73,10 @@ function createId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeCatalogName(value) {
+  return String(value || '').trim().toLocaleUpperCase('pt-BR');
+}
+
 function onlyDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
@@ -994,7 +998,7 @@ export const catalogApi = {
     const packageQuantity = Number(payload.packageQuantity) || 1;
     const ingredient = {
       id: payload.id || createId('ingredient'),
-      name: String(payload.name || '').trim(),
+      name: normalizeCatalogName(payload.name),
       unit: payload.unit,
       packageQuantity,
       packageCost,
@@ -1033,7 +1037,7 @@ export const catalogApi = {
     const tenant = findTenantRecord(tenantSlug);
     const preparation = {
       id: payload.id || createId('preparation'),
-      name: String(payload.name || '').trim(),
+      name: normalizeCatalogName(payload.name),
       yieldQuantity: Number(payload.yieldQuantity) || 0,
       yieldUnit: payload.yieldUnit,
       recipe: normalizeRecipe(payload.recipe)
@@ -1071,7 +1075,7 @@ export const catalogApi = {
     const tenant = findTenantRecord(tenantSlug);
     const product = {
       id: payload.id || createId('product'),
-      name: String(payload.name || '').trim(),
+      name: normalizeCatalogName(payload.name),
       salePrice: Number(payload.salePrice) || 0,
       yieldQuantity: Number(payload.yieldQuantity) || 1,
       targetCmvPercent: Number(payload.targetCmvPercent) || 0,

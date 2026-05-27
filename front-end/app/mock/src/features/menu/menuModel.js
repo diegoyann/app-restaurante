@@ -7,6 +7,12 @@ export const menuStatusOptions = [
 
 export const createId = () => Date.now() + Math.random();
 
+export const formatComboboxLabel = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return `${text.charAt(0).toLocaleUpperCase('pt-BR')}${text.slice(1).toLocaleLowerCase('pt-BR')}`;
+};
+
 export const createInitialMenuCategories = () => ([
   { id: 1, name: 'Esfiha' },
   { id: 2, name: 'Pizza' },
@@ -89,12 +95,12 @@ export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredi
   if (!componentRef) return null;
 
   const [componentType, rawId] = String(componentRef).split(':');
-  const numericId = Number(rawId);
-  const componentId = rawId && !Number.isNaN(numericId) ? numericId : rawId;
+  const componentId = rawId || '';
   if (!componentType || !componentId) return null;
+  const hasId = (item) => String(item.id) === String(componentId);
 
   if (componentType === 'menu-item') {
-    const menuItem = menuItems.find((item) => item.id === componentId);
+    const menuItem = menuItems.find(hasId);
     if (!menuItem) return null;
 
     const hasBasePrice = typeof menuItem.basePrice === 'number' && menuItem.basePrice > 0;
@@ -109,7 +115,7 @@ export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredi
   }
 
   if (componentType === 'product') {
-    const product = catalogMetrics.productSummaries.find((item) => item.id === componentId);
+    const product = catalogMetrics.productSummaries.find(hasId);
     return product ? {
       name: product.name,
       subtitle: `Preço base ${formatMoney(product.metrics.salePrice)}`,
@@ -118,7 +124,7 @@ export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredi
   }
 
   if (componentType === 'preparation') {
-    const preparation = catalogMetrics.preparationSummaries.find((item) => item.id === componentId);
+    const preparation = catalogMetrics.preparationSummaries.find(hasId);
     return preparation ? {
       name: preparation.name,
       subtitle: `Rendimento ${preparation.yieldQuantity} ${preparation.yieldUnit}`,
@@ -127,7 +133,7 @@ export const resolveLinkedComponentMeta = (componentRef, catalogMetrics, ingredi
   }
 
   if (componentType === 'ingredient') {
-    const ingredient = ingredients.find((item) => item.id === componentId);
+    const ingredient = ingredients.find(hasId);
     return ingredient ? {
       name: ingredient.name,
       subtitle: `Custo ${formatMoney(ingredient.unitCost || ingredient.packageCost || 0)}/${ingredient.unit}`,

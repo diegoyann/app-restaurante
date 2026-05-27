@@ -293,6 +293,10 @@ function sanitizeJsonArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeCatalogName(value) {
+  return String(value || '').trim().toLocaleUpperCase('pt-BR');
+}
+
 function normalizeRecipe(value) {
   return sanitizeJsonArray(value).map((line) => ({
     componentType: line.componentType === 'preparation' ? 'preparation' : 'ingredient',
@@ -2981,7 +2985,7 @@ export async function deleteIngredientUnitById(tenantSlug, unitId) {
 
 export async function saveIngredient(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
-  const name = String(payload.name || '').trim();
+  const name = normalizeCatalogName(payload.name);
   const unit = String(payload.unit || '').trim();
   const packageCost = Number(payload.packageCost ?? payload.unitCost) || 0;
   const unitCost = Number(payload.unitCost) || (packageCost / getIngredientReferenceFactor(unit));
@@ -3067,7 +3071,7 @@ export async function deleteIngredientById(tenantSlug, ingredientId) {
 
 export async function savePreparation(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
-  const name = String(payload.name || '').trim();
+  const name = normalizeCatalogName(payload.name);
   const yieldUnit = String(payload.yieldUnit || '').trim();
 
   if (!name) throw new Error('Nome da receita base é obrigatório.');
@@ -3148,7 +3152,7 @@ export async function deletePreparationById(tenantSlug, preparationId) {
 
 export async function saveProduct(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
-  const name = String(payload.name || '').trim();
+  const name = normalizeCatalogName(payload.name);
 
   if (!name) throw new Error('Nome do produto é obrigatório.');
 

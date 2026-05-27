@@ -57,6 +57,7 @@ import {
     createEmptyMenuItemForm,
     createId,
     createInitialMenuCategories,
+    formatComboboxLabel,
     getComponentTagLabel,
     getMenuStatusMeta,
     menuStatusOptions,
@@ -66,6 +67,7 @@ import {
 import { ReviewManagementPage } from './features/reviews/ReviewManagement.jsx';
 import OrderOperationsPage from './features/orders/OrderOperationsPage.jsx';
 import AiBehaviorSettingsPage from './features/settings/AiBehaviorSettings.jsx';
+import { createDefaultAiBehaviorSettings, normalizeAiBehaviorSettings } from './features/settings/settingsModel.js';
 import {
     appApi,
     catalogApi,
@@ -78,11 +80,13 @@ import {
     settingsApi
 } from './services/api.js';
 import { supabase } from './lib/supabase.js';
+import { isMockDataSource } from './config/dataSource.js';
+import { signOutMock } from './services/mockAuth.js';
 
 // --- CONFIGURAÇÃO ---
 const LOGO_URL = "/hero-logo.png";
 const USE_BACKEND_BOOTSTRAP = true;
-const USE_REVENUE_CHART_MOCK = true;
+const USE_REVENUE_CHART_MOCK = false;
 const MONTHLY_REVENUE_CHART_MOCK = [
     { day: '01', bruto: 4200, liquido: 3610, pedidos: 32 },
     { day: '02', bruto: 5100, liquido: 4380, pedidos: 39 },
@@ -220,7 +224,7 @@ const LegacyMenuItemFormPanel = ({
                     <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
                         <option value="">Selecione</option>
                         {categoryOptions.map((category) => (
-                            <option key={category} value={category}>{category}</option>
+                            <option key={category} value={category}>{formatComboboxLabel(category)}</option>
                         ))}
                     </select>
                 </div>
@@ -466,7 +470,7 @@ const LegacyComboEditorModal = ({
                                     <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Categoria</label>
                                     <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
                                         {categoryOptions.map((category) => (
-                                            <option key={category} value={category}>{category}</option>
+                                            <option key={category} value={category}>{formatComboboxLabel(category)}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -532,7 +536,7 @@ const LegacyComboEditorModal = ({
                                                         <select value={option.linkedComponentRef} onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]">
                                                             <option value="">Manual / sem vínculo</option>
                                                             {menuComponentOptions.map((component) => (
-                                                                <option key={component.key} value={component.key}>{component.name} · {component.tag}</option>
+                                                                <option key={component.key} value={component.key}>{formatComboboxLabel(`${component.name} · ${component.tag}`)}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -780,7 +784,7 @@ const PreparationModal = ({
                                     className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                 >
                                     {ingredientUnits.map((unit) => (
-                                        <option key={`yield-unit-${unit.id}`} value={unit.label}>{unit.label}</option>
+                                        <option key={`yield-unit-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -816,14 +820,14 @@ const PreparationModal = ({
                                                     <optgroup label="Insumos">
                                                         {ingredients.map((ingredient) => (
                                                             <option key={`prep-ingredient-${ingredient.id}`} value={`ingredient:${ingredient.id}`}>
-                                                                {ingredient.name}
+                                                                {formatComboboxLabel(ingredient.name)}
                                                             </option>
                                                         ))}
                                                     </optgroup>
                                                     <optgroup label="Receitas Base">
                                                         {preparations.map((preparation) => (
                                                             <option key={`prep-preparation-${preparation.id}`} value={`preparation:${preparation.id}`}>
-                                                                {preparation.name}
+                                                                {formatComboboxLabel(preparation.name)}
                                                             </option>
                                                         ))}
                                                     </optgroup>
@@ -849,7 +853,7 @@ const PreparationModal = ({
                                                 >
                                                     <option value="">Selecione</option>
                                                     {compatibleUnits.map((unit) => (
-                                                        <option key={`prep-line-unit-${line.id}-${unit.id}`} value={unit.label}>{unit.label}</option>
+                                                        <option key={`prep-line-unit-${line.id}-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -988,7 +992,7 @@ const EmployeeDiscountsModal = ({
                                     className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#6F6258] outline-none"
                                 >
                                     {discountCategories.map(category => (
-                                        <option key={category.id} value={category.name}>{category.name}</option>
+                                        <option key={category.id} value={category.name}>{formatComboboxLabel(category.name)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -1025,7 +1029,7 @@ const EmployeeDiscountsModal = ({
                                         className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#6F6258] outline-none"
                                     >
                                         {discountCategories.map(category => (
-                                            <option key={category.id} value={category.name}>{category.name}</option>
+                                            <option key={category.id} value={category.name}>{formatComboboxLabel(category.name)}</option>
                                         ))}
                                     </select>
                                     <input
@@ -1229,20 +1233,10 @@ const convertQuantityBetweenUnits = (quantity, fromUnit, toUnit) => {
 };
 
 const getIngredientCostReferenceUnit = (unit) => {
-    const definition = getUnitDefinition(unit);
-
-    if (definition?.group === 'weight') return 'kg';
-    if (definition?.group === 'volume') return 'l';
-
     return unit || 'un';
 };
 
-const getIngredientCostReferenceFactor = (unit) => {
-    const referenceUnit = getIngredientCostReferenceUnit(unit);
-    const convertedQuantity = convertQuantityBetweenUnits(1, referenceUnit, unit);
-
-    return convertedQuantity > 0 ? convertedQuantity : 1;
-};
+const getIngredientCostReferenceFactor = () => 1;
 
 const getCompatibleUnits = (sourceUnit, ingredientUnits) => {
     if (!sourceUnit) return ingredientUnits;
@@ -1415,19 +1409,23 @@ const parseComponentValue = (value) => {
 
     return {
         componentType,
-        componentId: Number(rawId)
+        componentId: rawId || ''
     };
 };
+
+const idsEqual = (left, right) => String(left) === String(right);
+
+const findById = (items, id) => items.find((current) => idsEqual(current.id, id));
 
 const getComponentBaseUnit = (componentRef, ingredients, preparations) => {
     const parsed = parseComponentValue(componentRef);
 
     if (parsed.componentType === 'ingredient') {
-        return ingredients.find((current) => current.id === parsed.componentId)?.unit || '';
+        return findById(ingredients, parsed.componentId)?.unit || '';
     }
 
     if (parsed.componentType === 'preparation') {
-        return preparations.find((current) => current.id === parsed.componentId)?.yieldUnit || '';
+        return findById(preparations, parsed.componentId)?.yieldUnit || '';
     }
 
     return '';
@@ -1437,21 +1435,23 @@ const buildPreparationCostMap = (preparations, ingredients) => {
     const cache = new Map();
 
     const resolveComponentUnitCost = (componentType, componentId, stack = new Set()) => {
+        const componentKey = String(componentId);
+
         if (componentType === 'ingredient') {
             return calculateIngredientUnitCost(
-                ingredients.find((current) => current.id === componentId)
+                findById(ingredients, componentId)
             );
         }
 
         if (componentType === 'preparation') {
-            if (cache.has(componentId)) return cache.get(componentId);
-            if (stack.has(componentId)) return 0;
+            if (cache.has(componentKey)) return cache.get(componentKey);
+            if (stack.has(componentKey)) return 0;
 
-            const preparation = preparations.find((current) => current.id === componentId);
+            const preparation = findById(preparations, componentId);
             if (!preparation) return 0;
 
             const nextStack = new Set(stack);
-            nextStack.add(componentId);
+            nextStack.add(componentKey);
 
             const totalCost = (preparation.recipe || []).reduce((total, item) => (
                 total + (resolveComponentUnitCost(item.componentType, item.componentId, nextStack) * (Number(item.quantity) || 0))
@@ -1460,7 +1460,7 @@ const buildPreparationCostMap = (preparations, ingredients) => {
             const yieldQuantity = Number(preparation.yieldQuantity) || 1;
             const unitCost = totalCost / yieldQuantity;
 
-            cache.set(componentId, unitCost);
+            cache.set(componentKey, unitCost);
             return unitCost;
         }
 
@@ -1477,16 +1477,16 @@ const buildPreparationCostMap = (preparations, ingredients) => {
 const calculatePreparationMetrics = (preparation, ingredients, preparations, preparationCostMap) => {
     const totalCost = (preparation.recipe || []).reduce((total, item) => {
         const componentSourceUnit = item.componentType === 'ingredient'
-            ? ingredients.find((current) => current.id === item.componentId)?.unit
-            : preparations.find((current) => current.id === item.componentId)?.yieldUnit;
+            ? findById(ingredients, item.componentId)?.unit
+            : findById(preparations, item.componentId)?.yieldUnit;
         const normalizedQuantity = convertQuantityBetweenUnits(
             item.quantity,
             item.quantityUnit || componentSourceUnit,
             componentSourceUnit
         );
         const componentUnitCost = item.componentType === 'ingredient'
-            ? calculateIngredientUnitCost(ingredients.find((current) => current.id === item.componentId))
-            : (preparationCostMap.get(item.componentId) || 0);
+            ? calculateIngredientUnitCost(findById(ingredients, item.componentId))
+            : (preparationCostMap.get(String(item.componentId)) || 0);
 
         return total + (componentUnitCost * normalizedQuantity);
     }, 0);
@@ -1500,16 +1500,16 @@ const calculatePreparationMetrics = (preparation, ingredients, preparations, pre
 const calculateProductMetrics = (product, ingredients, preparations, preparationCostMap) => {
     const recipeCost = (product.recipe || []).reduce((total, item) => {
         const componentSourceUnit = item.componentType === 'ingredient'
-            ? ingredients.find((current) => current.id === item.componentId)?.unit
-            : preparations.find((current) => current.id === item.componentId)?.yieldUnit;
+            ? findById(ingredients, item.componentId)?.unit
+            : findById(preparations, item.componentId)?.yieldUnit;
         const normalizedQuantity = convertQuantityBetweenUnits(
             item.quantity,
             item.quantityUnit || componentSourceUnit,
             componentSourceUnit
         );
         const componentUnitCost = item.componentType === 'ingredient'
-            ? calculateIngredientUnitCost(ingredients.find((current) => current.id === item.componentId))
-            : (preparationCostMap.get(item.componentId) || 0);
+            ? calculateIngredientUnitCost(findById(ingredients, item.componentId))
+            : (preparationCostMap.get(String(item.componentId)) || 0);
 
         return total + (componentUnitCost * normalizedQuantity);
     }, 0);
@@ -1642,12 +1642,7 @@ export default function App({ tenantSlug = 'default' }) {
         alertDaysBefore: 3,
         colorPalette: 'esfiha'
     }));
-    const [aiBehaviorSettings, setAiBehaviorSettings] = useState(() => ({
-        positiveTone: 'friendly',
-        crisisStrategy: 'whatsapp',
-        additionalInstructions: '',
-        autoPublishPositive: true
-    }));
+    const [aiBehaviorSettings, setAiBehaviorSettings] = useState(() => createDefaultAiBehaviorSettings());
 
     // Injeção dinâmica da paleta de cores no :root
     React.useEffect(() => {
@@ -2009,7 +2004,7 @@ export default function App({ tenantSlug = 'default' }) {
 
                 startTransition(() => {
                     setSettings(payload.settings || {});
-                    setAiBehaviorSettings(payload.aiBehaviorSettings || {});
+                    setAiBehaviorSettings(normalizeAiBehaviorSettings(payload.aiBehaviorSettings));
                     setPayrollConfig(payload.payrollConfig || {});
                     setEmployees(payload.employees || []);
                     setRecurringCosts(payload.recurringCosts || []);
@@ -2977,7 +2972,7 @@ export default function App({ tenantSlug = 'default' }) {
                 prev
                     .map((preparation) => ({
                         ...preparation,
-                        recipe: preparation.recipe.filter((line) => !(line.componentType === 'ingredient' && line.componentId === ingredientId))
+                        recipe: preparation.recipe.filter((line) => !(line.componentType === 'ingredient' && idsEqual(line.componentId, ingredientId)))
                     }))
                     .filter((preparation) => preparation.recipe.length > 0)
             );
@@ -2985,7 +2980,7 @@ export default function App({ tenantSlug = 'default' }) {
                 prev
                     .map((product) => ({
                         ...product,
-                        recipe: product.recipe.filter((line) => !(line.componentType === 'ingredient' && line.componentId === ingredientId))
+                        recipe: product.recipe.filter((line) => !(line.componentType === 'ingredient' && idsEqual(line.componentId, ingredientId)))
                     }))
                     .filter((product) => product.recipe.length > 0)
             );
@@ -3404,7 +3399,7 @@ export default function App({ tenantSlug = 'default' }) {
                         const [componentType, rawId] = String(option.linkedComponentRef || '').split(':');
                         if (componentType !== 'menu-item') return '';
 
-                        const linkedItem = menuItems.find((menuItem) => menuItem.id === Number(rawId));
+                        const linkedItem = findById(menuItems, rawId);
                         return linkedItem?.category || '';
                     })()
                 }))
@@ -3656,10 +3651,23 @@ export default function App({ tenantSlug = 'default' }) {
                 additionalInstructions: normalizedInstructions
             });
 
-            setAiBehaviorSettings(nextSettings);
+            setAiBehaviorSettings(normalizeAiBehaviorSettings(nextSettings));
             setAiBehaviorSuccess('Comportamento da IA salvo com sucesso.');
         } catch (apiError) {
             setAiBehaviorError(apiError.message || 'Não foi possível salvar o comportamento da IA.');
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            if (isMockDataSource()) {
+                await signOutMock();
+            } else {
+                await supabase.auth.signOut();
+            }
+        } finally {
+            setSession(null);
+            navigate('/login', { replace: true });
         }
     };
 
@@ -3950,10 +3958,7 @@ export default function App({ tenantSlug = 'default' }) {
                 </nav>
                 <div className="p-6 border-t border-[#7a3738] bg-black/10 backdrop-blur-sm">
                     <button
-                        onClick={() => {
-                            setSession(null);
-                            supabase.auth.signOut().finally(() => navigate('/login'));
-                        }}
+                        onClick={handleLogout}
                         className="text-[9px] font-black text-white uppercase tracking-widest hover:text-[#F3E8DA] flex items-center justify-center gap-2 w-full transition-colors"
                     >
                         <LogOut size={12} /> Sair do Reino
@@ -4522,7 +4527,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                 required
                                             >
                                                 {ingredientUnits.map((unit) => (
-                                                    <option key={unit.id} value={unit.label}>{unit.label}</option>
+                                                    <option key={unit.id} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -4604,14 +4609,14 @@ export default function App({ tenantSlug = 'default' }) {
                                                                 <optgroup label="Insumos">
                                                                     {ingredients.map((ingredient) => (
                                                                         <option key={`product-ingredient-${ingredient.id}`} value={`ingredient:${ingredient.id}`}>
-                                                                            {ingredient.name}
+                                                                            {formatComboboxLabel(ingredient.name)}
                                                                         </option>
                                                                     ))}
                                                                 </optgroup>
                                                                 <optgroup label="Receitas Base">
                                                                     {preparations.map((preparation) => (
                                                                         <option key={`product-preparation-${preparation.id}`} value={`preparation:${preparation.id}`}>
-                                                                            {preparation.name}
+                                                                            {formatComboboxLabel(preparation.name)}
                                                                         </option>
                                                                     ))}
                                                                 </optgroup>
@@ -4637,7 +4642,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                             >
                                                                 <option value="">Selecione</option>
                                                                 {compatibleUnits.map((unit) => (
-                                                                    <option key={`product-line-unit-${line.id}-${unit.id}`} value={unit.label}>{unit.label}</option>
+                                                                    <option key={`product-line-unit-${line.id}-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
                                                                 ))}
                                                             </select>
                                                         </div>
@@ -4740,16 +4745,16 @@ export default function App({ tenantSlug = 'default' }) {
                                                     <div className="border-t border-gray-100 px-4 py-2 max-h-[160px] overflow-y-auto custom-scrollbar">
                                                         {product.recipe.map((item, index) => {
                                                             const ingredient = item.componentType === 'ingredient'
-                                                                ? ingredients.find((c) => c.id === item.componentId)
+                                                                ? findById(ingredients, item.componentId)
                                                                 : null;
                                                             const preparation = item.componentType === 'preparation'
-                                                                ? preparations.find((c) => c.id === item.componentId)
+                                                                ? findById(preparations, item.componentId)
                                                                 : null;
                                                             const componentName = ingredient?.name || preparation?.name || 'Componente removido';
                                                             const componentUnit = item.quantityUnit || ingredient?.unit || preparation?.yieldUnit || '';
                                                             const componentUnitCost = item.componentType === 'ingredient'
                                                                 ? calculateIngredientUnitCost(ingredient)
-                                                                : (catalogMetrics.preparationSummaries.find((c) => c.id === item.componentId)?.metrics.unitCost || 0);
+                                                                : (catalogMetrics.preparationSummaries.find((c) => idsEqual(c.id, item.componentId))?.metrics.unitCost || 0);
                                                             const sourceUnit = ingredient?.unit || preparation?.yieldUnit || componentUnit;
                                                             const normalizedQuantity = convertQuantityBetweenUnits(item.quantity, componentUnit, sourceUnit);
                                                             const lineCost = componentUnitCost * normalizedQuantity;

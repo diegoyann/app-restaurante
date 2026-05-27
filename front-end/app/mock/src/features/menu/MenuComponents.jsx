@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import {
+  formatComboboxLabel,
   menuStatusOptions,
   resolveLinkedComponentMeta,
   summarizeComboGroups
@@ -128,7 +129,7 @@ export const MenuItemFormPanel = ({
           <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
             <option value="">Selecione</option>
             {categoryOptions.map((category) => (
-              <option key={category} value={category}>{category}</option>
+              <option key={category} value={category}>{formatComboboxLabel(category)}</option>
             ))}
           </select>
         </div>
@@ -385,7 +386,7 @@ export const ComboEditorModal = ({
                   <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
                   <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
                     {categoryOptions.map((category) => (
-                      <option key={category} value={category}>{category}</option>
+                      <option key={category} value={category}>{formatComboboxLabel(category)}</option>
                     ))}
                   </select>
                 </div>
@@ -457,7 +458,7 @@ export const ComboEditorModal = ({
                                 >
                                   <option value="">Selecionar categoria</option>
                                   {comboLinkCategoryOptions.map((category) => (
-                                    <option key={category.value} value={category.value}>{category.label}</option>
+                                    <option key={category.value} value={category.value}>{formatComboboxLabel(category.label)}</option>
                                   ))}
                                 </select>
                               </div>
@@ -471,7 +472,7 @@ export const ComboEditorModal = ({
                                 >
                                   <option value="">{option.linkedCategoryName ? 'Selecionar item' : 'Escolha a categoria primeiro'}</option>
                                   {linkedItems.map((component) => (
-                                    <option key={component.key} value={component.key}>{component.name} · {component.subtitle}</option>
+                                    <option key={component.key} value={component.key}>{formatComboboxLabel(`${component.name} · ${component.subtitle}`)}</option>
                                   ))}
                                 </select>
                               </div>

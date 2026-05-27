@@ -8,6 +8,15 @@ export function createDefaultGeneralSettings() {
   };
 }
 
+export function createDefaultAiBehaviorSettings() {
+  return {
+    positiveTone: 'friendly',
+    crisisStrategy: 'whatsapp',
+    additionalInstructions: '',
+    autoPublishPositive: true
+  };
+}
+
 export function normalizeGeneralSettings(settings) {
   const defaults = createDefaultGeneralSettings();
 
@@ -17,5 +26,18 @@ export function normalizeGeneralSettings(settings) {
     businessName: String(settings?.businessName || defaults.businessName),
     alertDaysBefore: Number.isInteger(Number(settings?.alertDaysBefore)) ? Number(settings.alertDaysBefore) : defaults.alertDaysBefore,
     colorPalette: String(settings?.colorPalette || defaults.colorPalette)
+  };
+}
+
+export function normalizeAiBehaviorSettings(settings) {
+  const defaults = createDefaultAiBehaviorSettings();
+
+  return {
+    positiveTone: String(settings?.positiveTone || defaults.positiveTone),
+    crisisStrategy: String(settings?.crisisStrategy || defaults.crisisStrategy),
+    additionalInstructions: String(settings?.additionalInstructions || defaults.additionalInstructions),
+    autoPublishPositive: typeof settings?.autoPublishPositive === 'boolean'
+      ? settings.autoPublishPositive
+      : defaults.autoPublishPositive
   };
 }

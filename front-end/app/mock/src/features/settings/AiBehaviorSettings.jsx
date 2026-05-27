@@ -11,6 +11,7 @@ import {
   Wallet,
   MessageCircle
 } from 'lucide-react';
+import { normalizeAiBehaviorSettings } from './settingsModel.js';
 import './AiBehaviorSettings.css';
 
 const TONE_OPTIONS = [
@@ -58,10 +59,10 @@ export default function AiBehaviorSettingsPage({
   errorMessage,
   successMessage
 }) {
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState(() => normalizeAiBehaviorSettings(value));
 
   useEffect(() => {
-    setDraft(value);
+    setDraft(normalizeAiBehaviorSettings(value));
   }, [value]);
 
   const instructionCount = draft.additionalInstructions.length;

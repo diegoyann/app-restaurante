@@ -35,6 +35,7 @@ import {
   createEmptyCategoryForm,
   createEmptyMenuItemForm,
   createInitialMenuCategories,
+  formatComboboxLabel,
   getMenuStatusMeta
 } from '../features/menu/menuModel.js';
 
@@ -997,7 +998,7 @@ export default function TenantWorkspacePage({ tenantSlug }) {
                     <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_120px_160px] gap-3">
                       <input value={ingredientForm.name} onChange={(event) => handleIngredientFormChange('name', event.target.value)} placeholder="Nome do insumo" className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" required />
                       <select value={ingredientForm.unit} onChange={(event) => handleIngredientFormChange('unit', event.target.value)} className="w-full px-3 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-[#D4A373]">
-                        {ingredientUnitOptions.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                        {ingredientUnitOptions.map((unit) => <option key={unit} value={unit}>{formatComboboxLabel(unit)}</option>)}
                       </select>
                       <input value={ingredientForm.unitCost} onChange={(event) => handleIngredientFormChange('unitCost', event.target.value)} placeholder="Custo" type="number" step="0.0001" className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" required />
                     </div>
