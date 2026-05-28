@@ -60,8 +60,7 @@ export default function PublicMenuPage() {
   const [success, setSuccess] = useState('');
   const [customerLookup, setCustomerLookup] = useState({ phone: '', status: 'idle', message: '' });
   const [expandedMenuItems, setExpandedMenuItems] = useState(() => ({}));
-  const [selectedCombo, setSelectedCombo] = useState(null);
-  const [comboSelections, setComboSelections] = useState({});
+  const [inlineComboSelections, setInlineComboSelections] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -222,65 +221,45 @@ export default function PublicMenuPage() {
     return cart.filter((cartItem) => cartItem.menuItemId === menuItemId).reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  const handleCatalogAdd = (item) => {
-    if (item.itemType === 'combo' || (item.comboGroups && item.comboGroups.length > 0)) {
-      setSelectedCombo(item);
-      const initialSelections = {};
-      item.comboGroups?.forEach(g => {
-        initialSelections[g.id] = {};
-        g.options?.forEach(opt => {
-          initialSelections[g.id][opt.id] = 0;
-        });
-      });
-      setComboSelections(initialSelections);
-    } else {
-      addItem(item);
-    }
+  const getGroupSelections = (itemId, groupId) => {
+    return (inlineComboSelections[itemId] && inlineComboSelections[itemId][groupId]) || {};
   };
 
-  const closeComboModal = () => {
-    setSelectedCombo(null);
-    setComboSelections({});
-  };
-
-  const updateComboSelection = (groupId, optionId, delta, maxGroupQty, maxOptionQty) => {
-    setComboSelections(current => {
-      const groupSelections = current[groupId] || {};
+  const updateInlineComboSelection = (itemId, groupId, optionId, delta, maxGroupQty, maxOptionQty) => {
+    setInlineComboSelections(current => {
+      const itemSelections = current[itemId] || {};
+      const groupSelections = itemSelections[groupId] || {};
       const currentOptionQty = groupSelections[optionId] || 0;
       const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
 
       const newOptionQty = currentOptionQty + delta;
-      
       if (newOptionQty < 0) return current;
       if (maxOptionQty !== undefined && maxOptionQty !== null && newOptionQty > maxOptionQty) return current;
       if (delta > 0 && maxGroupQty !== undefined && maxGroupQty !== null && currentGroupTotal >= maxGroupQty) return current;
 
       return {
         ...current,
-        [groupId]: {
-          ...groupSelections,
-          [optionId]: newOptionQty
+        [itemId]: {
+          ...itemSelections,
+          [groupId]: {
+            ...groupSelections,
+            [optionId]: newOptionQty
+          }
         }
       };
     });
   };
 
-  const isComboValid = useMemo(() => {
-    if (!selectedCombo) return false;
-    for (const group of selectedCombo.comboGroups || []) {
-       const groupSelections = comboSelections[group.id] || {};
+  const validateInlineCombo = (item) => {
+    const itemSelections = inlineComboSelections[item.id] || {};
+    for (const group of item.comboGroups || []) {
+       const groupSelections = itemSelections[group.id] || {};
        const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
        if (group.minQty && currentGroupTotal < group.minQty) {
           return false;
        }
     }
     return true;
-  }, [selectedCombo, comboSelections]);
-
-  const handleConfirmCombo = () => {
-    if (!selectedCombo) return;
-    addItem(selectedCombo, comboSelections);
-    closeComboModal();
   };
 
   const toggleMenuItemDescription = (menuItemId) => {
@@ -370,6 +349,8 @@ export default function PublicMenuPage() {
                   const isDescriptionExpanded = Boolean(expandedMenuItems[item.id]);
                   const descriptionId = `public-menu-item-description-${item.id}`;
 
+                  const isCombo = item.itemType === 'combo' || (item.comboGroups && item.comboGroups.length > 0);
+
                   return (
                     <article key={item.id} className="public-menu-item-card rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                       <div className="public-menu-item-layout">
@@ -394,20 +375,90 @@ export default function PublicMenuPage() {
                               ) : null}
                             </div>
                           ) : null}
+                          
+                          {isCombo && (
+                            <div className="mt-4 mb-4 space-y-4 border-t border-gray-100 pt-4">
+                              {item.comboGroups?.map(group => {
+                                const groupSelections = getGroupSelections(item.id, group.id);
+                                const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
+                                
+                                return (
+                                  <div key={group.id} className="space-y-2">
+                                    <div className="flex justify-between items-baseline">
+                                      <h4 className="text-xs font-black text-[#2A1E15] uppercase">{group.name}</h4>
+                                      <span className="text-[10px] font-bold text-gray-500">
+                                        {group.minQty > 0 ? `Mín: ${group.minQty} ` : ''} 
+                                        {group.maxQty ? `Máx: ${group.maxQty}` : ''}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                      {group.options?.filter(opt => opt.isAvailable !== false).map(opt => {
+                                        const qty = groupSelections[opt.id] || 0;
+                                        return (
+                                          <div key={opt.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-2">
+                                            <div>
+                                              <p className="text-xs font-bold text-[#2A1E15]">{opt.name}</p>
+                                              {opt.extraPrice > 0 && <p className="text-[10px] text-[#D4A373] font-bold">+ {formatMoney(opt.extraPrice)}</p>}
+                                            </div>
+                                            
+                                            <div className="inline-flex h-7 items-center overflow-hidden rounded bg-white text-[#2A1E15] border border-gray-200">
+                                              <button 
+                                                type="button" 
+                                                onClick={() => updateInlineComboSelection(item.id, group.id, opt.id, -1, group.maxQty, opt.maxQty)}
+                                                disabled={qty === 0}
+                                                className="flex h-full w-7 items-center justify-center text-red-600 disabled:opacity-30"
+                                              >
+                                                <Minus size={11} />
+                                              </button>
+                                              <span className="min-w-6 text-center text-[10px] font-black">{qty}</span>
+                                              <button 
+                                                type="button" 
+                                                onClick={() => updateInlineComboSelection(item.id, group.id, opt.id, 1, group.maxQty, opt.maxQty)}
+                                                disabled={(group.maxQty && currentGroupTotal >= group.maxQty) || (opt.maxQty && qty >= opt.maxQty)}
+                                                className="flex h-full w-7 items-center justify-center disabled:opacity-30"
+                                              >
+                                                <Plus size={11} />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
                           <div className="public-menu-item-actions">
                             <strong className="text-base font-black text-[#241312]">{formatMoney(item.salePrice || item.basePrice)}</strong>
-                            {quantity > 0 && item.itemType !== 'combo' && !(item.comboGroups?.length > 0) ? (
+                            {quantity > 0 && !isCombo ? (
                               <div className="inline-flex h-9 items-center overflow-hidden rounded-xl border border-[#D4A373] bg-[#fff8e4] text-[#3A281B]">
                                 <button type="button" aria-label={`Remover ${item.name}`} onClick={() => decrementCatalogItem(item.id)} className="flex h-full w-9 items-center justify-center">
                                   <Minus size={13} />
                                 </button>
                                 <span className="min-w-8 text-center text-xs font-black">{quantity}</span>
-                                <button type="button" aria-label={`Adicionar ${item.name}`} onClick={() => handleCatalogAdd(item)} className="flex h-full w-9 items-center justify-center">
+                                <button type="button" aria-label={`Adicionar ${item.name}`} onClick={() => addItem(item)} className="flex h-full w-9 items-center justify-center">
                                   <Plus size={13} />
                                 </button>
                               </div>
+                            ) : isCombo ? (
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  if (validateInlineCombo(item)) {
+                                    addItem(item, inlineComboSelections[item.id] || {});
+                                    setInlineComboSelections(curr => ({ ...curr, [item.id]: {} }));
+                                  }
+                                }} 
+                                disabled={!validateInlineCombo(item)}
+                                className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {quantity > 0 ? <span className="mr-1 rounded-full bg-[#3A281B] px-1.5 py-0.5 text-[#fff8e4]">{quantity}</span> : <Plus size={13} />} Adicionar
+                              </button>
                             ) : (
-                              <button type="button" onClick={() => handleCatalogAdd(item)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B]">
+                              <button type="button" onClick={() => addItem(item)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B]">
                                 {quantity > 0 ? <span className="mr-1 rounded-full bg-[#3A281B] px-1.5 py-0.5 text-[#fff8e4]">{quantity}</span> : <Plus size={13} />} Adicionar
                               </button>
                             )}
@@ -494,81 +545,6 @@ export default function PublicMenuPage() {
           </div>
         </form>
       </div>
-
-      {selectedCombo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-100 p-4">
-              <h2 className="text-lg font-black uppercase text-[#2A1E15]">{selectedCombo.name}</h2>
-              <button onClick={closeComboModal} className="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
-            </div>
-            
-            <div className="overflow-y-auto p-4 space-y-6">
-              {selectedCombo.comboGroups?.map(group => {
-                const groupSelections = comboSelections[group.id] || {};
-                const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
-                
-                return (
-                  <div key={group.id} className="space-y-3">
-                    <div className="flex justify-between items-baseline">
-                      <h3 className="font-black text-[#2A1E15]">{group.name}</h3>
-                      <span className="text-xs font-bold text-gray-500">
-                        {group.minQty > 0 ? `Mín: ${group.minQty} ` : ''} 
-                        {group.maxQty ? `Máx: ${group.maxQty}` : ''}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {group.options?.filter(opt => opt.isAvailable !== false).map(opt => {
-                        const qty = groupSelections[opt.id] || 0;
-                        return (
-                          <div key={opt.id} className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
-                            <div>
-                              <p className="text-sm font-bold text-[#2A1E15]">{opt.name}</p>
-                              {opt.extraPrice > 0 && <p className="text-xs text-[#D4A373] font-bold">+ {formatMoney(opt.extraPrice)}</p>}
-                            </div>
-                            
-                            <div className="inline-flex h-8 items-center overflow-hidden rounded-lg bg-gray-50 text-[#2A1E15]">
-                              <button 
-                                type="button" 
-                                onClick={() => updateComboSelection(group.id, opt.id, -1, group.maxQty, opt.maxQty)}
-                                disabled={qty === 0}
-                                className="flex h-full w-8 items-center justify-center text-red-600 disabled:opacity-30"
-                              >
-                                <Minus size={13} />
-                              </button>
-                              <span className="min-w-7 text-center text-xs font-black">{qty}</span>
-                              <button 
-                                type="button" 
-                                onClick={() => updateComboSelection(group.id, opt.id, 1, group.maxQty, opt.maxQty)}
-                                disabled={(group.maxQty && currentGroupTotal >= group.maxQty) || (opt.maxQty && qty >= opt.maxQty)}
-                                className="flex h-full w-8 items-center justify-center disabled:opacity-30"
-                              >
-                                <Plus size={13} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="border-t border-gray-100 p-4 bg-gray-50">
-              <button 
-                type="button"
-                onClick={handleConfirmCombo}
-                disabled={!isComboValid}
-                className="w-full rounded-xl bg-[#D4A373] px-4 py-3 text-sm font-black uppercase text-[#3A281B] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
