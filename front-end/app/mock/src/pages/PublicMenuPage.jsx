@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Minus, Plus, ShoppingBag } from 'lucide-react';
 import { publicMenuApi } from '../services/api.js';
+import SearchableSelect from '../components/SearchableSelect.jsx';
 import '../App.css';
 
 const BEVERAGE_MATCHER = /bebida|refrigerante|refri|suco|agua|água|cerveja|drink|lata|garrafa/i;
@@ -59,6 +60,8 @@ export default function PublicMenuPage() {
   const [success, setSuccess] = useState('');
   const [customerLookup, setCustomerLookup] = useState({ phone: '', status: 'idle', message: '' });
   const [expandedMenuItems, setExpandedMenuItems] = useState(() => ({}));
+  const [selectedCombo, setSelectedCombo] = useState(null);
+  const [comboSelections, setComboSelections] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -133,14 +136,39 @@ export default function PublicMenuPage() {
 
   const total = cart.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
 
-  const addItem = (item) => {
-    const unitPrice = Number(item.salePrice || item.basePrice || 0);
+  const addItem = (item, selections = null) => {
+    const unitPrice = Number(item.salePrice || item.basePrice || item.unitPrice || 0);
+    let extraPrice = 0;
+    let comboDescription = '';
+    
+    if (selections && item.comboGroups) {
+       const descParts = [];
+       item.comboGroups.forEach(g => {
+          const groupSelections = selections[g.id] || {};
+          const groupParts = [];
+          g.options.forEach(opt => {
+             const qty = groupSelections[opt.id] || 0;
+             if (qty > 0) {
+                extraPrice += (Number(opt.extraPrice) || 0) * qty;
+                groupParts.push(`${qty}x ${opt.name}`);
+             }
+          });
+          if (groupParts.length > 0) descParts.push(groupParts.join(', '));
+       });
+       comboDescription = descParts.join(' | ');
+    }
+
+    const finalUnitPrice = unitPrice + extraPrice;
+    const selectionKey = selections ? JSON.stringify(selections) : 'none';
+
     setCart((current) => {
-      const existing = current.find((cartItem) => cartItem.menuItemId === item.id);
+      const existing = current.find(
+        (cartItem) => cartItem.menuItemId === (item.menuItemId || item.id) && cartItem.selectionKey === selectionKey
+      );
 
       if (existing) {
         return current.map((cartItem) => {
-          if (cartItem.menuItemId !== item.id) return cartItem;
+          if (cartItem.cartId !== existing.cartId) return cartItem;
           const quantity = cartItem.quantity + 1;
           return { ...cartItem, quantity, totalPrice: quantity * cartItem.unitPrice };
         });
@@ -149,31 +177,111 @@ export default function PublicMenuPage() {
       return [
         ...current,
         {
+          cartId: Math.random().toString(36).substr(2, 9),
           id: item.id,
-          menuItemId: item.id,
+          menuItemId: item.menuItemId || item.id,
           name: item.name,
           category: item.category || '',
           section: classifySection(item.category, item.name),
           quantity: 1,
-          unitPrice,
-          totalPrice: unitPrice,
-          notes: ''
+          unitPrice: finalUnitPrice,
+          totalPrice: finalUnitPrice,
+          notes: comboDescription,
+          selectionKey,
+          selections
         }
       ];
     });
   };
 
-  const decrementItem = (menuItemId) => {
+  const decrementCatalogItem = (menuItemId) => {
+    setCart((current) => {
+      const idx = current.findIndex(c => c.menuItemId === menuItemId);
+      if (idx === -1) return current;
+      const newCart = [...current];
+      const cartItem = newCart[idx];
+      const quantity = cartItem.quantity - 1;
+      if (quantity > 0) {
+        newCart[idx] = { ...cartItem, quantity, totalPrice: quantity * cartItem.unitPrice };
+      } else {
+        newCart.splice(idx, 1);
+      }
+      return newCart;
+    });
+  };
+
+  const decrementItem = (cartId) => {
     setCart((current) => current.flatMap((cartItem) => {
-      if (cartItem.menuItemId !== menuItemId) return [cartItem];
+      if (cartItem.cartId !== cartId) return [cartItem];
       const quantity = cartItem.quantity - 1;
       return quantity > 0 ? [{ ...cartItem, quantity, totalPrice: quantity * cartItem.unitPrice }] : [];
     }));
   };
 
-  const getCartQuantity = (menuItemId) => (
-    cart.find((cartItem) => cartItem.menuItemId === menuItemId)?.quantity || 0
-  );
+  const getCartQuantity = (menuItemId) => {
+    return cart.filter((cartItem) => cartItem.menuItemId === menuItemId).reduce((sum, item) => sum + item.quantity, 0);
+  };
+
+  const handleCatalogAdd = (item) => {
+    if (item.itemType === 'combo' || (item.comboGroups && item.comboGroups.length > 0)) {
+      setSelectedCombo(item);
+      const initialSelections = {};
+      item.comboGroups?.forEach(g => {
+        initialSelections[g.id] = {};
+        g.options?.forEach(opt => {
+          initialSelections[g.id][opt.id] = 0;
+        });
+      });
+      setComboSelections(initialSelections);
+    } else {
+      addItem(item);
+    }
+  };
+
+  const closeComboModal = () => {
+    setSelectedCombo(null);
+    setComboSelections({});
+  };
+
+  const updateComboSelection = (groupId, optionId, delta, maxGroupQty, maxOptionQty) => {
+    setComboSelections(current => {
+      const groupSelections = current[groupId] || {};
+      const currentOptionQty = groupSelections[optionId] || 0;
+      const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
+
+      const newOptionQty = currentOptionQty + delta;
+      
+      if (newOptionQty < 0) return current;
+      if (maxOptionQty !== undefined && maxOptionQty !== null && newOptionQty > maxOptionQty) return current;
+      if (delta > 0 && maxGroupQty !== undefined && maxGroupQty !== null && currentGroupTotal >= maxGroupQty) return current;
+
+      return {
+        ...current,
+        [groupId]: {
+          ...groupSelections,
+          [optionId]: newOptionQty
+        }
+      };
+    });
+  };
+
+  const isComboValid = useMemo(() => {
+    if (!selectedCombo) return false;
+    for (const group of selectedCombo.comboGroups || []) {
+       const groupSelections = comboSelections[group.id] || {};
+       const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
+       if (group.minQty && currentGroupTotal < group.minQty) {
+          return false;
+       }
+    }
+    return true;
+  }, [selectedCombo, comboSelections]);
+
+  const handleConfirmCombo = () => {
+    if (!selectedCombo) return;
+    addItem(selectedCombo, comboSelections);
+    closeComboModal();
+  };
 
   const toggleMenuItemDescription = (menuItemId) => {
     setExpandedMenuItems((current) => ({
@@ -288,19 +396,19 @@ export default function PublicMenuPage() {
                           ) : null}
                           <div className="public-menu-item-actions">
                             <strong className="text-base font-black text-[#241312]">{formatMoney(item.salePrice || item.basePrice)}</strong>
-                            {quantity > 0 ? (
+                            {quantity > 0 && item.itemType !== 'combo' && !(item.comboGroups?.length > 0) ? (
                               <div className="inline-flex h-9 items-center overflow-hidden rounded-xl border border-[#D4A373] bg-[#fff8e4] text-[#3A281B]">
-                                <button type="button" aria-label={`Remover ${item.name}`} onClick={() => decrementItem(item.id)} className="flex h-full w-9 items-center justify-center">
+                                <button type="button" aria-label={`Remover ${item.name}`} onClick={() => decrementCatalogItem(item.id)} className="flex h-full w-9 items-center justify-center">
                                   <Minus size={13} />
                                 </button>
                                 <span className="min-w-8 text-center text-xs font-black">{quantity}</span>
-                                <button type="button" aria-label={`Adicionar ${item.name}`} onClick={() => addItem(item)} className="flex h-full w-9 items-center justify-center">
+                                <button type="button" aria-label={`Adicionar ${item.name}`} onClick={() => handleCatalogAdd(item)} className="flex h-full w-9 items-center justify-center">
                                   <Plus size={13} />
                                 </button>
                               </div>
                             ) : (
-                              <button type="button" onClick={() => addItem(item)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B]">
-                                <Plus size={13} /> Adicionar
+                              <button type="button" onClick={() => handleCatalogAdd(item)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B]">
+                                {quantity > 0 ? <span className="mr-1 rounded-full bg-[#3A281B] px-1.5 py-0.5 text-[#fff8e4]">{quantity}</span> : <Plus size={13} />} Adicionar
                               </button>
                             )}
                           </div>
@@ -322,20 +430,23 @@ export default function PublicMenuPage() {
 
           <div className="space-y-2">
             {cart.length === 0 ? <p className="rounded-xl border border-dashed border-gray-200 p-4 text-sm font-bold text-[#696965]">Carrinho vazio.</p> : cart.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl bg-[#FAF6EF] px-3 py-3">
-                <div>
-                  <p className="text-sm font-black text-[#2A1E15]">{item.name}</p>
-                  <p className="text-xs font-bold text-[#696965]">{item.quantity} x {formatMoney(item.unitPrice)} = {formatMoney(item.totalPrice)}</p>
+              <div key={item.cartId} className="flex flex-col gap-2 rounded-xl bg-[#FAF6EF] px-3 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-black text-[#2A1E15]">{item.name}</p>
+                    <p className="text-xs font-bold text-[#696965]">{item.quantity} x {formatMoney(item.unitPrice)} = {formatMoney(item.totalPrice)}</p>
+                  </div>
+                  <div className="inline-flex h-8 items-center overflow-hidden rounded-lg bg-white text-[#2A1E15]">
+                    <button type="button" aria-label={`Diminuir ${item.name}`} onClick={() => decrementItem(item.cartId)} className="flex h-full w-8 items-center justify-center text-red-600">
+                      <Minus size={13} />
+                    </button>
+                    <span className="min-w-7 text-center text-xs font-black">{item.quantity}</span>
+                    <button type="button" aria-label={`Aumentar ${item.name}`} onClick={() => addItem(item, item.selections)} className="flex h-full w-8 items-center justify-center">
+                      <Plus size={13} />
+                    </button>
+                  </div>
                 </div>
-                <div className="inline-flex h-8 items-center overflow-hidden rounded-lg bg-white text-[#2A1E15]">
-                  <button type="button" aria-label={`Diminuir ${item.name}`} onClick={() => decrementItem(item.menuItemId)} className="flex h-full w-8 items-center justify-center text-red-600">
-                    <Minus size={13} />
-                  </button>
-                  <span className="min-w-7 text-center text-xs font-black">{item.quantity}</span>
-                  <button type="button" aria-label={`Aumentar ${item.name}`} onClick={() => addItem(item)} className="flex h-full w-8 items-center justify-center">
-                    <Plus size={13} />
-                  </button>
-                </div>
+                {item.notes && <p className="text-[11px] font-bold text-[#D4A373]">{item.notes}</p>}
               </div>
             ))}
           </div>
@@ -357,12 +468,15 @@ export default function PublicMenuPage() {
             </div>
             <input required placeholder="Cidade" value={customer.city} onChange={(event) => updateCustomer('city', event.target.value)} className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
             <input placeholder="Complemento" value={customer.addressComplement} onChange={(event) => updateCustomer('addressComplement', event.target.value)} className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
-            <select value={paymentMethodId} onChange={(event) => setPaymentMethodId(event.target.value)} className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]">
-              <option value="">Pagamento a combinar</option>
-              {(menu?.paymentMethods || []).map((method) => (
-                <option key={method.id} value={method.id}>{method.name}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={paymentMethodId}
+              onChange={(value) => setPaymentMethodId(value)}
+              placeholder="Pagamento a combinar"
+              options={(menu?.paymentMethods || []).map((method) => ({
+                value: method.id,
+                label: method.name
+              }))}
+            />
             <textarea placeholder="Observações" value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-[80px] rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
           </div>
 
@@ -380,6 +494,81 @@ export default function PublicMenuPage() {
           </div>
         </form>
       </div>
+
+      {selectedCombo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 p-4">
+              <h2 className="text-lg font-black uppercase text-[#2A1E15]">{selectedCombo.name}</h2>
+              <button onClick={closeComboModal} className="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
+            </div>
+            
+            <div className="overflow-y-auto p-4 space-y-6">
+              {selectedCombo.comboGroups?.map(group => {
+                const groupSelections = comboSelections[group.id] || {};
+                const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
+                
+                return (
+                  <div key={group.id} className="space-y-3">
+                    <div className="flex justify-between items-baseline">
+                      <h3 className="font-black text-[#2A1E15]">{group.name}</h3>
+                      <span className="text-xs font-bold text-gray-500">
+                        {group.minQty > 0 ? `Mín: ${group.minQty} ` : ''} 
+                        {group.maxQty ? `Máx: ${group.maxQty}` : ''}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {group.options?.filter(opt => opt.isAvailable !== false).map(opt => {
+                        const qty = groupSelections[opt.id] || 0;
+                        return (
+                          <div key={opt.id} className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
+                            <div>
+                              <p className="text-sm font-bold text-[#2A1E15]">{opt.name}</p>
+                              {opt.extraPrice > 0 && <p className="text-xs text-[#D4A373] font-bold">+ {formatMoney(opt.extraPrice)}</p>}
+                            </div>
+                            
+                            <div className="inline-flex h-8 items-center overflow-hidden rounded-lg bg-gray-50 text-[#2A1E15]">
+                              <button 
+                                type="button" 
+                                onClick={() => updateComboSelection(group.id, opt.id, -1, group.maxQty, opt.maxQty)}
+                                disabled={qty === 0}
+                                className="flex h-full w-8 items-center justify-center text-red-600 disabled:opacity-30"
+                              >
+                                <Minus size={13} />
+                              </button>
+                              <span className="min-w-7 text-center text-xs font-black">{qty}</span>
+                              <button 
+                                type="button" 
+                                onClick={() => updateComboSelection(group.id, opt.id, 1, group.maxQty, opt.maxQty)}
+                                disabled={(group.maxQty && currentGroupTotal >= group.maxQty) || (opt.maxQty && qty >= opt.maxQty)}
+                                className="flex h-full w-8 items-center justify-center disabled:opacity-30"
+                              >
+                                <Plus size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="border-t border-gray-100 p-4 bg-gray-50">
+              <button 
+                type="button"
+                onClick={handleConfirmCombo}
+                disabled={!isComboValid}
+                className="w-full rounded-xl bg-[#D4A373] px-4 py-3 text-sm font-black uppercase text-[#3A281B] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

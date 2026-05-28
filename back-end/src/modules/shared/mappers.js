@@ -188,7 +188,7 @@ function normalizeLinkedCategoryNames(option = {}) {
 }
 
 export function mapMenuCategory(row) {
-  return { id: row.id, name: row.name };
+  return { id: row.id, name: row.name, sortOrder: Number(row.sort_order || 0) };
 }
 
 export function mapMenuItem(row) {
@@ -197,22 +197,27 @@ export function mapMenuItem(row) {
     category: row.menu_categories?.name || '',
     description: row.description,
     status: row.status,
+    sortOrder: Number(row.sort_order || 0),
     salePrice: Number(row.sale_price || 0),
     basePrice: Number(row.base_price || 0),
     photoPreview: row.photo_preview || '',
     linkedComponents: Array.isArray(row.linked_component_ids) ? row.linked_component_ids : [],
     itemType: row.item_type === 'combo' ? 'combo' : 'regular',
     name: row.name,
-    comboGroups: (row.combo_groups || []).map((group) => ({
+    comboGroups: (row.combo_groups || [])
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+      .map((group) => ({
       id: group.id,
       name: group.name,
       minSelect: String(group.min_select),
       maxSelect: String(group.max_select),
+      sortOrder: Number(group.sort_order || 0),
       options: (group.combo_options || [])
-        .sort((a, b) => a.sort_order - b.sort_order)
+        .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
         .map((option) => ({
           id: option.id,
           name: option.name,
+          sortOrder: Number(option.sort_order || 0),
           photoPreview: option.photo_preview || '',
           extraPrice: String(Number(option.extra_price || 0)),
           maxQty: String(option.max_qty || 1),

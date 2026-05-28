@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pencil, Plus, Save, Search, Trash2, Users } from 'lucide-react';
 import { AdminModal } from './AdminLayout.jsx';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
 
 const inputClass = 'w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-semibold outline-none focus:border-[#D4A373]';
 const selectClass = 'w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-bold outline-none focus:border-[#D4A373]';
@@ -130,33 +131,34 @@ export default function TenantUsersSection({
                 <label htmlFor="tenant-user-password" className="sr-only">{userForm.id ? 'Nova senha opcional' : 'Senha do usuário'}</label>
                 <input id="tenant-user-password" name="password" type="password" value={userForm.password} onChange={(event) => onChange('password', event.target.value)} className={inputClass} placeholder={userForm.id ? 'Nova senha opcional' : 'Senha'} />
                 <label htmlFor="tenant-user-role-profile" className="sr-only">Perfil do usuário</label>
-                <select
+                <SearchableSelect
                   id="tenant-user-role-profile"
                   name="roleProfileId"
                   value={selectedRoleProfile?.id || ''}
-                  onChange={(event) => {
-                    const profile = roleProfiles.find((item) => item.id === event.target.value);
-                    onChange('roleProfileId', event.target.value);
+                  onChange={(value) => {
+                    const profile = roleProfiles.find((item) => item.id === value);
+                    onChange('roleProfileId', value);
                     onChange('role', profile?.baseRole || 'tenant_staff');
                   }}
-                  className={selectClass}
-                >
-                  {roleProfiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>{profile.name}</option>
-                  ))}
-                </select>
+                  className="searchable-select--admin"
+                  options={roleProfiles.map((profile) => ({
+                    value: profile.id,
+                    label: profile.name
+                  }))}
+                />
                 <label htmlFor="tenant-user-access-scope" className="sr-only">Escopo de acesso</label>
-                <select
+                <SearchableSelect
                   id="tenant-user-access-scope"
                   name="accessScope"
                   value={userForm.accessScope}
                   disabled={!canChooseCompanyScope}
-                  onChange={(event) => onChange('accessScope', event.target.value)}
-                  className={`${selectClass} disabled:cursor-not-allowed disabled:bg-[#efe7db] disabled:text-[#8a7474]`}
-                >
-                  <option value="branch">Somente filial: {branchName}</option>
-                  <option value="company">Empresa inteira: {companyName}</option>
-                </select>
+                  onChange={(value) => onChange('accessScope', value)}
+                  className="searchable-select--admin"
+                  options={[
+                    { value: 'branch', label: `Somente filial: ${branchName}` },
+                    { value: 'company', label: `Empresa inteira: ${companyName}` }
+                  ]}
+                />
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button type="submit" className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#2A1E15] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white">
                     <Save size={16} />

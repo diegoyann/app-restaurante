@@ -250,7 +250,7 @@ function mapSimpleName(row) {
 }
 
 function mapMenuCategory(row) {
-  return { id: row.id, name: row.name };
+  return { id: row.id, name: row.name, sortOrder: Number(row.sort_order || 0) };
 }
 
 function mapMenuItem(row) {
@@ -259,22 +259,27 @@ function mapMenuItem(row) {
     category: row.menu_categories?.name || '',
     description: row.description,
     status: row.status,
+    sortOrder: Number(row.sort_order || 0),
     salePrice: Number(row.sale_price || 0),
     basePrice: Number(row.base_price || 0),
     photoPreview: row.photo_preview || '',
     linkedComponents: Array.isArray(row.linked_component_ids) ? row.linked_component_ids : [],
     itemType: row.item_type === 'combo' ? 'combo' : 'regular',
     name: row.name,
-    comboGroups: (row.combo_groups || []).map((group) => ({
+    comboGroups: (row.combo_groups || [])
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+      .map((group) => ({
       id: group.id,
       name: group.name,
       minSelect: String(group.min_select),
       maxSelect: String(group.max_select),
+      sortOrder: Number(group.sort_order || 0),
       options: (group.combo_options || [])
-        .sort((a, b) => a.sort_order - b.sort_order)
+        .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
         .map((option) => ({
           id: option.id,
           name: option.name,
+          sortOrder: Number(option.sort_order || 0),
           photoPreview: option.photo_preview || '',
           extraPrice: String(Number(option.extra_price || 0)),
           maxQty: String(option.max_qty || 1),
@@ -384,7 +389,8 @@ async function resolveMenuCategoryId(tenantId, categoryName) {
       .from('menu_categories')
       .insert({
         tenant_id: tenantId,
-        name: normalizedName
+        name: normalizedName,
+        sort_order: await getNextMenuCategorySortOrder(tenantId)
       })
       .select('*')
       .single(),
@@ -392,6 +398,39 @@ async function resolveMenuCategoryId(tenantId, categoryName) {
   );
 
   return created.id;
+}
+
+async function getNextMenuCategorySortOrder(tenantId) {
+  const row = maybeSingle(
+    await supabaseAdmin
+      .from('menu_categories')
+      .select('sort_order')
+      .eq('tenant_id', tenantId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    'Falha ao calcular ordem da categoria.'
+  );
+
+  return Number(row?.sort_order || 0) + 1;
+}
+
+async function getNextMenuItemSortOrder(tenantId, categoryId) {
+  let query = supabaseAdmin
+    .from('menu_items')
+    .select('sort_order')
+    .eq('tenant_id', tenantId)
+    .order('sort_order', { ascending: false })
+    .limit(1);
+
+  query = categoryId ? query.eq('category_id', categoryId) : query.is('category_id', null);
+
+  const row = maybeSingle(
+    await query.maybeSingle(),
+    'Falha ao calcular ordem do item.'
+  );
+
+  return Number(row?.sort_order || 0) + 1;
 }
 
 async function replaceComboGroups({ tenantId, menuItemId, comboGroups = [] }) {
@@ -2763,19 +2802,30 @@ export async function saveFinancialClosing(tenantSlug, payload) {
 export async function saveMenuCategory(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
   const name = String(payload.name || '').trim();
+  const sortOrder = Number.isInteger(payload.sortOrder)
+    ? payload.sortOrder
+    : payload.id
+      ? undefined
+      : await getNextMenuCategorySortOrder(tenant.id);
 
   if (!name) {
     throw new Error('Nome da categoria é obrigatório.');
   }
 
+  const categoryPayload = {
+    id: payload.id || undefined,
+    tenant_id: tenant.id,
+    name
+  };
+
+  if (sortOrder !== undefined) {
+    categoryPayload.sort_order = sortOrder;
+  }
+
   const row = ensureOk(
     await supabaseAdmin
       .from('menu_categories')
-      .upsert({
-        id: payload.id || undefined,
-        tenant_id: tenant.id,
-        name
-      })
+      .upsert(categoryPayload)
       .select('*')
       .single(),
     'Falha ao salvar categoria do menu.'
@@ -2808,6 +2858,26 @@ export async function deleteMenuCategoryById(tenantSlug, categoryId) {
   return true;
 }
 
+export async function reorderMenuCategories(tenantSlug, payload) {
+  const tenant = await getTenantRowBySlug(tenantSlug);
+  const items = sanitizeJsonArray(payload.items);
+
+  if (items.length === 0) {
+    throw new Error('Informe as categorias para reordenar.');
+  }
+
+  await Promise.all(items.map(async (item, index) => ensureOk(
+    await supabaseAdmin
+      .from('menu_categories')
+      .update({ sort_order: Number.isInteger(item.sortOrder) ? item.sortOrder : index })
+      .eq('tenant_id', tenant.id)
+      .eq('id', item.id),
+    'Falha ao reordenar categorias do menu.'
+  )));
+
+  return getTenantBootstrap(tenantSlug);
+}
+
 export async function saveMenuItem(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
   const name = String(payload.name || '').trim();
@@ -2818,23 +2888,34 @@ export async function saveMenuItem(tenantSlug, payload) {
 
   const categoryId = await resolveMenuCategoryId(tenant.id, payload.category);
   const isCombo = payload.itemType === 'combo';
+  const sortOrder = Number.isInteger(payload.sortOrder)
+    ? payload.sortOrder
+    : payload.id
+      ? undefined
+      : await getNextMenuItemSortOrder(tenant.id, categoryId);
+
+  const itemPayload = {
+    id: payload.id || undefined,
+    tenant_id: tenant.id,
+    category_id: categoryId,
+    item_type: mapMenuItemType(payload.itemType),
+    name,
+    description,
+    status: payload.status || 'active',
+    sale_price: isCombo ? 0 : Number(payload.salePrice) || 0,
+    base_price: isCombo ? Number(payload.basePrice) || 0 : 0,
+    photo_preview: payload.photoPreview || '',
+    linked_component_ids: isCombo ? [] : sanitizeJsonArray(payload.linkedComponents)
+  };
+
+  if (sortOrder !== undefined) {
+    itemPayload.sort_order = sortOrder;
+  }
 
   const row = ensureOk(
     await supabaseAdmin
       .from('menu_items')
-      .upsert({
-        id: payload.id || undefined,
-        tenant_id: tenant.id,
-        category_id: categoryId,
-        item_type: mapMenuItemType(payload.itemType),
-        name,
-        description,
-        status: payload.status || 'active',
-        sale_price: isCombo ? 0 : Number(payload.salePrice) || 0,
-        base_price: isCombo ? Number(payload.basePrice) || 0 : 0,
-        photo_preview: payload.photoPreview || '',
-        linked_component_ids: isCombo ? [] : sanitizeJsonArray(payload.linkedComponents)
-      })
+      .upsert(itemPayload)
       .select('*')
       .single(),
     'Falha ao salvar item do menu.'
@@ -2883,6 +2964,26 @@ export async function deleteMenuItemById(tenantSlug, itemId) {
   );
 
   return true;
+}
+
+export async function reorderMenuItems(tenantSlug, payload) {
+  const tenant = await getTenantRowBySlug(tenantSlug);
+  const items = sanitizeJsonArray(payload.items);
+
+  if (items.length === 0) {
+    throw new Error('Informe os itens para reordenar.');
+  }
+
+  await Promise.all(items.map(async (item, index) => ensureOk(
+    await supabaseAdmin
+      .from('menu_items')
+      .update({ sort_order: Number.isInteger(item.sortOrder) ? item.sortOrder : index })
+      .eq('tenant_id', tenant.id)
+      .eq('id', item.id),
+    'Falha ao reordenar itens do menu.'
+  )));
+
+  return getTenantBootstrap(tenantSlug);
 }
 
 export async function saveIngredientUnit() {

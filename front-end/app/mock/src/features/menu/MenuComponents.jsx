@@ -1,4 +1,7 @@
 import React from 'react';
+import SortableList from '../../components/SortableList.jsx';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
+import MultiSearchableSelect from '../../components/MultiSearchableSelect.jsx';
 import {
   Camera,
   ChefHat,
@@ -6,6 +9,7 @@ import {
   Copy,
   Edit,
   Eye,
+  GripVertical,
   ImagePlus,
   List,
   Plus,
@@ -21,15 +25,119 @@ import {
   summarizeComboGroups
 } from './menuModel.js';
 
-const DefaultCustomInput = ({ label, ...props }) => (
-  <div className="space-y-1 w-full">
-    <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">{label}</label>
-    <input
-      {...props}
-      className="w-full pl-4 pr-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium"
-    />
-  </div>
-);
+const DefaultCustomInput = ({ label, icon: Icon, type, value: propValue, defaultValue, onChange, name, step, ...props }) => {
+  const isCurrency = type === 'currency';
+  const inputRef = React.useRef(null);
+
+  const [localValue, setLocalValue] = React.useState(() => {
+    if (propValue !== undefined) return propValue;
+    if (defaultValue !== undefined) return defaultValue;
+    return '';
+  });
+
+  React.useEffect(() => {
+    if (propValue !== undefined) {
+      setLocalValue(propValue);
+    }
+  }, [propValue]);
+
+  React.useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    const form = input.form;
+    if (!form) return;
+
+    const handleReset = () => {
+      setLocalValue(defaultValue !== undefined ? defaultValue : '');
+    };
+
+    form.addEventListener('reset', handleReset);
+    return () => {
+      form.removeEventListener('reset', handleReset);
+    };
+  }, [defaultValue]);
+
+  const decimals = React.useMemo(() => {
+    if (!step) return 2;
+    const stepStr = String(step);
+    if (stepStr.includes('.')) {
+      return stepStr.split('.')[1].length;
+    }
+    return 2;
+  }, [step]);
+
+  const displayValue = React.useMemo(() => {
+    if (!isCurrency) return localValue;
+    if (localValue === undefined || localValue === null || localValue === '') return '';
+    const clean = String(localValue).replace(',', '.');
+    const num = parseFloat(clean);
+    if (isNaN(num)) return '';
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  }, [localValue, isCurrency, decimals]);
+
+  const handleChange = (e) => {
+    if (!isCurrency) {
+      setLocalValue(e.target.value);
+      onChange?.(e);
+      return;
+    }
+
+    const rawValue = e.target.value;
+    if (rawValue === '') {
+      setLocalValue('');
+      if (onChange) {
+        const synthEvent = { ...e, target: { ...e.target, value: '', name } };
+        onChange(synthEvent);
+      }
+      return;
+    }
+
+    const digits = rawValue.replace(/\D/g, '');
+    if (!digits) {
+      setLocalValue('');
+      if (onChange) {
+        const synthEvent = { ...e, target: { ...e.target, value: '', name } };
+        onChange(synthEvent);
+      }
+      return;
+    }
+
+    const divisor = Math.pow(10, decimals);
+    const floatValue = (parseInt(digits, 10) / divisor).toFixed(decimals);
+    
+    setLocalValue(floatValue);
+
+    if (onChange) {
+      const synthEvent = { ...e, target: { ...e.target, value: floatValue, name } };
+      onChange(synthEvent);
+    }
+  };
+
+  return (
+    <div className="space-y-1 w-full">
+      {label && <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">{label}</label>}
+      <div className="relative">
+        {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" size={16} />}
+        {isCurrency && name && (
+          <input type="hidden" name={name} value={localValue} />
+        )}
+        <input
+          {...props}
+          ref={inputRef}
+          name={isCurrency ? undefined : name}
+          type={isCurrency ? 'text' : type}
+          inputMode={isCurrency ? 'decimal' : props.inputMode}
+          value={displayValue}
+          onChange={handleChange}
+          className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium`}
+        />
+      </div>
+    </div>
+  );
+};
 
 export const MenuCategoryManager = ({
   CustomInput,
@@ -41,6 +149,7 @@ export const MenuCategoryManager = ({
   onEditCategory,
   onDeleteCategory,
   onCancelEdit,
+  onReorderCategories,
   isModalContent = false
 }) => {
   const InputComponent = CustomInput ?? DefaultCustomInput;
@@ -68,10 +177,21 @@ export const MenuCategoryManager = ({
       </button>
     </form>
 
-    <div className="menu-category-manager-list">
-      {categories.map((category) => (
-        <div key={category.id} className="menu-category-manager-item">
-          <p className="text-sm font-black text-[#2A1E15] uppercase tracking-tight">{category.name}</p>
+    <SortableList
+      items={categories}
+      onReorder={onReorderCategories}
+      disabled={!onReorderCategories}
+      className="menu-category-manager-list"
+      renderItem={({ item: category, handleProps }) => (
+        <div className="menu-category-manager-item">
+          <div className="flex min-w-0 items-center gap-2">
+            {onReorderCategories && (
+              <button type="button" className="menu-drag-handle" aria-label={`Reordenar categoria ${category.name}`} {...handleProps}>
+                <GripVertical size={15} />
+              </button>
+            )}
+            <p className="truncate text-sm font-black text-[#2A1E15] uppercase tracking-tight">{category.name}</p>
+          </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => onEditCategory(category)} className="menu-action-button menu-action-button--edit">
               <Edit size={14} /> Editar
@@ -81,8 +201,8 @@ export const MenuCategoryManager = ({
             </button>
           </div>
         </div>
-      ))}
-    </div>
+      )}
+    />
   </div>
   );
 };
@@ -130,14 +250,14 @@ export const MenuItemFormPanel = ({
               Editar preço
             </button>
           </div>
-          <input
-            type="number"
+          <DefaultCustomInput
+            type="currency"
             step="0.01"
             value={menuItemForm.salePrice}
             onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)}
             disabled={!menuItemForm.priceEditable}
             required
-            className={`w-full pl-4 pr-4 py-2.5 xl:py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium ${menuItemForm.priceEditable ? 'bg-[#FFFFFF]' : 'bg-gray-50 text-[#696965] cursor-not-allowed'}`}
+            className={!menuItemForm.priceEditable ? 'bg-gray-50 text-[#696965] cursor-not-allowed' : ''}
           />
           <p className="text-[10px] font-bold text-[#696965] uppercase ml-1">
             {menuItemForm.priceEditable ? 'Ao salvar, este valor também atualiza o preço final no CMV.' : 'Selecione um produto CMV para carregar o preço.'}
@@ -145,20 +265,26 @@ export const MenuItemFormPanel = ({
         </div>
         <div className="space-y-1">
           <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
-          <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
-            <option value="">Selecione</option>
-            {categoryOptions.map((category) => (
-              <option key={category} value={category}>{formatComboboxLabel(category)}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            value={menuItemForm.category}
+            onChange={(value) => onMenuItemFormChange('category', value)}
+            required
+            options={categoryOptions.map((category) => ({
+              value: category,
+              label: formatComboboxLabel(category)
+            }))}
+          />
         </div>
         <div className="space-y-1">
           <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Visibilidade</label>
-          <select value={menuItemForm.status} onChange={(e) => onMenuItemFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]">
-            {menuStatusOptions.map((status) => (
-              <option key={status.value} value={status.value}>{status.label}</option>
-            ))}
-          </select>
+          <SearchableSelect
+            value={menuItemForm.status}
+            onChange={(value) => onMenuItemFormChange('status', value)}
+            options={menuStatusOptions.map((status) => ({
+              value: status.value,
+              label: status.label
+            }))}
+          />
         </div>
       </div>
 
@@ -249,6 +375,7 @@ export const MenuCategoryModal = ({
   onEditCategory,
   onDeleteCategory,
   onCancelEdit,
+  onReorderCategories,
   CustomInput = DefaultCustomInput
 }) => {
   if (!isOpen) return null;
@@ -275,6 +402,7 @@ export const MenuCategoryModal = ({
           onEditCategory={onEditCategory}
           onDeleteCategory={onDeleteCategory}
           onCancelEdit={onCancelEdit}
+          onReorderCategories={onReorderCategories}
           isModalContent
         />
       </div>
@@ -350,9 +478,11 @@ export const ComboEditorModal = ({
   onDuplicateComboGroup,
   onRemoveComboGroup,
   onComboGroupChange,
+  onReorderComboGroups,
   onAddComboOption,
   onRemoveComboOption,
   onComboOptionChange,
+  onReorderComboOptions,
   formatMoney,
   CustomInput
 }) => {
@@ -400,22 +530,29 @@ export const ComboEditorModal = ({
             <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InputComponent label="Nome do combo" value={comboForm.name} onChange={(e) => onComboFormChange('name', e.target.value)} required />
-                  <InputComponent label="Preço base" type="number" step="0.01" value={comboForm.basePrice} onChange={(e) => onComboFormChange('basePrice', e.target.value)} required />
+                  <InputComponent label="Preço base" type="currency" step="0.01" value={comboForm.basePrice} onChange={(e) => onComboFormChange('basePrice', e.target.value)} required />
                 <div className="space-y-1">
                   <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
-                  <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
-                    {categoryOptions.map((category) => (
-                      <option key={category} value={category}>{formatComboboxLabel(category)}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={comboForm.category}
+                    onChange={(value) => onComboFormChange('category', value)}
+                    required
+                    options={categoryOptions.map((category) => ({
+                      value: category,
+                      label: formatComboboxLabel(category)
+                    }))}
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Visibilidade</label>
-                  <select value={comboForm.status} onChange={(e) => onComboFormChange('status', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]">
-                    {menuStatusOptions.map((status) => (
-                      <option key={status.value} value={status.value}>{status.label}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={comboForm.status}
+                    onChange={(value) => onComboFormChange('status', value)}
+                    options={menuStatusOptions.map((status) => ({
+                      value: status.value,
+                      label: status.label
+                    }))}
+                  />
                 </div>
               </div>
 
@@ -438,10 +575,16 @@ export const ComboEditorModal = ({
               </button>
             </div>
 
-            <div className="space-y-4">
-              {comboForm.comboGroups.map((group) => (
-                <div key={group.id} className="combo-group-card">
+            <SortableList
+              items={comboForm.comboGroups}
+              onReorder={onReorderComboGroups}
+              className="space-y-4"
+              renderItem={({ item: group, handleProps }) => (
+                <div className="combo-group-card">
                   <div className="combo-group-card__header">
+                    <button type="button" className="menu-drag-handle menu-drag-handle--panel" aria-label={`Reordenar grupo ${group.name || 'sem nome'}`} {...handleProps}>
+                      <GripVertical size={16} />
+                    </button>
                     <div className="combo-group-card__grid">
                           <InputComponent label="Nome do grupo" value={group.name} onChange={(e) => onComboGroupChange(group.id, 'name', e.target.value)} required />
                           <InputComponent label="Mínimo" type="number" min="0" step="1" value={group.minSelect} onChange={(e) => onComboGroupChange(group.id, 'minSelect', e.target.value)} required />
@@ -458,8 +601,11 @@ export const ComboEditorModal = ({
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {group.options.map((option) => {
+                  <SortableList
+                    items={group.options}
+                    onReorder={(nextOptions) => onReorderComboOptions(group.id, nextOptions)}
+                    className="space-y-3"
+                    renderItem={({ item: option, handleProps: optionHandleProps }) => {
                       const linkedCategoryNames = Array.isArray(option.linkedCategoryNames) && option.linkedCategoryNames.length > 0
                         ? option.linkedCategoryNames
                         : option.linkedCategoryName
@@ -471,51 +617,45 @@ export const ComboEditorModal = ({
                       const linkedMeta = resolveLinkedComponentMeta(option.linkedComponentRef, catalogMetrics, ingredients, formatMoney, menuItems);
 
                       return (
-                        <div key={option.id} className="combo-option-row">
+                        <div className="combo-option-row">
+                          <button type="button" className="menu-drag-handle menu-drag-handle--option" aria-label={`Reordenar opção ${option.name || 'sem nome'}`} {...optionHandleProps}>
+                            <GripVertical size={15} />
+                          </button>
                           <div className="combo-option-row__main">
                                     <InputComponent label="Opção" value={option.name} onChange={(e) => onComboOptionChange(group.id, option.id, 'name', e.target.value)} required />
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                               <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categorias vinculadas</label>
                                 <div className="combo-category-picker">
-                                  {comboLinkCategoryOptions.map((category) => (
-                                    <label key={category.value} className={`combo-category-picker__option ${linkedCategoryNames.includes(category.value) ? 'combo-category-picker__option--selected' : ''}`}>
-                                      <input
-                                        type="checkbox"
-                                        checked={linkedCategoryNames.includes(category.value)}
-                                        onChange={(event) => {
-                                          const nextCategoryNames = event.target.checked
-                                            ? [...linkedCategoryNames, category.value]
-                                            : linkedCategoryNames.filter((categoryName) => categoryName !== category.value);
-                                          onComboOptionChange(group.id, option.id, 'linkedCategoryNames', nextCategoryNames);
-                                        }}
-                                      />
-                                      <span>{formatComboboxLabel(category.label)}</span>
-                                    </label>
-                                  ))}
-                                  {comboLinkCategoryOptions.length === 0 && (
-                                    <p className="combo-category-picker__empty">Nenhuma categoria com item cadastrado.</p>
-                                  )}
+                                  <MultiSearchableSelect
+                                    value={linkedCategoryNames}
+                                    onChange={(value) => onComboOptionChange(group.id, option.id, 'linkedCategoryNames', value)}
+                                    disabled={comboLinkCategoryOptions.length === 0}
+                                    placeholder={comboLinkCategoryOptions.length > 0 ? 'Selecionar categorias' : 'Nenhuma categoria disponível'}
+                                    options={comboLinkCategoryOptions.map(c => ({
+                                      value: c.value,
+                                      label: formatComboboxLabel(c.label)
+                                    }))}
+                                  />
                                 </div>
                               </div>
                               <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Item cadastrado</label>
-                                <select
-                                  value={option.linkedComponentRef}
-                                  onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)}
-                                  className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373] disabled:bg-gray-100 disabled:text-[#8f8f88]"
+                                <MultiSearchableSelect
+                                  value={option.linkedComponentRefs || []}
+                                  onChange={(value) => onComboOptionChange(group.id, option.id, 'linkedComponentRefs', value)}
                                   disabled={linkedCategoryNames.length === 0}
-                                >
-                                  <option value="">{linkedCategoryNames.length > 0 ? 'Selecionar item' : 'Escolha a categoria primeiro'}</option>
-                                  {linkedItems.map((component) => (
-                                    <option key={component.key} value={component.key}>{formatComboboxLabel(`${component.name} · ${component.subtitle}`)}</option>
-                                  ))}
-                                </select>
+                                  placeholder={linkedCategoryNames.length > 0 ? 'Selecionar itens' : 'Escolha a categoria primeiro'}
+                                  options={linkedItems.map((component) => ({
+                                    value: component.key,
+                                    label: formatComboboxLabel(`${component.name} · ${component.subtitle}`)
+                                  }))}
+                                />
                               </div>
                             </div>
                           </div>
                           <div className="combo-option-row__pricing">
-                                    <InputComponent label="Adicional" type="number" min="0" step="0.01" value={option.extraPrice} onChange={(e) => onComboOptionChange(group.id, option.id, 'extraPrice', e.target.value)} />
+                                    <InputComponent label="Adicional" type="currency" min="0" step="0.01" value={option.extraPrice} onChange={(e) => onComboOptionChange(group.id, option.id, 'extraPrice', e.target.value)} />
                                     <InputComponent label="Máx." type="number" min="1" step="1" value={option.maxQty} onChange={(e) => onComboOptionChange(group.id, option.id, 'maxQty', e.target.value)} />
                             <label className="combo-option-row__toggle">
                               <span>Esgotar</span>
@@ -535,8 +675,8 @@ export const ComboEditorModal = ({
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                    }}
+                  />
 
                   <div className="flex justify-end">
                     <button type="button" onClick={() => onAddComboOption(group.id)} className="menu-compact-action menu-compact-action--ghost">
@@ -545,8 +685,8 @@ export const ComboEditorModal = ({
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            />
           </div>
 
           <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-12 rounded-xl font-black uppercase text-[11px] shadow-md">

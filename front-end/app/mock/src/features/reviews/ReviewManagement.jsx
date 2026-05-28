@@ -13,6 +13,7 @@ import {
   X
 } from 'lucide-react';
 import './ReviewManagement.css';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
 import {
   buildAiReply,
   MOOD_FILTERS,
@@ -213,15 +214,16 @@ export function ReviewManagementPage({ initialReviews = [] }) {
             />
           </div>
 
-          <select
+          <SearchableSelect
             value={sourceFilter}
-            onChange={(event) => setSourceFilter(event.target.value)}
-            className="review-hub__select"
-          >
-            <option value="all">Todos os canais</option>
-            <option value="google">Google</option>
-            <option value="ifood">iFood</option>
-          </select>
+            onChange={(value) => setSourceFilter(value)}
+            className="searchable-select--review"
+            options={[
+              { value: 'all', label: 'Todos os canais' },
+              { value: 'google', label: 'Google' },
+              { value: 'ifood', label: 'iFood' }
+            ]}
+          />
 
           <div className="review-hub__connector-chip review-hub__connector-chip--draft">
             <Filter size={12} /> filtros ativos

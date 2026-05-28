@@ -1,6 +1,8 @@
 export {
   deleteMenuCategoryById,
   deleteMenuItemById,
+  reorderMenuCategories,
+  reorderMenuItems,
   saveMenuCategory,
   saveMenuItem
 } from '../../repositories/appRepository.js';

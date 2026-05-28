@@ -1,5 +1,6 @@
 import { Plus, Save } from 'lucide-react';
 import { AdminModal, SectionCard } from './AdminLayout.jsx';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
 
 export default function TenantEmployeesSection({
   employees,
@@ -23,29 +24,40 @@ export default function TenantEmployeesSection({
           <button
             type="button"
             onClick={onOpenCreate}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#2A1E15] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-[#7c2c2d]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#2A1E15] px-3.5 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-lg shadow-[#2A1E15]/10"
           >
-            <Plus size={16} />
-            Novo funcionário
+            <Plus size={14} /> Novo funcionário
           </button>
         }
       >
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {employees.map((employee) => (
-            <div key={employee.id} className="rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black uppercase tracking-tight text-[#2A1E15]">{employee.name}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#7a6666]">{employee.role}</p>
-                  <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#D4A373]">
-                    {employee.employmentType === 'fixed' ? `Fixo • R$ ${Number(employee.salary || 0).toFixed(2)}` : `Por fora • R$ ${Number(employee.baseAmount || 0).toFixed(2)}`}
+            <div key={employee.id} className="relative flex flex-col justify-between rounded-[1.5rem] border border-[#2A1E15]/10 bg-white p-5">
+              <div className="mb-4">
+                <span className="inline-block rounded-full bg-[#2A1E15]/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#2A1E15]">
+                  {employee.employmentType === 'fixed' ? 'Fixo' : 'Por fora'}
+                </span>
+                <h4 className="mt-1.5 text-sm font-bold text-[#2A1E15]">{employee.name}</h4>
+                <p className="text-xs font-semibold text-[#6F6258]">{employee.role}</p>
+                {employee.notes && (
+                  <p className="mt-2 rounded-lg bg-stone-50 p-2 text-[10px] font-medium text-[#6F6258] italic">
+                    "{employee.notes}"
                   </p>
+                )}
+              </div>
+              <div className="flex items-center justify-between border-t border-[#2A1E15]/5 pt-3">
+                <div className="text-[10px] font-black uppercase tracking-wider text-[#2A1E15]">
+                  {employee.employmentType === 'fixed' ? (
+                    <>R$ {parseFloat(employee.salary || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} /mês</>
+                  ) : (
+                    <>R$ {parseFloat(employee.baseAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} base</>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => onEdit(employee)} className="rounded-xl border border-[#2A1E15]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#2A1E15]">
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => onEdit(employee)} className="rounded-lg border border-[#2A1E15]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#2A1E15]">
                     Editar
                   </button>
-                  <button type="button" onClick={() => onDelete(employee.id)} className="rounded-xl border border-red-200 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-red-700">
+                  <button type="button" onClick={() => onDelete(employee.id)} className="rounded-lg bg-red-50 px-2.5 py-1.5 text-[10px] font-bold text-red-600 hover:bg-red-100">
                     Excluir
                   </button>
                 </div>
@@ -67,10 +79,17 @@ export default function TenantEmployeesSection({
             <label htmlFor="tenant-employee-role" className="sr-only">Cargo do funcionário</label>
             <input id="tenant-employee-role" name="role" value={employeeForm.role} onChange={(event) => onChange('role', event.target.value)} className="w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-semibold outline-none focus:border-[#D4A373]" placeholder="Cargo" />
             <label htmlFor="tenant-employee-type" className="sr-only">Tipo de contratação</label>
-            <select id="tenant-employee-type" name="employmentType" value={employeeForm.employmentType} onChange={(event) => onChange('employmentType', event.target.value)} className="w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-bold outline-none focus:border-[#D4A373]">
-              <option value="fixed">Fixo</option>
-              <option value="external">Por fora</option>
-            </select>
+            <SearchableSelect
+              id="tenant-employee-type"
+              name="employmentType"
+              value={employeeForm.employmentType}
+              onChange={(value) => onChange('employmentType', value)}
+              className="searchable-select--admin"
+              options={[
+                { value: 'fixed', label: 'Fixo' },
+                { value: 'external', label: 'Por fora' }
+              ]}
+            />
             {employeeForm.employmentType === 'fixed' ? (
               <>
                 <label htmlFor="tenant-employee-salary" className="sr-only">Salário</label>

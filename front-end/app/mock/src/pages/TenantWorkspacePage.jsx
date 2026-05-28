@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { appApi, roleProfilesApi } from '../services/api.js';
 import { catalogApi, menuApi } from '../services/api.js';
+import SearchableSelect from '../components/SearchableSelect.jsx';
 import { supabase } from '../lib/supabase.js';
 import { isMockDataSource } from '../config/dataSource.js';
 import { signOutMock } from '../services/mockAuth.js';
@@ -38,6 +39,56 @@ import {
   formatComboboxLabel,
   getMenuStatusMeta
 } from '../features/menu/menuModel.js';
+
+const CurrencyInput = ({ value, onChange, placeholder, className, step, ...props }) => {
+  const decimals = useMemo(() => {
+    if (!step) return 2;
+    const stepStr = String(step);
+    if (stepStr.includes('.')) {
+      return stepStr.split('.')[1].length;
+    }
+    return 2;
+  }, [step]);
+
+  const displayValue = useMemo(() => {
+    if (value === undefined || value === null || value === '') return '';
+    const clean = String(value).replace(',', '.');
+    const num = parseFloat(clean);
+    if (isNaN(num)) return '';
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  }, [value, decimals]);
+
+  const handleChange = (e) => {
+    const rawValue = e.target.value;
+    if (rawValue === '') {
+      onChange({ target: { value: '' } });
+      return;
+    }
+    const digits = rawValue.replace(/\D/g, '');
+    if (!digits) {
+      onChange({ target: { value: '' } });
+      return;
+    }
+    const divisor = Math.pow(10, decimals);
+    const floatValue = (parseInt(digits, 10) / divisor).toFixed(decimals);
+    onChange({ target: { value: floatValue } });
+  };
+
+  return (
+    <input
+      {...props}
+      type="text"
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={displayValue}
+      onChange={handleChange}
+      className={className}
+    />
+  );
+};
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
@@ -1025,10 +1076,15 @@ export default function TenantWorkspacePage({ tenantSlug }) {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_120px_160px] gap-3">
                       <input value={ingredientForm.name} onChange={(event) => handleIngredientFormChange('name', event.target.value)} placeholder="Nome do insumo" className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" required />
-                      <select value={ingredientForm.unit} onChange={(event) => handleIngredientFormChange('unit', event.target.value)} className="w-full px-3 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-[#D4A373]">
-                        {ingredientUnitOptions.map((unit) => <option key={unit} value={unit}>{formatComboboxLabel(unit)}</option>)}
-                      </select>
-                      <input value={ingredientForm.unitCost} onChange={(event) => handleIngredientFormChange('unitCost', event.target.value)} placeholder="Custo" type="number" step="0.0001" className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" required />
+                      <SearchableSelect
+                        value={ingredientForm.unit}
+                        onChange={(value) => handleIngredientFormChange('unit', value)}
+                        options={ingredientUnitOptions.map((unit) => ({
+                          value: unit,
+                          label: formatComboboxLabel(unit)
+                        }))}
+                      />
+                      <CurrencyInput value={ingredientForm.unitCost} onChange={(event) => handleIngredientFormChange('unitCost', event.target.value)} placeholder="Custo" step="0.0001" className="w-full px-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" required />
                     </div>
                     <button type="submit" disabled={catalogSaving} className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md disabled:opacity-60">Cadastrar insumo</button>
                   </form>

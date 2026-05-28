@@ -40,7 +40,8 @@ import {
     Eye,
     Sparkles,
     Star,
-    Bot
+    Bot,
+    GripVertical
 } from 'lucide-react';
 import {
     ComboEditorModal,
@@ -94,12 +95,20 @@ import {
 import { supabase } from './lib/supabase.js';
 import { isMockDataSource } from './config/dataSource.js';
 import { signOutMock } from './services/mockAuth.js';
+import SortableList from './components/SortableList.jsx';
+import SearchableSelect from './components/SearchableSelect.jsx';
 
 // --- CONFIGURAÇÃO ---
 const LOGO_URL = "/hero-logo.png";
 const USE_BACKEND_BOOTSTRAP = true;
 const USE_REVENUE_CHART_MOCK = false;
 const MENU_DESCRIPTION_PREVIEW_LIMIT = 70;
+const normalizeSortOrder = (items = []) => items.map((item, index) => ({
+    ...item,
+    sortOrder: Number.isInteger(item.sortOrder) ? item.sortOrder : index
+}));
+const sortBySortOrder = (items = []) => [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+const withSequentialSortOrder = (items = []) => items.map((item, index) => ({ ...item, sortOrder: index }));
 const MONTHLY_REVENUE_CHART_MOCK = [
     { day: '01', bruto: 4200, liquido: 3610, pedidos: 32 },
     { day: '02', bruto: 5100, liquido: 4380, pedidos: 39 },
@@ -137,15 +146,119 @@ const StatCard = ({ title, value, icon, colorClass, bgColorClass, iconColorClass
     </div>
 );
 
-const CustomInput = ({ label, icon: Icon, ...props }) => (
-    <div className="space-y-1 w-full">
-        <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">{label}</label>
-        <div className="relative">
-            {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" size={16} />}
-            <input {...props} className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium`} />
+const CustomInput = ({ label, icon: Icon, type, value: propValue, defaultValue, onChange, name, step, ...props }) => {
+    const isCurrency = type === 'currency';
+    const inputRef = React.useRef(null);
+
+    const [localValue, setLocalValue] = React.useState(() => {
+        if (propValue !== undefined) return propValue;
+        if (defaultValue !== undefined) return defaultValue;
+        return '';
+    });
+
+    React.useEffect(() => {
+        if (propValue !== undefined) {
+            setLocalValue(propValue);
+        }
+    }, [propValue]);
+
+    React.useEffect(() => {
+        const input = inputRef.current;
+        if (!input) return;
+        const form = input.form;
+        if (!form) return;
+
+        const handleReset = () => {
+            setLocalValue(defaultValue !== undefined ? defaultValue : '');
+        };
+
+        form.addEventListener('reset', handleReset);
+        return () => {
+            form.removeEventListener('reset', handleReset);
+        };
+    }, [defaultValue]);
+
+    const decimals = React.useMemo(() => {
+        if (!step) return 2;
+        const stepStr = String(step);
+        if (stepStr.includes('.')) {
+            return stepStr.split('.')[1].length;
+        }
+        return 2;
+    }, [step]);
+
+    const displayValue = React.useMemo(() => {
+        if (!isCurrency) return localValue;
+        if (localValue === undefined || localValue === null || localValue === '') return '';
+        const clean = String(localValue).replace(',', '.');
+        const num = parseFloat(clean);
+        if (isNaN(num)) return '';
+        return num.toLocaleString('pt-BR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }, [localValue, isCurrency, decimals]);
+
+    const handleChange = (e) => {
+        if (!isCurrency) {
+            setLocalValue(e.target.value);
+            onChange?.(e);
+            return;
+        }
+
+        const rawValue = e.target.value;
+        if (rawValue === '') {
+            setLocalValue('');
+            if (onChange) {
+                const synthEvent = { ...e, target: { ...e.target, value: '', name } };
+                onChange(synthEvent);
+            }
+            return;
+        }
+
+        const digits = rawValue.replace(/\D/g, '');
+        if (!digits) {
+            setLocalValue('');
+            if (onChange) {
+                const synthEvent = { ...e, target: { ...e.target, value: '', name } };
+                onChange(synthEvent);
+            }
+            return;
+        }
+
+        const divisor = Math.pow(10, decimals);
+        const floatValue = (parseInt(digits, 10) / divisor).toFixed(decimals);
+        
+        setLocalValue(floatValue);
+
+        if (onChange) {
+            const synthEvent = { ...e, target: { ...e.target, value: floatValue, name } };
+            onChange(synthEvent);
+        }
+    };
+
+    return (
+        <div className="space-y-1 w-full">
+            {label && <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">{label}</label>}
+            <div className="relative">
+                {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" size={16} />}
+                {isCurrency && name && (
+                    <input type="hidden" name={name} value={localValue} />
+                )}
+                <input
+                    {...props}
+                    ref={inputRef}
+                    name={isCurrency ? undefined : name}
+                    type={isCurrency ? 'text' : type}
+                    inputMode={isCurrency ? 'decimal' : props.inputMode}
+                    value={displayValue}
+                    onChange={handleChange}
+                    className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium`}
+                />
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 
 const LegacyMenuCategoryManager = ({
@@ -231,7 +344,7 @@ const LegacyMenuItemFormPanel = ({
         <form onSubmit={onSubmitMenuItem} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <CustomInput label="Nome do item" value={menuItemForm.name} onChange={(e) => onMenuItemFormChange('name', e.target.value)} required />
-                <CustomInput label="Preço" type="number" step="0.01" value={menuItemForm.salePrice} onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)} required />
+                <CustomInput label="Preço" type="currency" step="0.01" value={menuItemForm.salePrice} onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)} required />
                 <div className="space-y-1">
                     <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Categoria</label>
                     <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
@@ -478,7 +591,7 @@ const LegacyComboEditorModal = ({
                         <div className="space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <CustomInput label="Nome do combo" value={comboForm.name} onChange={(e) => onComboFormChange('name', e.target.value)} required />
-                                <CustomInput label="Preço base" type="number" step="0.01" value={comboForm.basePrice} onChange={(e) => onComboFormChange('basePrice', e.target.value)} required />
+                                <CustomInput label="Preço base" type="currency" step="0.01" value={comboForm.basePrice} onChange={(e) => onComboFormChange('basePrice', e.target.value)} required />
                                 <div className="space-y-1">
                                     <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Categoria</label>
                                     <select value={comboForm.category} onChange={(e) => onComboFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
@@ -555,7 +668,7 @@ const LegacyComboEditorModal = ({
                                                     </div>
                                                 </div>
                                                 <div className="combo-option-row__pricing">
-                                                    <CustomInput label="Adicional" type="number" min="0" step="0.01" value={option.extraPrice} onChange={(e) => onComboOptionChange(group.id, option.id, 'extraPrice', e.target.value)} />
+                                                    <CustomInput label="Adicional" type="currency" min="0" step="0.01" value={option.extraPrice} onChange={(e) => onComboOptionChange(group.id, option.id, 'extraPrice', e.target.value)} />
                                                     <CustomInput label="Máx." type="number" min="1" step="1" value={option.maxQty} onChange={(e) => onComboOptionChange(group.id, option.id, 'maxQty', e.target.value)} />
                                                     <label className="combo-option-row__toggle">
                                                         <span>Esgotar</span>
@@ -768,15 +881,15 @@ const PreparationModal = ({
                             <CustomInput label="Rendimento da Receita" type="number" step="0.01" value={preparationForm.yieldQuantity} onChange={(e) => onPreparationFormChange('yieldQuantity', e.target.value)} required />
                             <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade do Rendimento</label>
-                                <select
+                                <SearchableSelect
                                     value={resolveUnitValue(ingredientUnits, preparationForm.yieldUnit)}
-                                    onChange={(e) => onPreparationFormChange('yieldUnit', e.target.value)}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                >
-                                    {ingredientUnits.map((unit) => (
-                                        <option key={`yield-unit-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
-                                    ))}
-                                </select>
+                                    onChange={(val) => onPreparationFormChange('yieldUnit', val)}
+                                    options={ingredientUnits.map((unit) => ({
+                                        value: unit.label,
+                                        label: formatComboboxLabel(unit.label)
+                                    }))}
+                                    placeholder="Selecione"
+                                />
                             </div>
                         </div>
 
@@ -799,27 +912,27 @@ const PreparationModal = ({
                                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">
                                                     Componente {index + 1}
                                                 </label>
-                                                <select
+                                                <SearchableSelect
                                                     value={line.componentRef}
-                                                    onChange={(e) => onPreparationRecipeDraftChange(line.id, 'componentRef', e.target.value)}
-                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                                >
-                                                    <option value="">Selecione</option>
-                                                    <optgroup label="Insumos">
-                                                        {ingredients.map((ingredient) => (
-                                                            <option key={`prep-ingredient-${ingredient.id}`} value={`ingredient:${ingredient.id}`}>
-                                                                {formatComboboxLabel(ingredient.name)}
-                                                            </option>
-                                                        ))}
-                                                    </optgroup>
-                                                    <optgroup label="Receitas Base">
-                                                        {preparations.map((preparation) => (
-                                                            <option key={`prep-preparation-${preparation.id}`} value={`preparation:${preparation.id}`}>
-                                                                {formatComboboxLabel(preparation.name)}
-                                                            </option>
-                                                        ))}
-                                                    </optgroup>
-                                                </select>
+                                                    onChange={(val) => onPreparationRecipeDraftChange(line.id, 'componentRef', val)}
+                                                    options={[
+                                                        {
+                                                            label: 'Insumos',
+                                                            options: ingredients.map((ingredient) => ({
+                                                                value: `ingredient:${ingredient.id}`,
+                                                                label: formatComboboxLabel(ingredient.name)
+                                                            }))
+                                                        },
+                                                        {
+                                                            label: 'Receitas Base',
+                                                            options: preparations.map((preparation) => ({
+                                                                value: `preparation:${preparation.id}`,
+                                                                label: formatComboboxLabel(preparation.name)
+                                                            }))
+                                                        }
+                                                    ]}
+                                                    placeholder="Selecione"
+                                                />
                                             </div>
 
                                             <CustomInput
@@ -833,17 +946,16 @@ const PreparationModal = ({
 
                                             <div className="space-y-1">
                                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
-                                                <select
+                                                <SearchableSelect
                                                     value={resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit)}
-                                                    onChange={(e) => onPreparationRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
-                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
+                                                    onChange={(val) => onPreparationRecipeDraftChange(line.id, 'quantityUnit', val)}
+                                                    options={compatibleUnits.map((unit) => ({
+                                                        value: unit.label,
+                                                        label: formatComboboxLabel(unit.label)
+                                                    }))}
                                                     disabled={!line.componentRef}
-                                                >
-                                                    <option value="">Selecione</option>
-                                                    {compatibleUnits.map((unit) => (
-                                                        <option key={`prep-line-unit-${line.id}-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
-                                                    ))}
-                                                </select>
+                                                    placeholder="Selecione"
+                                                />
                                             </div>
 
                                             <button
@@ -864,6 +976,57 @@ const PreparationModal = ({
                     <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0">
                         <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                             {editingPreparationId ? 'Atualizar Receita Base' : 'Salvar Receita Base'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const IngredientModal = ({
+    isOpen,
+    onClose,
+    ingredientForm,
+    onIngredientFormChange,
+    onSubmit,
+    ingredientUnits
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-2xl max-h-[92vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 font-sans italic shrink-0">
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
+                        <Receipt size={20} /> Editar Insumo
+                    </h3>
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
+                </div>
+
+                <form onSubmit={onSubmit} className="flex flex-col min-h-0">
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <CustomInput label="Nome do Insumo" value={ingredientForm.name} onChange={(e) => onIngredientFormChange('name', e.target.value)} required />
+                            <div className="space-y-1">
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
+                                <SearchableSelect
+                                    value={resolveUnitValue(ingredientUnits, ingredientForm.unit)}
+                                    onChange={(val) => onIngredientFormChange('unit', val)}
+                                    options={ingredientUnits.map((unit) => ({
+                                        value: unit.label,
+                                        label: formatComboboxLabel(unit.label)
+                                    }))}
+                                    placeholder="Selecione"
+                                />
+                            </div>
+                            <CustomInput label={`Custo por ${getIngredientCostReferenceUnit(ingredientForm.unit)}`} type="currency" step="0.01" value={ingredientForm.unitCost} onChange={(e) => onIngredientFormChange('unitCost', e.target.value)} required />
+                        </div>
+                    </div>
+
+                    <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0">
+                        <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                            Salvar Insumo
                         </button>
                     </div>
                 </form>
@@ -902,7 +1065,7 @@ const ProductModal = ({
                     <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <CustomInput label="Produto" value={productForm.name} onChange={(e) => onProductFormChange('name', e.target.value)} required />
-                            <CustomInput label="Preço de Venda" type="number" step="0.01" value={productForm.salePrice} onChange={(e) => onProductFormChange('salePrice', e.target.value)} required />
+                            <CustomInput label="Preço de Venda" type="currency" step="0.01" value={productForm.salePrice} onChange={(e) => onProductFormChange('salePrice', e.target.value)} required />
                             <CustomInput label="Rendimento" type="number" step="0.01" value={productForm.yieldQuantity} onChange={(e) => onProductFormChange('yieldQuantity', e.target.value)} required />
                             <CustomInput label="CMV Alvo (%)" type="number" step="0.1" value={productForm.targetCmvPercent} onChange={(e) => onProductFormChange('targetCmvPercent', e.target.value)} required />
                         </div>
@@ -926,27 +1089,27 @@ const ProductModal = ({
                                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">
                                                     Componente {index + 1}
                                                 </label>
-                                                <select
+                                                <SearchableSelect
                                                     value={line.componentRef}
-                                                    onChange={(e) => onRecipeDraftChange(line.id, 'componentRef', e.target.value)}
-                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                                >
-                                                    <option value="">Selecione</option>
-                                                    <optgroup label="Insumos">
-                                                        {ingredients.map((ingredient) => (
-                                                            <option key={`edit-product-ingredient-${ingredient.id}`} value={`ingredient:${ingredient.id}`}>
-                                                                {formatComboboxLabel(ingredient.name)}
-                                                            </option>
-                                                        ))}
-                                                    </optgroup>
-                                                    <optgroup label="Receitas Base">
-                                                        {preparations.map((preparation) => (
-                                                            <option key={`edit-product-preparation-${preparation.id}`} value={`preparation:${preparation.id}`}>
-                                                                {formatComboboxLabel(preparation.name)}
-                                                            </option>
-                                                        ))}
-                                                    </optgroup>
-                                                </select>
+                                                    onChange={(val) => onRecipeDraftChange(line.id, 'componentRef', val)}
+                                                    options={[
+                                                        {
+                                                            label: 'Insumos',
+                                                            options: ingredients.map((ingredient) => ({
+                                                                value: `ingredient:${ingredient.id}`,
+                                                                label: formatComboboxLabel(ingredient.name)
+                                                            }))
+                                                        },
+                                                        {
+                                                            label: 'Receitas Base',
+                                                            options: preparations.map((preparation) => ({
+                                                                value: `preparation:${preparation.id}`,
+                                                                label: formatComboboxLabel(preparation.name)
+                                                            }))
+                                                        }
+                                                    ]}
+                                                    placeholder="Selecione"
+                                                />
                                             </div>
 
                                             <CustomInput
@@ -960,17 +1123,16 @@ const ProductModal = ({
 
                                             <div className="space-y-1">
                                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
-                                                <select
+                                                <SearchableSelect
                                                     value={resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit)}
-                                                    onChange={(e) => onRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
-                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
+                                                    onChange={(val) => onRecipeDraftChange(line.id, 'quantityUnit', val)}
+                                                    options={compatibleUnits.map((unit) => ({
+                                                        value: unit.label,
+                                                        label: formatComboboxLabel(unit.label)
+                                                    }))}
                                                     disabled={!line.componentRef}
-                                                >
-                                                    <option value="">Selecione</option>
-                                                    {compatibleUnits.map((unit) => (
-                                                        <option key={`edit-product-line-unit-${line.id}-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
-                                                    ))}
-                                                </select>
+                                                    placeholder="Selecione"
+                                                />
                                             </div>
 
                                             <button
@@ -1101,24 +1263,23 @@ const EmployeeDiscountsModal = ({
                         <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_180px] gap-3 items-end">
                             <div className="space-y-1">
                                 <label className="text-xs font-black uppercase text-[#6F6258] tracking-widest">Categoria do Desconto</label>
-                                <select
+                                <SearchableSelect
                                     value={discountDraft?.category || discountCategories[0]?.name || 'Outros'}
-                                    onChange={(e) => onDraftChange('category', e.target.value)}
-                                    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#6F6258] outline-none"
-                                >
-                                    {discountCategories.map(category => (
-                                        <option key={category.id} value={category.name}>{formatComboboxLabel(category.name)}</option>
-                                    ))}
-                                </select>
+                                    onChange={(val) => onDraftChange('category', val)}
+                                    options={discountCategories.map(category => ({
+                                        value: category.name,
+                                        label: formatComboboxLabel(category.name)
+                                    }))}
+                                    placeholder="Selecione"
+                                />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-black uppercase text-[#6F6258] tracking-widest">Valor</label>
-                                <input
-                                    type="number"
+                                <CustomInput
+                                    type="currency"
                                     step="0.01"
                                     value={discountDraft?.amount || ''}
                                     onChange={(e) => onDraftChange('amount', e.target.value)}
-                                    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-base font-black text-[#2A1E15] outline-none"
                                 />
                             </div>
                             <button
@@ -1138,21 +1299,20 @@ const EmployeeDiscountsModal = ({
                         {(employee.discounts || []).map((discount) => (
                             <div key={discount.id} className="bg-white rounded-xl border border-stone-200 p-3 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                                    <select
+                                    <SearchableSelect
                                         value={discount.category}
-                                        onChange={(e) => onUpdateDiscountCategory(discount.id, e.target.value)}
-                                        className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-sm font-black uppercase text-[#6F6258] outline-none"
-                                    >
-                                        {discountCategories.map(category => (
-                                            <option key={category.id} value={category.name}>{formatComboboxLabel(category.name)}</option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="number"
+                                        onChange={(val) => onUpdateDiscountCategory(discount.id, val)}
+                                        options={discountCategories.map(category => ({
+                                            value: category.name,
+                                            label: formatComboboxLabel(category.name)
+                                        }))}
+                                        placeholder="Selecione"
+                                    />
+                                    <CustomInput
+                                        type="currency"
                                         step="0.01"
                                         value={discount.amount}
                                         onChange={(e) => onUpdateDiscountValue(discount.id, e.target.value)}
-                                        className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2.5 text-base font-black text-[#2A1E15] outline-none"
                                     />
                                 </div>
                                 <button
@@ -1224,45 +1384,46 @@ const EmployeeModal = ({
                             <CustomInput label="Endereço" value={employee.address} onChange={(e) => setEmployee((prev) => ({ ...prev, address: e.target.value }))} />
                             <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Tipo de Vínculo</label>
-                                <select
+                                <SearchableSelect
                                     value={employee.employmentType}
-                                    onChange={(e) => setEmployee((prev) => ({ ...prev, employmentType: e.target.value }))}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                >
-                                    <option value="fixed">Fixo</option>
-                                    <option value="external">Por Fora</option>
-                                </select>
+                                    onChange={(val) => setEmployee((prev) => ({ ...prev, employmentType: val }))}
+                                    options={[
+                                        { value: 'fixed', label: 'Fixo' },
+                                        { value: 'external', label: 'Por Fora' }
+                                    ]}
+                                    placeholder="Selecione"
+                                />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Status</label>
-                                <select
+                                <SearchableSelect
                                     value={employee.status}
-                                    onChange={(e) => setEmployee((prev) => ({ ...prev, status: e.target.value }))}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                >
-                                    <option value="active">Ativo</option>
-                                    <option value="inactive">Inativo</option>
-                                </select>
+                                    onChange={(val) => setEmployee((prev) => ({ ...prev, status: val }))}
+                                    options={[
+                                        { value: 'active', label: 'Ativo' },
+                                        { value: 'inactive', label: 'Inativo' }
+                                    ]}
+                                    placeholder="Selecione"
+                                />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Cargo / Função</label>
-                                <select
+                                <SearchableSelect
                                     value={employee.role}
-                                    onChange={(e) => setEmployee((prev) => ({ ...prev, role: e.target.value }))}
-                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                >
-                                    <option value="">Selecione</option>
-                                    {employeeRoles.map((role) => (
-                                        <option key={role.id} value={role.name}>{role.name}</option>
-                                    ))}
-                                </select>
+                                    onChange={(val) => setEmployee((prev) => ({ ...prev, role: val }))}
+                                    options={employeeRoles.map((role) => ({
+                                        value: role.name,
+                                        label: role.name
+                                    }))}
+                                    placeholder="Selecione"
+                                />
                             </div>
                             {isFixed ? (
                                 <>
-                                    <CustomInput label="Salário" type="number" step="0.01" value={employee.salary} onChange={(e) => setEmployee((prev) => ({ ...prev, salary: e.target.value }))} required />
+                                    <CustomInput label="Salário" type="currency" step="0.01" value={employee.salary} onChange={(e) => setEmployee((prev) => ({ ...prev, salary: e.target.value }))} required />
                                     <CustomInput label="Admissão" type="date" value={employee.admissionDate} onChange={(e) => setEmployee((prev) => ({ ...prev, admissionDate: e.target.value }))} />
                                     <CustomInput label="Observações" value={employee.notes} onChange={(e) => setEmployee((prev) => ({ ...prev, notes: e.target.value }))} />
                                 </>
@@ -1270,30 +1431,32 @@ const EmployeeModal = ({
                                 <>
                                     <div className="space-y-1">
                                         <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Tipo de Pagamento</label>
-                                        <select
+                                        <SearchableSelect
                                             value={employee.paymentMode}
-                                            onChange={(e) => setEmployee((prev) => ({ ...prev, paymentMode: e.target.value }))}
-                                            className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                        >
-                                            <option value="weekly">Semanal</option>
-                                            <option value="one_off">Avulso</option>
-                                        </select>
+                                            onChange={(val) => setEmployee((prev) => ({ ...prev, paymentMode: val }))}
+                                            options={[
+                                                { value: 'weekly', label: 'Semanal' },
+                                                { value: 'one_off', label: 'Avulso' }
+                                            ]}
+                                            placeholder="Selecione"
+                                        />
                                     </div>
-                                    <CustomInput label="Valor Base" type="number" step="0.01" value={employee.baseAmount} onChange={(e) => setEmployee((prev) => ({ ...prev, baseAmount: e.target.value }))} required />
+                                    <CustomInput label="Valor Base" type="currency" step="0.01" value={employee.baseAmount} onChange={(e) => setEmployee((prev) => ({ ...prev, baseAmount: e.target.value }))} required />
                                     {employee.paymentMode === 'weekly' ? (
                                         <div className="space-y-1">
                                             <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Dia da Semana</label>
-                                            <select
+                                            <SearchableSelect
                                                 value={employee.weekday}
-                                                onChange={(e) => setEmployee((prev) => ({ ...prev, weekday: e.target.value }))}
-                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                            >
-                                                <option value="1">Segunda</option>
-                                                <option value="2">Terça</option>
-                                                <option value="3">Quarta</option>
-                                                <option value="4">Quinta</option>
-                                                <option value="5">Sexta</option>
-                                            </select>
+                                                onChange={(val) => setEmployee((prev) => ({ ...prev, weekday: val }))}
+                                                options={[
+                                                    { value: '1', label: 'Segunda' },
+                                                    { value: '2', label: 'Terça' },
+                                                    { value: '3', label: 'Quarta' },
+                                                    { value: '4', label: 'Quinta' },
+                                                    { value: '5', label: 'Sexta' }
+                                                ]}
+                                                placeholder="Selecione"
+                                            />
                                         </div>
                                     ) : (
                                         <CustomInput label="Data do Pagamento" type="date" value={employee.specificDate} onChange={(e) => setEmployee((prev) => ({ ...prev, specificDate: e.target.value }))} />
@@ -2002,6 +2165,8 @@ export default function App({ tenantSlug = 'default' }) {
     ]);
     const [editingProductId, setEditingProductId] = useState(null);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [isIngredientModalOpen, setIsIngredientModalOpen] = useState(false);
+    const [ingredientSearch, setIngredientSearch] = useState('');
     const [productForm, setProductForm] = useState(() => ({
         name: '',
         salePrice: '',
@@ -2094,8 +2259,8 @@ export default function App({ tenantSlug = 'default' }) {
                     setIngredientUnits(createDefaultIngredientUnits());
                     setPreparations(payload.preparations || []);
                     setProducts(payload.products || []);
-                    setMenuCategories(payload.menuCategories || []);
-                    setMenuItems(payload.menuItems || []);
+                    setMenuCategories(normalizeSortOrder(payload.menuCategories || []));
+                    setMenuItems(normalizeSortOrder(payload.menuItems || []));
                     setSession(true);
                 });
             } catch (apiError) {
@@ -2281,14 +2446,54 @@ export default function App({ tenantSlug = 'default' }) {
         ));
     }, [menuItems, menuSearchTerm]);
 
+    const handleReorderMenuCategories = async (nextCategories) => {
+        const previousCategories = menuCategories;
+        const orderedCategories = withSequentialSortOrder(nextCategories);
+        setMenuCategories(orderedCategories);
+
+        try {
+            const savedCategories = await menuApi.reorderCategories(tenantSlug, orderedCategories.map((category) => ({
+                id: category.id,
+                sortOrder: category.sortOrder
+            })));
+            setMenuCategories(normalizeSortOrder(savedCategories));
+        } catch (apiError) {
+            setMenuCategories(previousCategories);
+            setSettingsError(apiError.message || 'Não foi possível reordenar as categorias.');
+        }
+    };
+
+    const handleReorderMenuItems = async (categoryName, nextItems) => {
+        if (menuSearchTerm.trim()) return;
+
+        const previousItems = menuItems;
+        const orderedItems = withSequentialSortOrder(nextItems);
+        const orderMap = new Map(orderedItems.map((item) => [item.id, item.sortOrder]));
+
+        setMenuItems((current) => current.map((item) => (
+            orderMap.has(item.id) ? { ...item, sortOrder: orderMap.get(item.id) } : item
+        )));
+
+        try {
+            const savedItems = await menuApi.reorderItems(tenantSlug, orderedItems.map((item) => ({
+                id: item.id,
+                sortOrder: item.sortOrder
+            })));
+            setMenuItems(normalizeSortOrder(savedItems));
+        } catch (apiError) {
+            setMenuItems(previousItems);
+            setSettingsError(apiError.message || `Não foi possível reordenar os itens de ${categoryName}.`);
+        }
+    };
+
     const menuItemsByCategory = useMemo(() => {
         const grouped = menuCategories.map((category) => ({
             id: category.id,
             name: category.name,
-            items: filteredMenuItems.filter((item) => item.category === category.name)
+            items: sortBySortOrder(filteredMenuItems.filter((item) => item.category === category.name))
         }));
 
-        const uncategorizedItems = filteredMenuItems.filter((item) => !menuCategoryOptions.includes(item.category));
+        const uncategorizedItems = sortBySortOrder(filteredMenuItems.filter((item) => !menuCategoryOptions.includes(item.category)));
 
         if (uncategorizedItems.length > 0) {
             grouped.push({
@@ -3053,6 +3258,7 @@ export default function App({ tenantSlug = 'default' }) {
 
             setSettingsError('');
             resetIngredientForm();
+            setIsIngredientModalOpen(false);
         } catch (apiError) {
             setSettingsError(apiError.message || 'Não foi possível salvar o insumo.');
         }
@@ -3063,8 +3269,14 @@ export default function App({ tenantSlug = 'default' }) {
         setIngredientForm({
             name: ingredient.name,
             unit: resolveUnitValue(ingredientUnits, ingredient.unit) || ingredient.unit,
-            unitCost: String(getIngredientCostReferenceValue(ingredient))
+            unitCost: String(Number(getIngredientCostReferenceValue(ingredient)).toFixed(2))
         });
+        setIsIngredientModalOpen(true);
+    };
+
+    const closeIngredientModal = () => {
+        setIsIngredientModalOpen(false);
+        resetIngredientForm();
     };
 
     const handleDeleteIngredient = async (ingredientId) => {
@@ -3207,7 +3419,7 @@ export default function App({ tenantSlug = 'default' }) {
             return {
                 id: Date.now() + Math.random(),
                 componentRef,
-                quantity: String(line.quantity || ''),
+                quantity: String(Number(line.quantity || 0).toFixed(2)),
                 quantityUnit: resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit) || line.quantityUnit || baseUnit
             };
         });
@@ -3390,6 +3602,13 @@ export default function App({ tenantSlug = 'default' }) {
         }));
     };
 
+    const handleReorderComboGroups = (nextGroups) => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: withSequentialSortOrder(nextGroups)
+        }));
+    };
+
     const handleAddComboOption = (groupId) => {
         setComboForm((prev) => ({
             ...prev,
@@ -3458,6 +3677,17 @@ export default function App({ tenantSlug = 'default' }) {
         }));
     };
 
+    const handleReorderComboOptions = (groupId, nextOptions) => {
+        setComboForm((prev) => ({
+            ...prev,
+            comboGroups: prev.comboGroups.map((group) => (
+                group.id === groupId
+                    ? { ...group, options: withSequentialSortOrder(nextOptions) }
+                    : group
+            ))
+        }));
+    };
+
     const handleSubmitMenuItem = async (e) => {
         e.preventDefault();
         const selectedComponentKey = menuItemForm.linkedComponentIds[0] || '';
@@ -3509,7 +3739,7 @@ export default function App({ tenantSlug = 'default' }) {
             if (editingMenuItemId) {
                 setMenuItems((prev) => prev.map((item) => item.id === savedItem.id ? savedItem : item));
             } else {
-                setMenuItems((prev) => [savedItem, ...prev]);
+                setMenuItems((prev) => [...prev, savedItem]);
             }
 
             resetMenuItemForm();
@@ -3595,7 +3825,7 @@ export default function App({ tenantSlug = 'default' }) {
             if (editingComboId) {
                 setMenuItems((prev) => prev.map((item) => item.id === savedCombo.id ? savedCombo : item));
             } else {
-                setMenuItems((prev) => [savedCombo, ...prev]);
+                setMenuItems((prev) => [...prev, savedCombo]);
             }
 
             closeComboModal();
@@ -4078,6 +4308,17 @@ export default function App({ tenantSlug = 'default' }) {
                     preparations={preparations}
                 />
             )}
+            {isIngredientModalOpen && (
+                <IngredientModal
+                    isOpen={isIngredientModalOpen}
+                    onClose={closeIngredientModal}
+                    ingredientForm={ingredientForm}
+                    onIngredientFormChange={handleIngredientFormChange}
+                    onSubmit={handleSubmitIngredient}
+                    ingredientUnits={ingredientUnits}
+                />
+            )}
+
             {isProductModalOpen && (
                 <ProductModal
                     isOpen={isProductModalOpen}
@@ -4106,6 +4347,7 @@ export default function App({ tenantSlug = 'default' }) {
                     onEditCategory={handleEditMenuCategory}
                     onDeleteCategory={handleDeleteMenuCategory}
                     onCancelEdit={resetMenuCategoryForm}
+                    onReorderCategories={handleReorderMenuCategories}
                     CustomInput={CustomInput}
                 />
             )}
@@ -4146,9 +4388,11 @@ export default function App({ tenantSlug = 'default' }) {
                     onDuplicateComboGroup={handleDuplicateComboGroup}
                     onRemoveComboGroup={handleRemoveComboGroup}
                     onComboGroupChange={handleComboGroupChange}
+                    onReorderComboGroups={handleReorderComboGroups}
                     onAddComboOption={handleAddComboOption}
                     onRemoveComboOption={handleRemoveComboOption}
                     onComboOptionChange={handleComboOptionChange}
+                    onReorderComboOptions={handleReorderComboOptions}
                     formatMoney={formatMoney}
                     CustomInput={CustomInput}
                 />
@@ -4597,7 +4841,13 @@ export default function App({ tenantSlug = 'default' }) {
 
                                                     {categoryExpanded && (
                                                         <div className="menu-category-accordion__content">
-                                                            {categoryGroup.items.length > 0 ? categoryGroup.items.map((item) => {
+                                                            {categoryGroup.items.length > 0 ? (
+                                                                <SortableList
+                                                                    items={categoryGroup.items}
+                                                                    disabled={Boolean(menuSearchTerm.trim()) || categoryGroup.id === 'uncategorized'}
+                                                                    className="space-y-3"
+                                                                    onReorder={(nextItems) => handleReorderMenuItems(categoryGroup.name, nextItems)}
+                                                                    renderItem={({ item, handleProps }) => {
                                                                 const statusMeta = getMenuStatusMeta(item.status);
                                                                 const itemExpanded = expandedMenuItems[item.id] ?? false;
                                                                 const linkedDetails = (item.linkedComponents || []).map((component) => {
@@ -4637,7 +4887,12 @@ export default function App({ tenantSlug = 'default' }) {
                                                                 const descriptionId = `menu-item-accordion-description-${item.id}`;
 
                                                                 return (
-                                                                    <div key={item.id} className="menu-item-accordion">
+                                                                    <div className="menu-item-accordion">
+                                                                        {!menuSearchTerm.trim() && categoryGroup.id !== 'uncategorized' && (
+                                                                            <button type="button" className="menu-drag-handle menu-drag-handle--item" aria-label={`Reordenar item ${item.name}`} {...handleProps}>
+                                                                                <GripVertical size={15} />
+                                                                            </button>
+                                                                        )}
                                                                         <button type="button" onClick={() => toggleMenuItemExpansion(item.id)} className="menu-item-accordion__trigger" aria-expanded={itemExpanded}>
                                                                             <div className="menu-item-accordion__summary">
                                                                                 <div className="menu-item-accordion__thumb">
@@ -4773,7 +5028,9 @@ export default function App({ tenantSlug = 'default' }) {
                                                                         )}
                                                                     </div>
                                                                 );
-                                                            }) : (
+                                                                    }}
+                                                                />
+                                                            ) : (
                                                                 <div className="menu-empty-state">
                                                                     <ChefHat size={18} className="text-[#D4A373]" />
                                                                     <span>Nenhum item nesta categoria.</span>
@@ -4801,6 +5058,7 @@ export default function App({ tenantSlug = 'default' }) {
                         <OrderOperationsPage
                             tenantSlug={tenantSlug}
                             menuItems={menuItems}
+                            menuCategories={menuCategories}
                             orders={orders}
                             customers={customers}
                             paymentMethods={paymentMethods}
@@ -4842,18 +5100,17 @@ export default function App({ tenantSlug = 'default' }) {
                                         <CustomInput label="Nome do Insumo" value={ingredientForm.name} onChange={(e) => handleIngredientFormChange('name', e.target.value)} required />
                                         <div className="space-y-1">
                                             <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
-                                            <select
+                                            <SearchableSelect
                                                 value={resolveUnitValue(ingredientUnits, ingredientForm.unit)}
-                                                onChange={(e) => handleIngredientFormChange('unit', e.target.value)}
-                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                                required
-                                            >
-                                                {ingredientUnits.map((unit) => (
-                                                    <option key={unit.id} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
-                                                ))}
-                                            </select>
+                                                onChange={(val) => handleIngredientFormChange('unit', val)}
+                                                options={ingredientUnits.map((unit) => ({
+                                                    value: unit.label,
+                                                    label: formatComboboxLabel(unit.label)
+                                                }))}
+                                                placeholder="Selecione"
+                                            />
                                         </div>
-                                        <CustomInput label={`Custo por ${getIngredientCostReferenceUnit(ingredientForm.unit)}`} type="number" step="0.0001" value={ingredientForm.unitCost} onChange={(e) => handleIngredientFormChange('unitCost', e.target.value)} required />
+                                        <CustomInput label={`Custo por ${getIngredientCostReferenceUnit(ingredientForm.unit)}`} type="currency" step="0.01" value={ingredientForm.unitCost} onChange={(e) => handleIngredientFormChange('unitCost', e.target.value)} required />
                                         <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3">
                                             <button type="submit" className="flex-1 bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
                                                 {editingIngredientId ? 'Salvar Insumo' : 'Registrar Insumo'}
@@ -4866,8 +5123,21 @@ export default function App({ tenantSlug = 'default' }) {
                                         </div>
                                     </form>
 
-                                    <div className="mt-6 max-h-[26rem] overflow-y-auto pr-2 space-y-3">
-                                        {ingredients.map((ingredient) => (
+                                    <div className="mt-6 flex flex-col gap-4">
+                                        <div className="relative">
+                                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F6258]" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar insumo..."
+                                                value={ingredientSearch}
+                                                onChange={(e) => setIngredientSearch(e.target.value)}
+                                                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl focus:border-[#D4A373] focus:ring-1 focus:ring-[#D4A373] outline-none text-sm font-semibold text-[#2A1E15] bg-gray-50/50"
+                                            />
+                                        </div>
+                                        <div className="max-h-[26rem] overflow-y-auto pr-2 space-y-3">
+                                            {ingredients
+                                                .filter((ingredient) => ingredient.name.toLowerCase().includes(ingredientSearch.toLowerCase()))
+                                                .map((ingredient) => (
                                             <div key={ingredient.id} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between gap-4">
                                                 <div className="min-w-0">
                                                     <p className="font-black text-[#2A1E15] uppercase truncate">{ingredient.name}</p>
@@ -4885,6 +5155,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
                                     </div>
                                 </div>
 
@@ -4907,16 +5178,15 @@ export default function App({ tenantSlug = 'default' }) {
                                             </button>
                                         </div>
                                     </div>
-
-                                    <form onSubmit={handleAddProduct} className="space-y-5">
+                                                                    <form onSubmit={handleAddProduct} className="space-y-5">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <CustomInput label="Produto" name="name" required />
-                                            <CustomInput label="Preço de Venda" name="salePrice" type="number" step="0.01" required />
+                                            <CustomInput label="Preço de Venda" name="salePrice" type="currency" step="0.01" required />
                                             <CustomInput label="Rendimento" name="yieldQuantity" type="number" step="0.01" defaultValue="1" required />
                                             <CustomInput label="CMV Alvo (%)" name="targetCmvPercent" type="number" step="0.1" defaultValue="30" required />
                                         </div>
 
-                                        <div className="space-y-3 max-h-[26rem] overflow-y-auto pr-2">
+                                        <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm font-black text-[#2A1E15] uppercase">Receita / Componentes</p>
                                                 <button type="button" onClick={handleAddRecipeLine} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all">
@@ -4932,27 +5202,27 @@ export default function App({ tenantSlug = 'default' }) {
                                                     <div key={line.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_48px] gap-3 items-end">
                                                         <div className="space-y-1">
                                                             <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Componente</label>
-                                                            <select
+                                                            <SearchableSelect
                                                                 value={line.componentRef}
-                                                                onChange={(e) => handleRecipeDraftChange(line.id, 'componentRef', e.target.value)}
-                                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                                            >
-                                                                <option value="">Selecione</option>
-                                                                <optgroup label="Insumos">
-                                                                    {ingredients.map((ingredient) => (
-                                                                        <option key={`product-ingredient-${ingredient.id}`} value={`ingredient:${ingredient.id}`}>
-                                                                            {formatComboboxLabel(ingredient.name)}
-                                                                        </option>
-                                                                    ))}
-                                                                </optgroup>
-                                                                <optgroup label="Receitas Base">
-                                                                    {preparations.map((preparation) => (
-                                                                        <option key={`product-preparation-${preparation.id}`} value={`preparation:${preparation.id}`}>
-                                                                            {formatComboboxLabel(preparation.name)}
-                                                                        </option>
-                                                                    ))}
-                                                                </optgroup>
-                                                            </select>
+                                                                onChange={(val) => handleRecipeDraftChange(line.id, 'componentRef', val)}
+                                                                options={[
+                                                                    {
+                                                                        label: 'Insumos',
+                                                                        options: ingredients.map((ingredient) => ({
+                                                                            value: `ingredient:${ingredient.id}`,
+                                                                            label: formatComboboxLabel(ingredient.name)
+                                                                        }))
+                                                                    },
+                                                                    {
+                                                                        label: 'Receitas Base',
+                                                                        options: preparations.map((preparation) => ({
+                                                                            value: `preparation:${preparation.id}`,
+                                                                            label: formatComboboxLabel(preparation.name)
+                                                                        }))
+                                                                    }
+                                                                ]}
+                                                                placeholder="Selecione"
+                                                            />
                                                         </div>
 
                                                         <CustomInput
@@ -4966,17 +5236,16 @@ export default function App({ tenantSlug = 'default' }) {
 
                                                         <div className="space-y-1">
                                                             <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
-                                                            <select
+                                                            <SearchableSelect
                                                                 value={resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit)}
-                                                                onChange={(e) => handleRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
-                                                                className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
+                                                                onChange={(val) => handleRecipeDraftChange(line.id, 'quantityUnit', val)}
+                                                                options={compatibleUnits.map((unit) => ({
+                                                                    value: unit.label,
+                                                                    label: formatComboboxLabel(unit.label)
+                                                                }))}
                                                                 disabled={!line.componentRef}
-                                                            >
-                                                                <option value="">Selecione</option>
-                                                                {compatibleUnits.map((unit) => (
-                                                                    <option key={`product-line-unit-${line.id}-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
-                                                                ))}
-                                                            </select>
+                                                                placeholder="Selecione"
+                                                            />
                                                         </div>
 
                                                         <button
@@ -5175,16 +5444,22 @@ export default function App({ tenantSlug = 'default' }) {
                                 <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-end italic">
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 not-italic tracking-widest">Tipo</label>
-                                        <select name="type" value={financeFormType} onChange={(e) => setFinanceFormType(e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#D4A373]">
-                                            <option value="receita">Entrada</option>
-                                            <option value="despesa">Saída</option>
-                                            <option value="custo_fixo">Custo Fixo</option>
-                                        </select>
+                                        <SearchableSelect
+                                            name="type"
+                                            value={financeFormType}
+                                            onChange={setFinanceFormType}
+                                            options={[
+                                                { value: 'receita', label: 'Entrada' },
+                                                { value: 'despesa', label: 'Saída' },
+                                                { value: 'custo_fixo', label: 'Custo Fixo' }
+                                            ]}
+                                            placeholder="Selecione"
+                                        />
                                     </div>
                                     <CustomInput
                                         label={financeFormType === 'receita' ? 'Valor de Entrada' : financeFormType === 'despesa' ? 'Valor de Saída' : 'Valor do Custo Fixo'}
                                         name="amount"
-                                        type="number"
+                                        type="currency"
                                         step="0.01"
                                         required
                                     />
@@ -5192,23 +5467,31 @@ export default function App({ tenantSlug = 'default' }) {
                                         <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 not-italic tracking-widest">
                                             {financeFormType === 'receita' ? 'Canal' : financeFormType === 'despesa' ? 'Categoria' : 'Descrição'}
                                         </label>
-                                        <select name="reference" className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#D4A373]">
-                                            {(financeFormType === 'receita' ? salesChannels : financeFormType === 'despesa' ? financeExpenseCategories : costCategories).map((item) => (
-                                                <option key={item.id} value={item.name}>{item.name}</option>
-                                            ))}
-                                        </select>
+                                        <SearchableSelect
+                                            name="reference"
+                                            options={(financeFormType === 'receita' ? salesChannels : financeFormType === 'despesa' ? financeExpenseCategories : costCategories).map((item) => ({
+                                                value: item.name,
+                                                label: item.name
+                                            }))}
+                                            placeholder="Selecione"
+                                        />
                                     </div>
                                     {financeFormType === 'custo_fixo' ? (
                                         <CustomInput label="Dia de Vencimento" name="dueDay" type="number" min="1" max="31" required />
                                     ) : (
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 not-italic tracking-widest">Pagamento</label>
-                                            <select name="payment" className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm xl:text-base outline-none not-italic focus:ring-2 focus:ring-[#D4A373]">
-                                                <option value="pix">PIX</option>
-                                                <option value="cartao">Cartão</option>
-                                                <option value="online">Online</option>
-                                                <option value="dinheiro">Dinheiro</option>
-                                            </select>
+                                            <SearchableSelect
+                                                name="payment"
+                                                defaultValue="pix"
+                                                options={[
+                                                    { value: 'pix', label: 'PIX' },
+                                                    { value: 'cartao', label: 'Cartão' },
+                                                    { value: 'online', label: 'Online' },
+                                                    { value: 'dinheiro', label: 'Dinheiro' }
+                                                ]}
+                                                placeholder="Selecione"
+                                            />
                                         </div>
                                     )}
                                     <CustomInput
@@ -5491,16 +5774,17 @@ export default function App({ tenantSlug = 'default' }) {
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 relative z-10">
                                     <div className="space-y-1 xl:col-span-2">
                                         <label className="text-[9px] font-black text-[#6F6258] uppercase ml-1 tracking-widest not-italic">Visualização</label>
-                                        <select
+                                        <SearchableSelect
                                             value={closingFilterType}
-                                            onChange={(e) => setClosingFilterType(e.target.value)}
-                                            className="w-full px-3 py-2.5 bg-[#FFFFFF] border border-gray-200 rounded-xl font-bold text-sm outline-none not-italic focus:ring-2 focus:ring-[#D4A373]"
-                                        >
-                                            <option value="dia">Fechamento do Dia</option>
-                                            <option value="mes">Fechamento do Mês</option>
-                                            <option value="quinzena">Fechamento Quinzenal</option>
-                                            <option value="intervalo">Intervalo Personalizado</option>
-                                        </select>
+                                            onChange={setClosingFilterType}
+                                            options={[
+                                                { value: 'dia', label: 'Fechamento do Dia' },
+                                                { value: 'mes', label: 'Fechamento do Mês' },
+                                                { value: 'quinzena', label: 'Fechamento Quinzenal' },
+                                                { value: 'intervalo', label: 'Intervalo Personalizado' }
+                                            ]}
+                                            placeholder="Selecione"
+                                        />
                                     </div>
 
                                     {closingFilterType !== 'intervalo' && (

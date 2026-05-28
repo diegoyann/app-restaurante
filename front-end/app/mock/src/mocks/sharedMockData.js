@@ -242,12 +242,12 @@ const baseBootstrap = {
     }
   ],
   menuCategories: [
-    { id: 1, name: 'Esfiha' },
-    { id: 2, name: 'Pizza' },
-    { id: 3, name: 'Lanche' },
-    { id: 4, name: 'Combo' },
-    { id: 5, name: 'Bebida' },
-    { id: 6, name: 'Sobremesa' }
+    { id: 1, name: 'Esfiha', sortOrder: 0 },
+    { id: 2, name: 'Pizza', sortOrder: 1 },
+    { id: 3, name: 'Lanche', sortOrder: 2 },
+    { id: 4, name: 'Combo', sortOrder: 3 },
+    { id: 5, name: 'Bebida', sortOrder: 4 },
+    { id: 6, name: 'Sobremesa', sortOrder: 5 }
   ],
   menuItems: [
     {
@@ -257,6 +257,7 @@ const baseBootstrap = {
       category: 'Esfiha',
       description: 'Massa leve com recheio bem temperado, toque de limão e apresentação individual.',
       status: 'active',
+      sortOrder: 0,
       salePrice: 11.9,
       photoPreview: '',
       linkedComponents: [
@@ -274,6 +275,7 @@ const baseBootstrap = {
       category: 'Pizza',
       description: 'Massa artesanal, molho da casa, queijo derretido e sabor clássico para compartilhar.',
       status: 'seasonal',
+      sortOrder: 0,
       salePrice: 29.9,
       photoPreview: '',
       linkedComponents: [
@@ -291,6 +293,7 @@ const baseBootstrap = {
       category: 'Combo',
       description: 'Combo grande com sabores clássicos e uma bebida obrigatória, inspirado no fluxo operacional de marketplaces.',
       status: 'active',
+      sortOrder: 0,
       salePrice: null,
       basePrice: 80,
       photoPreview: '',
@@ -301,11 +304,12 @@ const baseBootstrap = {
           name: 'Clássicas',
           minSelect: 15,
           maxSelect: 15,
+          sortOrder: 0,
           options: [
-            { id: 'combo-option-1', name: 'Carne', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: 'product:1' },
-            { id: 'combo-option-2', name: 'Calabresa', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: '' },
-            { id: 'combo-option-3', name: 'Queijo', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: '' },
-            { id: 'combo-option-4', name: 'Frango', photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: false, linkedComponentRef: '' }
+            { id: 'combo-option-1', name: 'Carne', sortOrder: 0, photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: 'product:1' },
+            { id: 'combo-option-2', name: 'Calabresa', sortOrder: 1, photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: '' },
+            { id: 'combo-option-3', name: 'Queijo', sortOrder: 2, photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: true, linkedComponentRef: '' },
+            { id: 'combo-option-4', name: 'Frango', sortOrder: 3, photoPreview: '', extraPrice: 0, maxQty: 15, isAvailable: false, linkedComponentRef: '' }
           ]
         },
         {
@@ -313,10 +317,11 @@ const baseBootstrap = {
           name: 'Bebidas',
           minSelect: 1,
           maxSelect: 1,
+          sortOrder: 1,
           options: [
-            { id: 'combo-option-5', name: 'Kuat 2L', photoPreview: '', extraPrice: 0, maxQty: 1, isAvailable: true, linkedComponentRef: '' },
-            { id: 'combo-option-6', name: 'Fanta Laranja 2L', photoPreview: '', extraPrice: 0, maxQty: 1, isAvailable: true, linkedComponentRef: '' },
-            { id: 'combo-option-7', name: 'Coca-Cola Original 2L', photoPreview: '', extraPrice: 6, maxQty: 1, isAvailable: false, linkedComponentRef: '' }
+            { id: 'combo-option-5', name: 'Kuat 2L', sortOrder: 0, photoPreview: '', extraPrice: 0, maxQty: 1, isAvailable: true, linkedComponentRef: '' },
+            { id: 'combo-option-6', name: 'Fanta Laranja 2L', sortOrder: 1, photoPreview: '', extraPrice: 0, maxQty: 1, isAvailable: true, linkedComponentRef: '' },
+            { id: 'combo-option-7', name: 'Coca-Cola Original 2L', sortOrder: 2, photoPreview: '', extraPrice: 6, maxQty: 1, isAvailable: false, linkedComponentRef: '' }
           ]
         }
       ],

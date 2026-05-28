@@ -29,6 +29,10 @@ export function buildReceiptText(order, paymentMethods) {
 
   (order.items || []).forEach((item) => {
     lines.push(`${Number(item.quantity || 0)}x ${item.name} - ${formatMoney(item.totalPrice)}`);
+    (item.comboSelections || []).forEach((group) => {
+      const options = (group.options || []).map((option) => `${option.quantity}x ${option.name}`).join(', ');
+      if (options) lines.push(`  ${group.name}: ${options}`);
+    });
     if (item.notes) lines.push(`  Obs: ${item.notes}`);
   });
 

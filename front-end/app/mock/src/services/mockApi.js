@@ -824,7 +824,9 @@ export const integrationsApi = {
 export const publicMenuApi = {
   async getMenu(tenantSlug) {
     const tenant = findTenantRecord(tenantSlug);
-    const visibleItems = tenant.bootstrap.menuItems.filter((item) => item.status === 'active' || item.status === 'seasonal');
+    const visibleItems = tenant.bootstrap.menuItems
+      .filter((item) => item.status === 'active' || item.status === 'seasonal')
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const visibleCategoryNames = new Set(visibleItems.map((item) => item.category).filter(Boolean));
 
     return {
@@ -833,7 +835,9 @@ export const publicMenuApi = {
         name: tenant.name,
         businessName: tenant.businessName
       },
-      categories: tenant.bootstrap.menuCategories.filter((category) => visibleCategoryNames.has(category.name)),
+      categories: tenant.bootstrap.menuCategories
+        .filter((category) => visibleCategoryNames.has(category.name))
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       items: clone(visibleItems),
       paymentMethods: clone(tenant.bootstrap.paymentMethods.filter((method) => method.status === 'active'))
     };
@@ -901,7 +905,7 @@ export const menuApi = {
     if (payload.id) {
       const previous = tenant.bootstrap.menuCategories.find((category) => category.id === payload.id);
       tenant.bootstrap.menuCategories = tenant.bootstrap.menuCategories.map((category) => (
-        category.id === payload.id ? { ...category, name } : category
+        category.id === payload.id ? { ...category, name, sortOrder: payload.sortOrder ?? category.sortOrder ?? 0 } : category
       ));
 
       if (previous && previous.name !== name) {
@@ -915,7 +919,10 @@ export const menuApi = {
 
     const category = {
       id: createId('cat'),
-      name
+      name,
+      sortOrder: Number.isInteger(payload.sortOrder)
+        ? payload.sortOrder
+        : tenant.bootstrap.menuCategories.length
     };
 
     tenant.bootstrap.menuCategories = [...tenant.bootstrap.menuCategories, category];
@@ -934,6 +941,19 @@ export const menuApi = {
     }
 
     return { id };
+  },
+  async reorderCategories(tenantSlug, items = []) {
+    const tenant = findTenantRecord(tenantSlug);
+    const orderMap = new Map(items.map((item, index) => [String(item.id), Number.isInteger(item.sortOrder) ? item.sortOrder : index]));
+
+    tenant.bootstrap.menuCategories = tenant.bootstrap.menuCategories
+      .map((category) => ({
+        ...category,
+        sortOrder: orderMap.has(String(category.id)) ? orderMap.get(String(category.id)) : category.sortOrder ?? 0
+      }))
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    return clone(tenant.bootstrap.menuCategories);
   },
   async saveItem(tenantSlug, payload) {
     const tenant = findTenantRecord(tenantSlug);
@@ -954,13 +974,18 @@ export const menuApi = {
       ...clone(payload),
       id: payload.id || createId('menu'),
       itemType: payload.itemType === 'combo' ? 'combo' : 'regular',
+      sortOrder: Number.isInteger(payload.sortOrder)
+        ? payload.sortOrder
+        : payload.id
+          ? (tenant.bootstrap.menuItems.find((current) => current.id === payload.id)?.sortOrder ?? 0)
+          : tenant.bootstrap.menuItems.filter((current) => current.category === payload.category).length,
       comboGroups,
       linkedComponents: payload.itemType === 'combo' ? [] : clone(payload.linkedComponents || [])
     };
 
     tenant.bootstrap.menuItems = payload.id
       ? tenant.bootstrap.menuItems.map((current) => (current.id === payload.id ? item : current))
-      : [item, ...tenant.bootstrap.menuItems];
+      : [...tenant.bootstrap.menuItems, item];
 
     return clone(item);
   },
@@ -983,6 +1008,19 @@ export const menuApi = {
         : item);
 
     return { id };
+  },
+  async reorderItems(tenantSlug, items = []) {
+    const tenant = findTenantRecord(tenantSlug);
+    const orderMap = new Map(items.map((item, index) => [String(item.id), Number.isInteger(item.sortOrder) ? item.sortOrder : index]));
+
+    tenant.bootstrap.menuItems = tenant.bootstrap.menuItems
+      .map((item) => ({
+        ...item,
+        sortOrder: orderMap.has(String(item.id)) ? orderMap.get(String(item.id)) : item.sortOrder ?? 0
+      }))
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    return clone(tenant.bootstrap.menuItems);
   }
 };
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Settings } from 'lucide-react';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
 
 export default function GeneralSettingsSection({
   settings,
@@ -30,16 +31,17 @@ export default function GeneralSettingsSection({
             {React.createElement(InputComponent, { label: 'Taxa Anota AI (%)', name: 'anotaaiTax', type: 'number', step: '0.1', defaultValue: settings.anotaaiTax })}
             <div className="space-y-1 w-full sm:col-span-2">
               <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Paleta de Cores (Tema)</label>
-              <select
+              <SearchableSelect
                 name="colorPalette"
                 defaultValue={settings.colorPalette || 'premium'}
-                className="w-full pl-4 pr-4 py-2.5 xl:py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-semibold"
-              >
-                <option value="premium">Eficiência Premium (Fundo Cinza / Menu Cinza Escuro / Vermelho Fome)</option>
-                <option value="frescor">Frescor e Rastreabilidade (Fundo Branco Gelo / Menu Verde Oliva / Laranja)</option>
-                <option value="natural">Natural e Orgânico (Fundo Bege Claro / Menu Verde Terra / Amarelo Queimado)</option>
-                <option value="esfiha">Clássica Esfiha (Fundo Branco / Menu Vermelho / Dourado)</option>
-              </select>
+                className="searchable-select--semibold"
+                options={[
+                  { value: 'premium', label: 'Eficiência Premium (Fundo Cinza / Menu Cinza Escuro / Vermelho Fome)' },
+                  { value: 'frescor', label: 'Frescor e Rastreabilidade (Fundo Branco Gelo / Menu Verde Oliva / Laranja)' },
+                  { value: 'natural', label: 'Natural e Orgânico (Fundo Bege Claro / Menu Verde Terra / Amarelo Queimado)' },
+                  { value: 'esfiha', label: 'Clássica Esfiha (Fundo Branco / Menu Vermelho / Dourado)' }
+                ]}
+              />
             </div>
           </div>
           {settingsError && (

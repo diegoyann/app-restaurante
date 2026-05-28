@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,6 +23,46 @@ const ORDER_STATUS = [
   { id: 'dispatched', label: 'Em rota', next: 'delivered', previous: 'ready' },
   { id: 'delivered', label: 'Entregue', next: null, previous: 'dispatched' }
 ];
+
+const CurrencyInput = ({ value, onChange, placeholder, className, ...props }) => {
+  const displayValue = useMemo(() => {
+    if (value === undefined || value === null || value === '') return '';
+    const clean = String(value).replace(',', '.');
+    const num = parseFloat(clean);
+    if (isNaN(num)) return '';
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }, [value]);
+
+  const handleChange = (e) => {
+    const rawValue = e.target.value;
+    if (rawValue === '') {
+      onChange({ target: { value: '' } });
+      return;
+    }
+    const digits = rawValue.replace(/\D/g, '');
+    if (!digits) {
+      onChange({ target: { value: '' } });
+      return;
+    }
+    const floatValue = (parseInt(digits, 10) / 100).toFixed(2);
+    onChange({ target: { value: floatValue } });
+  };
+
+  return (
+    <input
+      {...props}
+      type="text"
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={displayValue}
+      onChange={handleChange}
+      className={className}
+    />
+  );
+};
 
 const KANBAN_LANES = [
   {
@@ -110,6 +151,7 @@ function getKanbanStatusLabel(order) {
 export default function OrderOperationsPage({
   tenantSlug,
   menuItems,
+  menuCategories = [],
   orders,
   customers,
   paymentMethods,
@@ -125,6 +167,7 @@ export default function OrderOperationsPage({
   const [selectedItemId, setSelectedItemId] = useState('');
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [selectedNote, setSelectedNote] = useState('');
+  const [comboSelections, setComboSelections] = useState({});
   const [cart, setCart] = useState([]);
   const [customerForm, setCustomerForm] = useState({
     name: '',
@@ -150,6 +193,43 @@ export default function OrderOperationsPage({
     () => menuItems.filter((item) => item.status === 'active' || item.status === 'seasonal'),
     [menuItems]
   );
+  const selectedMenuItem = useMemo(
+    () => visibleMenuItems.find((item) => String(item.id) === String(selectedItemId)) || null,
+    [selectedItemId, visibleMenuItems]
+  );
+  const selectedComboGroups = selectedMenuItem?.itemType === 'combo' ? selectedMenuItem.comboGroups || [] : [];
+  const visibleMenuItemOptions = useMemo(() => {
+    const categoryNames = menuCategories.map((category) => category.name);
+    const groups = categoryNames
+      .map((categoryName) => {
+        const items = visibleMenuItems
+          .filter((item) => item.category === categoryName)
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+        return {
+          label: categoryName,
+          options: items.map((item) => ({
+            value: item.id,
+            label: `${item.name} - ${formatMoney(item.salePrice || item.basePrice)}`
+          }))
+        };
+      })
+      .filter((group) => group.options.length > 0);
+    const uncategorized = visibleMenuItems
+      .filter((item) => !categoryNames.includes(item.category))
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    if (uncategorized.length > 0) {
+      groups.push({
+        label: 'Sem categoria',
+        options: uncategorized.map((item) => ({
+          value: item.id,
+          label: `${item.name} - ${formatMoney(item.salePrice || item.basePrice)}`
+        }))
+      });
+    }
+
+    return groups;
+  }, [menuCategories, visibleMenuItems]);
   const cartSubtotal = cart.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
   const cartTotal = cartSubtotal + Number(deliveryFee || 0);
   const kanbanColumns = KANBAN_LANES.map((lane) => ({
@@ -159,18 +239,107 @@ export default function OrderOperationsPage({
       .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0))
   }));
 
+  useEffect(() => {
+    setComboSelections({});
+  }, [selectedItemId]);
+
+  const getComboGroupQuantity = (groupId) => (
+    Object.values(comboSelections[groupId] || {}).reduce((sum, qty) => sum + Number(qty || 0), 0)
+  );
+
+  const getComboOptionQuantity = (groupId, optionId) => Number(comboSelections[groupId]?.[optionId] || 0);
+
+  const updateComboOptionQuantity = (group, option, delta) => {
+    if (!option.isAvailable && delta > 0) return;
+
+    setComboSelections((current) => {
+      const groupSelections = current[group.id] || {};
+      const currentQty = Number(groupSelections[option.id] || 0);
+      const groupQty = Object.values(groupSelections).reduce((sum, qty) => sum + Number(qty || 0), 0);
+      const maxGroupQty = Number(group.maxSelect) || 0;
+      const maxOptionQty = Number(option.maxQty) || 1;
+      const nextQty = Math.max(0, Math.min(currentQty + delta, maxOptionQty));
+
+      if (delta > 0 && maxGroupQty > 0 && groupQty >= maxGroupQty) return current;
+
+      const nextGroupSelections = { ...groupSelections };
+      if (nextQty > 0) {
+        nextGroupSelections[option.id] = nextQty;
+      } else {
+        delete nextGroupSelections[option.id];
+      }
+
+      return {
+        ...current,
+        [group.id]: nextGroupSelections
+      };
+    });
+  };
+
+  const getSelectedComboDetails = () => selectedComboGroups.map((group) => {
+    const selectedOptions = (group.options || [])
+      .map((option) => ({
+        ...option,
+        quantity: getComboOptionQuantity(group.id, option.id)
+      }))
+      .filter((option) => option.quantity > 0);
+
+    return {
+      id: group.id,
+      name: group.name,
+      minSelect: Number(group.minSelect) || 0,
+      maxSelect: Number(group.maxSelect) || 0,
+      options: selectedOptions
+    };
+  });
+
+  const validateComboSelection = () => {
+    for (const group of selectedComboGroups) {
+      const selectedQty = getComboGroupQuantity(group.id);
+      const minSelect = Number(group.minSelect) || 0;
+      const maxSelect = Number(group.maxSelect) || 0;
+
+      if (selectedQty < minSelect) {
+        return `Selecione pelo menos ${minSelect} opção(ões) em ${group.name}.`;
+      }
+
+      if (maxSelect > 0 && selectedQty > maxSelect) {
+        return `Selecione no máximo ${maxSelect} opção(ões) em ${group.name}.`;
+      }
+    }
+
+    return '';
+  };
+
+  const selectedComboExtraTotal = selectedComboGroups.reduce((sum, group) => (
+    sum + (group.options || []).reduce((optionSum, option) => (
+      optionSum + getComboOptionQuantity(group.id, option.id) * Number(option.extraPrice || 0)
+    ), 0)
+  ), 0);
+
   const addSelectedItem = () => {
-    const menuItem = visibleMenuItems.find((item) => String(item.id) === String(selectedItemId));
+    const menuItem = selectedMenuItem;
     const quantity = Number(selectedQuantity) || 1;
     if (!menuItem || quantity <= 0) return;
 
-    const unitPrice = Number(menuItem.salePrice || menuItem.basePrice || 0);
+    if (menuItem.itemType === 'combo') {
+      const comboError = validateComboSelection();
+      if (comboError) {
+        setOrderError(comboError);
+        return;
+      }
+    }
+
+    const comboDetails = menuItem.itemType === 'combo' ? getSelectedComboDetails() : [];
+    const unitPrice = Number(menuItem.salePrice || menuItem.basePrice || 0) + (menuItem.itemType === 'combo' ? selectedComboExtraTotal : 0);
     const item = {
       id: `${menuItem.id}-${Date.now()}`,
       menuItemId: menuItem.id,
       name: menuItem.name,
       category: menuItem.category || '',
       section: classifySection(menuItem.category, menuItem.name),
+      itemType: menuItem.itemType || 'regular',
+      comboSelections: comboDetails,
       quantity,
       unitPrice,
       totalPrice: unitPrice * quantity,
@@ -181,6 +350,8 @@ export default function OrderOperationsPage({
     setSelectedItemId('');
     setSelectedQuantity(1);
     setSelectedNote('');
+    setComboSelections({});
+    setOrderError('');
   };
 
   const updateCustomerField = (field, value) => {
@@ -517,28 +688,24 @@ export default function OrderOperationsPage({
 
                       {order.status === 'ready' && (
                         <div className="mt-3 space-y-2 rounded-2xl bg-[#FAF6EF] p-3">
-                          <select
+                          <SearchableSelect
                             value={draft.deliveryDriverId || ''}
-                            onChange={(event) => updateDispatchDraft(order.id, 'deliveryDriverId', event.target.value)}
-                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-[#D4A373]"
-                          >
-                            <option value="">Motoboy</option>
-                            {deliveryDrivers.filter((driver) => driver.status === 'active').map((driver) => (
-                              <option key={driver.id} value={driver.id}>{driver.name}</option>
-                            ))}
-                          </select>
+                            onChange={(value) => updateDispatchDraft(order.id, 'deliveryDriverId', value)}
+                            className="searchable-select--compact"
+                            placeholder="Motoboy"
+                            options={deliveryDrivers.filter((driver) => driver.status === 'active').map((driver) => ({
+                              value: driver.id,
+                              label: driver.name
+                            }))}
+                          />
                           <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="number"
-                              step="0.01"
+                            <CurrencyInput
                               value={draft.driverDeliveryAmount ?? selectedDriver?.perDeliveryRate ?? ''}
                               onChange={(event) => updateDispatchDraft(order.id, 'driverDeliveryAmount', event.target.value)}
                               placeholder="Entrega"
                               className="min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-[#D4A373]"
                             />
-                            <input
-                              type="number"
-                              step="0.01"
+                            <CurrencyInput
                               value={draft.cashChangeRequired || ''}
                               onChange={(event) => updateDispatchDraft(order.id, 'cashChangeRequired', event.target.value)}
                               placeholder="Troco"
@@ -645,18 +812,77 @@ export default function OrderOperationsPage({
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_90px] gap-3">
             <label className="space-y-1">
               <span className="text-[10px] font-black uppercase text-[#696965]">Item</span>
-              <select value={selectedItemId} onChange={(event) => setSelectedItemId(event.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]">
-                <option value="">Selecione</option>
-                {visibleMenuItems.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name} - {formatMoney(item.salePrice || item.basePrice)}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={selectedItemId}
+                onChange={(value) => setSelectedItemId(value)}
+                placeholder="Selecione"
+                options={visibleMenuItemOptions}
+              />
             </label>
             <label className="space-y-1">
               <span className="text-[10px] font-black uppercase text-[#696965]">Qtd</span>
               <input type="number" min="1" value={selectedQuantity} onChange={(event) => setSelectedQuantity(event.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
             </label>
           </div>
+
+          {selectedComboGroups.length > 0 && (
+            <div className="space-y-3 rounded-2xl border border-[#D4A373]/30 bg-[#fffaf0] p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8A5A2B]">Opções do combo</p>
+                  <p className="text-xs font-bold text-[#696965]">Respeite os mínimos e máximos definidos no cadastro.</p>
+                </div>
+                <strong className="text-sm font-black text-[#2A1E15]">
+                  {formatMoney(Number(selectedMenuItem?.basePrice || 0) + selectedComboExtraTotal)}
+                </strong>
+              </div>
+
+              {selectedComboGroups.map((group) => {
+                const selectedQty = getComboGroupQuantity(group.id);
+                const minSelect = Number(group.minSelect) || 0;
+                const maxSelect = Number(group.maxSelect) || 0;
+
+                return (
+                  <div key={group.id} className="rounded-xl border border-gray-100 bg-white p-3">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-black uppercase text-[#2A1E15]">{group.name}</p>
+                        <p className="text-[10px] font-bold uppercase text-[#696965]">Selecionado {selectedQty} de {minSelect} a {maxSelect}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(group.options || []).map((option) => {
+                        const optionQty = getComboOptionQuantity(group.id, option.id);
+                        const optionMax = Number(option.maxQty) || 1;
+                        const cannotAdd = !option.isAvailable || optionQty >= optionMax || (maxSelect > 0 && selectedQty >= maxSelect);
+
+                        return (
+                          <div key={option.id} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${option.isAvailable ? 'border-gray-100 bg-[#FAF6EF]' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-black uppercase text-[#2A1E15]">{option.name}</p>
+                              <p className="text-[10px] font-bold uppercase text-[#696965]">
+                                {Number(option.extraPrice || 0) > 0 ? `+ ${formatMoney(option.extraPrice)}` : 'Sem adicional'} · Máx. {optionMax}
+                              </p>
+                            </div>
+                            <div className="inline-flex h-8 items-center overflow-hidden rounded-lg bg-white text-[#2A1E15] ring-1 ring-gray-100">
+                              <button type="button" onClick={() => updateComboOptionQuantity(group, option, -1)} disabled={optionQty === 0} className="flex h-full w-8 items-center justify-center text-red-600 disabled:opacity-30">
+                                <Minus size={13} />
+                              </button>
+                              <span className="min-w-7 text-center text-xs font-black">{optionQty}</span>
+                              <button type="button" onClick={() => updateComboOptionQuantity(group, option, 1)} disabled={cannotAdd} className="flex h-full w-8 items-center justify-center disabled:opacity-30">
+                                <Plus size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
             <input value={selectedNote} onChange={(event) => setSelectedNote(event.target.value)} placeholder="Observação do item" className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
@@ -673,6 +899,15 @@ export default function OrderOperationsPage({
                 <div>
                   <p className="text-sm font-black text-[#2A1E15]">{item.quantity}x {item.name}</p>
                   <p className="text-[10px] font-bold uppercase text-[#696965]">{sectionLabel(item.section)} {item.notes ? `- ${item.notes}` : ''}</p>
+                  {item.comboSelections?.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {item.comboSelections.map((group) => (
+                        <p key={group.id} className="text-[10px] font-bold text-[#696965]">
+                          {group.name}: {group.options.map((option) => `${option.quantity}x ${option.name}`).join(', ')}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <strong className="text-sm font-black text-[#2A1E15]">{formatMoney(item.totalPrice)}</strong>
@@ -687,16 +922,19 @@ export default function OrderOperationsPage({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label className="space-y-1 sm:col-span-2">
               <span className="text-[10px] font-black uppercase text-[#696965]">Pagamento</span>
-              <select value={paymentMethodId} onChange={(event) => setPaymentMethodId(event.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]">
-                <option value="">A combinar</option>
-                {paymentMethods.map((method) => (
-                  <option key={method.id} value={method.id}>{method.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={paymentMethodId}
+                onChange={(value) => setPaymentMethodId(value)}
+                placeholder="A combinar"
+                options={paymentMethods.map((method) => ({
+                  value: method.id,
+                  label: method.name
+                }))}
+              />
             </label>
             <label className="space-y-1">
               <span className="text-[10px] font-black uppercase text-[#696965]">Entrega</span>
-              <input type="number" step="0.01" value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
+              <CurrencyInput value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
             </label>
           </div>
 

@@ -32,7 +32,7 @@ export function setCors(res) {
       : allowedOrigins[0];
 
   res.setHeader('Access-Control-Allow-Origin', resolvedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,PATCH,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Vary', 'Origin');
 }

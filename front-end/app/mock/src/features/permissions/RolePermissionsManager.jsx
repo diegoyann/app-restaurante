@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Save, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { PERMISSION_CATEGORIES, PERMISSIONS, normalizePermissionMap } from './permissionCatalog.js';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
 
 const inputClass = 'w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-semibold outline-none focus:border-[#D4A373]';
 
@@ -142,16 +143,17 @@ export default function RolePermissionsManager({
             </div>
             <div>
               <label htmlFor="role-profile-base" className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a7474]">Base</label>
-              <select
+              <SearchableSelect
                 id="role-profile-base"
                 value={selectedProfile.baseRole || 'tenant_staff'}
                 disabled={selectedProfile.isSystem}
-                onChange={(event) => updateDraft('baseRole', event.target.value)}
-                className={`${inputClass} disabled:cursor-not-allowed disabled:bg-[#efe7db] disabled:text-[#8a7474]`}
-              >
-                <option value="tenant_admin">Admin</option>
-                <option value="tenant_staff">Staff</option>
-              </select>
+                onChange={(value) => updateDraft('baseRole', value)}
+                className="searchable-select--admin"
+                options={[
+                  { value: 'tenant_admin', label: 'Admin' },
+                  { value: 'tenant_staff', label: 'Staff' }
+                ]}
+              />
             </div>
           </div>
 

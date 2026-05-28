@@ -211,6 +211,7 @@ create table if not exists public.menu_categories (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   name text not null,
+  sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -227,6 +228,7 @@ create table if not exists public.menu_items (
   base_price numeric(12,2) not null default 0,
   photo_preview text not null default '',
   linked_component_ids jsonb not null default '[]'::jsonb,
+  sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );

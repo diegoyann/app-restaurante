@@ -3,7 +3,15 @@ import { mapMenuCategory, mapMenuItem } from '../../shared/mappers.js';
 
 export async function readMenuProjection(tenant) {
   const [menuCategories, menuItems] = await Promise.all([
-    ensureOk(await supabaseAdmin.from('menu_categories').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar categorias de menu.'),
+    ensureOk(
+      await supabaseAdmin
+        .from('menu_categories')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true }),
+      'Falha ao carregar categorias de menu.'
+    ),
     ensureOk(
       await supabaseAdmin
         .from('menu_items')
@@ -16,6 +24,8 @@ export async function readMenuProjection(tenant) {
           )
         `)
         .eq('tenant_id', tenant.id)
+        .order('category_id', { ascending: true, nullsFirst: false })
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
       'Falha ao carregar itens do menu.'
     )

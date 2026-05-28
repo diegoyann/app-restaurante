@@ -278,6 +278,12 @@ export const menuApi = {
       body: JSON.stringify({ id })
     });
   },
+  reorderCategories(tenantSlug, items) {
+    return apiRequest(withTenant('/menu/categories', tenantSlug), {
+      method: 'PATCH',
+      body: JSON.stringify({ items })
+    });
+  },
   saveItem(tenantSlug, payload) {
     const method = payload.id ? 'PUT' : 'POST';
 
@@ -290,6 +296,12 @@ export const menuApi = {
     return apiRequest(withTenant('/menu/items', tenantSlug), {
       method: 'DELETE',
       body: JSON.stringify({ id })
+    });
+  },
+  reorderItems(tenantSlug, items) {
+    return apiRequest(withTenant('/menu/items', tenantSlug), {
+      method: 'PATCH',
+      body: JSON.stringify({ items })
     });
   }
 };

@@ -2,6 +2,7 @@ import { resolveIdentity, requireTenantPermission } from '../../src/auth/identit
 import {
   deleteMenuItemById,
   getTenantBootstrap,
+  reorderMenuItems,
   saveMenuItem
 } from '../../src/modules/menu/index.js';
 import {
@@ -33,6 +34,11 @@ export default async function handler(req, res) {
       return sendJson(res, req.method === 'POST' ? 201 : 200, item);
     }
 
+    if (req.method === 'PATCH') {
+      const bootstrap = await reorderMenuItems(tenantSlug, req.body || {});
+      return sendJson(res, 200, bootstrap.menuItems);
+    }
+
     if (req.method === 'DELETE') {
       const itemId = req.body?.id;
       if (!itemId) throw new Error('id do item é obrigatório.');
@@ -40,7 +46,7 @@ export default async function handler(req, res) {
       return sendJson(res, 200, { id: itemId });
     }
 
-    return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);
+    return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
   } catch (error) {
     return sendError(res, error, 400);
   }

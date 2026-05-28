@@ -10,16 +10,18 @@ export const createId = () => Date.now() + Math.random();
 export const formatComboboxLabel = (value) => {
   const text = String(value || '').trim();
   if (!text) return '';
-  return `${text.charAt(0).toLocaleUpperCase('pt-BR')}${text.slice(1).toLocaleLowerCase('pt-BR')}`;
+  let formatted = `${text.charAt(0).toLocaleUpperCase('pt-BR')}${text.slice(1).toLocaleLowerCase('pt-BR')}`;
+  formatted = formatted.replace(/r\s*\$/gi, 'R$');
+  return formatted;
 };
 
 export const createInitialMenuCategories = () => ([
-  { id: 1, name: 'Esfiha' },
-  { id: 2, name: 'Pizza' },
-  { id: 3, name: 'Lanche' },
-  { id: 4, name: 'Combo' },
-  { id: 5, name: 'Bebida' },
-  { id: 6, name: 'Sobremesa' }
+  { id: 1, name: 'Esfiha', sortOrder: 0 },
+  { id: 2, name: 'Pizza', sortOrder: 1 },
+  { id: 3, name: 'Lanche', sortOrder: 2 },
+  { id: 4, name: 'Combo', sortOrder: 3 },
+  { id: 5, name: 'Bebida', sortOrder: 4 },
+  { id: 6, name: 'Sobremesa', sortOrder: 5 }
 ]);
 
 export const createEmptyMenuItemForm = (categoryName = '') => ({
@@ -42,7 +44,8 @@ export const createEmptyComboOption = () => ({
   isAvailable: true,
   linkedCategoryName: '',
   linkedCategoryNames: [],
-  linkedComponentRef: ''
+  linkedComponentRef: '',
+  linkedComponentRefs: []
 });
 
 export const createEmptyComboGroup = (name = '') => ({
