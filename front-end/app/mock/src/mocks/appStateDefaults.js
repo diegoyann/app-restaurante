@@ -1,6 +1,26 @@
 import { createInitialMenuCategories } from '../features/menu/menuModel.js';
 import { normalizeGeneralSettings } from '../features/settings/settingsModel.js';
 
+export const DEFAULT_INGREDIENT_UNIT_LABELS = ['KG', 'G', 'ML', 'L', 'UN'];
+
+export function createDefaultIngredientUnits(createUnitId = (label) => `default-unit-${label.toLowerCase()}`) {
+  return DEFAULT_INGREDIENT_UNIT_LABELS.map((label) => ({
+    id: createUnitId(label),
+    label
+  }));
+}
+
+export function normalizeIngredientUnitLabel(label) {
+  const normalized = String(label || '').trim().toUpperCase();
+  return DEFAULT_INGREDIENT_UNIT_LABELS.find((unit) => unit === normalized) || '';
+}
+
+export function assertIngredientUnitLabel(label, message = 'Unidade inválida.') {
+  const normalized = normalizeIngredientUnitLabel(label);
+  if (!normalized) throw new Error(message);
+  return normalized;
+}
+
 export function createEmptyAppDataState() {
   return {
     settings: normalizeGeneralSettings(null),
@@ -22,7 +42,7 @@ export function createEmptyAppDataState() {
       holidayDates: []
     },
     ingredients: [],
-    ingredientUnits: [],
+    ingredientUnits: createDefaultIngredientUnits(),
     preparations: [],
     products: [],
     menuCategories: createInitialMenuCategories(),

@@ -28,6 +28,7 @@ export const createEmptyMenuItemForm = (categoryName = '') => ({
   description: '',
   status: 'active',
   salePrice: '',
+  priceEditable: false,
   photoPreview: '',
   linkedComponentIds: []
 });
@@ -40,6 +41,7 @@ export const createEmptyComboOption = () => ({
   maxQty: '1',
   isAvailable: true,
   linkedCategoryName: '',
+  linkedCategoryNames: [],
   linkedComponentRef: ''
 });
 

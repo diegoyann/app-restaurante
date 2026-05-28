@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin.js';
 import { defaultPermissionMap, normalizePermissionMap } from '../auth/permissions.js';
 import { getTenantBootstrap as getTenantBootstrapReadModel } from '../modules/app/tenantBootstrapReadModel.js';
+import { DEFAULT_INGREDIENT_UNIT_LABELS, assertIngredientUnitLabel } from '../modules/shared/ingredientUnits.js';
 import { randomUUID } from 'node:crypto';
 
 function ensureOk(result, fallbackMessage) {
@@ -278,7 +279,8 @@ function mapMenuItem(row) {
           extraPrice: String(Number(option.extra_price || 0)),
           maxQty: String(option.max_qty || 1),
           isAvailable: option.is_available,
-          linkedCategoryName: option.linked_category_name || '',
+          linkedCategoryName: normalizeLinkedCategoryNames(option)[0] || '',
+          linkedCategoryNames: normalizeLinkedCategoryNames(option),
           linkedComponentRef: option.linked_component_ref || ''
         }))
     }))
@@ -293,36 +295,53 @@ function sanitizeJsonArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeLinkedCategoryNames(option = {}) {
+  const categoryNames = sanitizeJsonArray(option.linkedCategoryNames || option.linked_category_names);
+  const fallback = option.linkedCategoryName || option.linked_category_name;
+
+  return [...categoryNames, fallback].reduce((acc, categoryName) => {
+    const normalized = String(categoryName || '').trim();
+    if (normalized && !acc.includes(normalized)) acc.push(normalized);
+    return acc;
+  }, []);
+}
+
 function normalizeCatalogName(value) {
   return String(value || '').trim().toLocaleUpperCase('pt-BR');
 }
 
-function normalizeRecipe(value) {
+function normalizeRecipe(value, { validateUnits = false } = {}) {
   return sanitizeJsonArray(value).map((line) => ({
     componentType: line.componentType === 'preparation' ? 'preparation' : 'ingredient',
     componentId: line.componentId,
     quantity: Number(line.quantity) || 0,
-    quantityUnit: line.quantityUnit || ''
+    quantityUnit: validateUnits
+      ? assertIngredientUnitLabel(line.quantityUnit, 'Unidade da ficha técnica inválida.')
+      : line.quantityUnit || ''
   }));
 }
 
-function filterRecipeComponent(recipe, componentType, componentId) {
-  return sanitizeJsonArray(recipe).filter((line) => (
-    !(line.componentType === componentType && String(line.componentId) === String(componentId))
+function createCatalogDependencyError(message) {
+  const error = new Error(message);
+  error.statusCode = 409;
+  return error;
+}
+
+function hasRecipeComponent(recipe, componentType, componentId) {
+  return sanitizeJsonArray(recipe).some((line) => (
+    line.componentType === componentType && String(line.componentId) === String(componentId)
   ));
 }
 
-function filterLinkedComponentIds(linkedComponentIds, type, id) {
-  return sanitizeJsonArray(linkedComponentIds).filter((component) => {
-    if (typeof component === 'string') return component !== `${type}:${id}`;
-    return !(component?.type === type && String(component?.id) === String(id));
+function hasLinkedComponentId(linkedComponentIds, type, id) {
+  return sanitizeJsonArray(linkedComponentIds).some((component) => {
+    if (typeof component === 'string') return component === `${type}:${id}`;
+    return component?.type === type && String(component?.id) === String(id);
   });
 }
 
-function renameRecipeUnit(recipe, previousLabel, nextLabel) {
-  return sanitizeJsonArray(recipe).map((line) => (
-    line.quantityUnit === previousLabel ? { ...line, quantityUnit: nextLabel } : line
-  ));
+function hasLinkedComponentRef(linkedComponentRef, type, id) {
+  return String(linkedComponentRef || '') === `${type}:${id}`;
 }
 
 async function getMenuItemById(tenantId, itemId) {
@@ -410,7 +429,8 @@ async function replaceComboGroups({ tenantId, menuItemId, comboGroups = [] }) {
       extra_price: Number(option.extraPrice) || 0,
       max_qty: Number(option.maxQty) || 1,
       is_available: option.isAvailable !== false,
-      linked_category_name: option.linkedCategoryName || '',
+      linked_category_name: normalizeLinkedCategoryNames(option)[0] || '',
+      linked_category_names: normalizeLinkedCategoryNames(option),
       linked_component_ref: option.linkedComponentRef || '',
       sort_order: optionIndex
     }));
@@ -473,9 +493,9 @@ function mapProduct(row) {
 function mapIngredient(row) {
   const packageQuantity = Number(row.package_quantity || 0);
   const packageCost = Number(row.package_cost || 0);
-  const fallbackUnitCost = packageQuantity > 1
+  const fallbackUnitCost = packageQuantity > 0
     ? packageCost / packageQuantity
-    : packageCost / getIngredientReferenceFactor(row.unit);
+    : packageCost;
 
   return {
     id: row.id,
@@ -487,9 +507,29 @@ function mapIngredient(row) {
   };
 }
 
-function getIngredientReferenceFactor(unit) {
-  if (unit === 'g' || unit === 'ml') return 1000;
-  return 1;
+async function ensureDefaultIngredientUnits(tenantId) {
+  const existingUnits = ensureOk(
+    await supabaseAdmin
+      .from('ingredient_units')
+      .select('label')
+      .eq('tenant_id', tenantId),
+    'Falha ao carregar unidades padrão.'
+  );
+  const existingLabels = new Set(existingUnits.map((unit) => String(unit.label || '').trim().toLowerCase()));
+  const missingRows = DEFAULT_INGREDIENT_UNIT_LABELS
+    .filter((label) => !existingLabels.has(label.toLowerCase()))
+    .map((label) => ({
+      id: randomUUID(),
+      tenant_id: tenantId,
+      label
+    }));
+
+  if (missingRows.length > 0) {
+    ensureOk(
+      await supabaseAdmin.from('ingredient_units').insert(missingRows),
+      'Falha ao criar unidades padrão.'
+    );
+  }
 }
 
 function mapMembership(row) {
@@ -1030,21 +1070,11 @@ async function copyCmvFromTenant(sourceTenantId, targetTenantId) {
     productIds: new Map()
   };
 
-  const [units, ingredients, preparations, products] = await Promise.all([
-    ensureOk(await supabaseAdmin.from('ingredient_units').select('*').eq('tenant_id', sourceTenantId), 'Falha ao carregar unidades da matriz.'),
+  const [ingredients, preparations, products] = await Promise.all([
     ensureOk(await supabaseAdmin.from('ingredients').select('*').eq('tenant_id', sourceTenantId), 'Falha ao carregar insumos da matriz.'),
     ensureOk(await supabaseAdmin.from('preparations').select('*').eq('tenant_id', sourceTenantId), 'Falha ao carregar receitas da matriz.'),
     ensureOk(await supabaseAdmin.from('products').select('*').eq('tenant_id', sourceTenantId), 'Falha ao carregar produtos da matriz.')
   ]);
-
-  const unitRows = units.map((unit) => ({
-    id: randomUUID(),
-    tenant_id: targetTenantId,
-    label: unit.label
-  }));
-  if (unitRows.length > 0) {
-    ensureOk(await supabaseAdmin.from('ingredient_units').insert(unitRows), 'Falha ao importar unidades da matriz.');
-  }
 
   const ingredientRows = ingredients.map((ingredient) => {
     const id = randomUUID();
@@ -1186,6 +1216,7 @@ async function copyMenuFromTenant(sourceTenantId, targetTenantId, maps, allowCmv
       max_qty: option.max_qty,
       is_available: option.is_available,
       linked_category_name: option.linked_category_name,
+      linked_category_names: normalizeLinkedCategoryNames(option),
       linked_component_ref: remapLinkedComponentRefForTenant(option.linked_component_ref, refMaps, {
         allowCmv,
         allowMenu: true
@@ -1300,6 +1331,16 @@ export async function upsertTenant({
       tenant_id: tenant.id,
       business_name: businessName || name
     });
+
+  if (!current) {
+    await importHeadquartersBootstrap({
+      companyId: company.id,
+      tenantId: tenant.id,
+      importMenuFromHeadquarters,
+      importCmvFromHeadquarters
+    });
+    await ensureDefaultIngredientUnits(tenant.id);
+  }
 
   return tenant;
 }
@@ -2824,7 +2865,8 @@ export async function deleteMenuItemById(tenantSlug, itemId) {
       .from('combo_options')
       .update({
         linked_component_ref: '',
-        linked_category_name: ''
+        linked_category_name: '',
+        linked_category_names: []
       })
       .eq('tenant_id', tenant.id)
       .eq('linked_component_ref', `menu-item:${itemId}`),
@@ -2843,157 +2885,30 @@ export async function deleteMenuItemById(tenantSlug, itemId) {
   return true;
 }
 
-export async function saveIngredientUnit(tenantSlug, payload) {
-  const tenant = await getTenantRowBySlug(tenantSlug);
-  const label = String(payload.label || '').trim();
-
-  if (!label) throw new Error('Nome da unidade é obrigatório.');
-
-  const previousUnit = payload.id
-    ? maybeSingle(
-        await supabaseAdmin
-          .from('ingredient_units')
-          .select('*')
-          .eq('tenant_id', tenant.id)
-          .eq('id', payload.id)
-          .maybeSingle(),
-        'Falha ao carregar unidade.'
-      )
-    : null;
-
-  const row = ensureOk(
-    await supabaseAdmin
-      .from('ingredient_units')
-      .upsert({
-        id: payload.id || undefined,
-        tenant_id: tenant.id,
-        label
-      })
-      .select('*')
-      .single(),
-    'Falha ao salvar unidade.'
-  );
-
-  if (previousUnit && previousUnit.label !== label) {
-    ensureOk(
-      await supabaseAdmin
-        .from('ingredients')
-        .update({ unit: label })
-        .eq('tenant_id', tenant.id)
-        .eq('unit', previousUnit.label),
-      'Falha ao atualizar unidade dos insumos.'
-    );
-    ensureOk(
-      await supabaseAdmin
-        .from('preparations')
-        .update({ yield_unit: label })
-        .eq('tenant_id', tenant.id)
-        .eq('yield_unit', previousUnit.label),
-      'Falha ao atualizar unidade das receitas base.'
-    );
-
-    const [preparations, products] = await Promise.all([
-      ensureOk(await supabaseAdmin.from('preparations').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar receitas base.'),
-      ensureOk(await supabaseAdmin.from('products').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar produtos.')
-    ]);
-
-    for (const preparation of preparations) {
-      ensureOk(
-        await supabaseAdmin
-          .from('preparations')
-          .update({ recipe: renameRecipeUnit(preparation.recipe, previousUnit.label, label) })
-          .eq('tenant_id', tenant.id)
-          .eq('id', preparation.id),
-        'Falha ao atualizar unidade nas receitas base.'
-      );
-    }
-
-    for (const product of products) {
-      ensureOk(
-        await supabaseAdmin
-          .from('products')
-          .update({ recipe: renameRecipeUnit(product.recipe, previousUnit.label, label) })
-          .eq('tenant_id', tenant.id)
-          .eq('id', product.id),
-        'Falha ao atualizar unidade nos produtos.'
-      );
-    }
-  }
-
-  return { id: row.id, label: row.label };
+export async function saveIngredientUnit() {
+  const error = new Error('As unidades são fixas e não podem ser alteradas.');
+  error.statusCode = 403;
+  throw error;
 }
 
-export async function deleteIngredientUnitById(tenantSlug, unitId) {
-  const tenant = await getTenantRowBySlug(tenantSlug);
-  const unit = maybeSingle(
-    await supabaseAdmin
-      .from('ingredient_units')
-      .select('*')
-      .eq('tenant_id', tenant.id)
-      .eq('id', unitId)
-      .maybeSingle(),
-    'Falha ao localizar unidade.'
-  );
-
-  if (!unit) return true;
-
-  const usedByIngredient = maybeSingle(
-    await supabaseAdmin
-      .from('ingredients')
-      .select('id')
-      .eq('tenant_id', tenant.id)
-      .eq('unit', unit.label)
-      .limit(1)
-      .maybeSingle(),
-    'Falha ao verificar uso da unidade.'
-  );
-  const usedByPreparation = maybeSingle(
-    await supabaseAdmin
-      .from('preparations')
-      .select('id')
-      .eq('tenant_id', tenant.id)
-      .eq('yield_unit', unit.label)
-      .limit(1)
-      .maybeSingle(),
-    'Falha ao verificar uso da unidade.'
-  );
-  const [preparations, products] = await Promise.all([
-    ensureOk(await supabaseAdmin.from('preparations').select('recipe').eq('tenant_id', tenant.id), 'Falha ao verificar uso da unidade.'),
-    ensureOk(await supabaseAdmin.from('products').select('recipe').eq('tenant_id', tenant.id), 'Falha ao verificar uso da unidade.')
-  ]);
-  const usedInRecipes = [...preparations, ...products].some((row) => (
-    sanitizeJsonArray(row.recipe).some((line) => line.quantityUnit === unit.label)
-  ));
-
-  if (usedByIngredient || usedByPreparation || usedInRecipes) {
-    const error = new Error('Unidade em uso não pode ser excluída.');
-    error.statusCode = 409;
-    throw error;
-  }
-
-  ensureOk(
-    await supabaseAdmin
-      .from('ingredient_units')
-      .delete()
-      .eq('tenant_id', tenant.id)
-      .eq('id', unitId),
-    'Falha ao remover unidade.'
-  );
-
-  return true;
+export async function deleteIngredientUnitById() {
+  const error = new Error('As unidades são fixas e não podem ser excluídas.');
+  error.statusCode = 403;
+  throw error;
 }
 
 export async function saveIngredient(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
   const name = normalizeCatalogName(payload.name);
-  const unit = String(payload.unit || '').trim();
+  const unit = payload.unit ? assertIngredientUnitLabel(payload.unit, 'Unidade do insumo inválida.') : '';
   const packageCost = Number(payload.packageCost ?? payload.unitCost) || 0;
-  const unitCost = Number(payload.unitCost) || (packageCost / getIngredientReferenceFactor(unit));
   const packageQuantity = Number(payload.packageQuantity) || 1;
+  const fallbackUnitCost = packageQuantity > 0 ? packageCost / packageQuantity : packageCost;
+  const unitCost = Number(payload.unitCost) || fallbackUnitCost;
 
   if (!name) throw new Error('Nome do insumo é obrigatório.');
   if (!unit) throw new Error('Unidade do insumo é obrigatória.');
-  if (packageCost <= 0) throw new Error('Custo do insumo é obrigatório.');
+  if (unitCost <= 0) throw new Error('Custo do insumo é obrigatório.');
 
   const row = ensureOk(
     await supabaseAdmin
@@ -3018,6 +2933,20 @@ export async function saveIngredient(tenantSlug, payload) {
 export async function deleteIngredientById(tenantSlug, ingredientId) {
   const tenant = await getTenantRowBySlug(tenantSlug);
 
+  const [preparations, products, menuItems] = await Promise.all([
+    ensureOk(await supabaseAdmin.from('preparations').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar receitas base.'),
+    ensureOk(await supabaseAdmin.from('products').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar produtos.'),
+    ensureOk(await supabaseAdmin.from('menu_items').select('id, linked_component_ids').eq('tenant_id', tenant.id), 'Falha ao carregar itens do menu.')
+  ]);
+
+  const isUsed = preparations.some((preparation) => hasRecipeComponent(preparation.recipe, 'ingredient', ingredientId))
+    || products.some((product) => hasRecipeComponent(product.recipe, 'ingredient', ingredientId))
+    || menuItems.some((item) => hasLinkedComponentId(item.linked_component_ids, 'ingredient', ingredientId));
+
+  if (isUsed) {
+    throw createCatalogDependencyError('Este insumo está em uso em fichas técnicas ou itens do cardápio. Remova os vínculos antes de excluir.');
+  }
+
   ensureOk(
     await supabaseAdmin
       .from('ingredients')
@@ -3027,52 +2956,13 @@ export async function deleteIngredientById(tenantSlug, ingredientId) {
     'Falha ao remover insumo.'
   );
 
-  const [preparations, products, menuItems] = await Promise.all([
-    ensureOk(await supabaseAdmin.from('preparations').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar receitas base.'),
-    ensureOk(await supabaseAdmin.from('products').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar produtos.'),
-    ensureOk(await supabaseAdmin.from('menu_items').select('id, linked_component_ids').eq('tenant_id', tenant.id), 'Falha ao carregar itens do menu.')
-  ]);
-
-  for (const preparation of preparations) {
-    ensureOk(
-      await supabaseAdmin
-        .from('preparations')
-        .update({ recipe: filterRecipeComponent(preparation.recipe, 'ingredient', ingredientId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', preparation.id),
-      'Falha ao limpar insumo das receitas base.'
-    );
-  }
-
-  for (const product of products) {
-    ensureOk(
-      await supabaseAdmin
-        .from('products')
-        .update({ recipe: filterRecipeComponent(product.recipe, 'ingredient', ingredientId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', product.id),
-      'Falha ao limpar insumo dos produtos.'
-    );
-  }
-
-  for (const item of menuItems) {
-    ensureOk(
-      await supabaseAdmin
-        .from('menu_items')
-        .update({ linked_component_ids: filterLinkedComponentIds(item.linked_component_ids, 'ingredient', ingredientId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', item.id),
-      'Falha ao limpar vínculos técnicos do cardápio.'
-    );
-  }
-
   return true;
 }
 
 export async function savePreparation(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
   const name = normalizeCatalogName(payload.name);
-  const yieldUnit = String(payload.yieldUnit || '').trim();
+  const yieldUnit = payload.yieldUnit ? assertIngredientUnitLabel(payload.yieldUnit, 'Unidade de rendimento inválida.') : '';
 
   if (!name) throw new Error('Nome da receita base é obrigatório.');
   if (!yieldUnit) throw new Error('Unidade de rendimento é obrigatória.');
@@ -3086,7 +2976,7 @@ export async function savePreparation(tenantSlug, payload) {
         name,
         yield_quantity: Number(payload.yieldQuantity) || 0,
         yield_unit: yieldUnit,
-        recipe: normalizeRecipe(payload.recipe)
+        recipe: normalizeRecipe(payload.recipe, { validateUnits: true })
       })
       .select('*')
       .single(),
@@ -3099,6 +2989,23 @@ export async function savePreparation(tenantSlug, payload) {
 export async function deletePreparationById(tenantSlug, preparationId) {
   const tenant = await getTenantRowBySlug(tenantSlug);
 
+  const [preparations, products, menuItems] = await Promise.all([
+    ensureOk(await supabaseAdmin.from('preparations').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar receitas base.'),
+    ensureOk(await supabaseAdmin.from('products').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar produtos.'),
+    ensureOk(await supabaseAdmin.from('menu_items').select('id, linked_component_ids').eq('tenant_id', tenant.id), 'Falha ao carregar itens do menu.')
+  ]);
+
+  const isUsed = preparations.some((preparation) => (
+    String(preparation.id) !== String(preparationId)
+      && hasRecipeComponent(preparation.recipe, 'preparation', preparationId)
+  ))
+    || products.some((product) => hasRecipeComponent(product.recipe, 'preparation', preparationId))
+    || menuItems.some((item) => hasLinkedComponentId(item.linked_component_ids, 'preparation', preparationId));
+
+  if (isUsed) {
+    throw createCatalogDependencyError('Esta receita base está em uso em outras fichas técnicas ou itens do cardápio. Remova os vínculos antes de excluir.');
+  }
+
   ensureOk(
     await supabaseAdmin
       .from('preparations')
@@ -3107,45 +3014,6 @@ export async function deletePreparationById(tenantSlug, preparationId) {
       .eq('id', preparationId),
     'Falha ao remover receita base.'
   );
-
-  const [preparations, products, menuItems] = await Promise.all([
-    ensureOk(await supabaseAdmin.from('preparations').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar receitas base.'),
-    ensureOk(await supabaseAdmin.from('products').select('id, recipe').eq('tenant_id', tenant.id), 'Falha ao carregar produtos.'),
-    ensureOk(await supabaseAdmin.from('menu_items').select('id, linked_component_ids').eq('tenant_id', tenant.id), 'Falha ao carregar itens do menu.')
-  ]);
-
-  for (const preparation of preparations) {
-    ensureOk(
-      await supabaseAdmin
-        .from('preparations')
-        .update({ recipe: filterRecipeComponent(preparation.recipe, 'preparation', preparationId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', preparation.id),
-      'Falha ao limpar receita base de outras receitas.'
-    );
-  }
-
-  for (const product of products) {
-    ensureOk(
-      await supabaseAdmin
-        .from('products')
-        .update({ recipe: filterRecipeComponent(product.recipe, 'preparation', preparationId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', product.id),
-      'Falha ao limpar receita base dos produtos.'
-    );
-  }
-
-  for (const item of menuItems) {
-    ensureOk(
-      await supabaseAdmin
-        .from('menu_items')
-        .update({ linked_component_ids: filterLinkedComponentIds(item.linked_component_ids, 'preparation', preparationId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', item.id),
-      'Falha ao limpar vínculos técnicos do cardápio.'
-    );
-  }
 
   return true;
 }
@@ -3166,7 +3034,7 @@ export async function saveProduct(tenantSlug, payload) {
         sale_price: Number(payload.salePrice) || 0,
         yield_quantity: Number(payload.yieldQuantity) || 1,
         target_cmv_percent: Number(payload.targetCmvPercent) || 0,
-        recipe: normalizeRecipe(payload.recipe)
+        recipe: normalizeRecipe(payload.recipe, { validateUnits: true })
       })
       .select('*')
       .single(),
@@ -3179,6 +3047,18 @@ export async function saveProduct(tenantSlug, payload) {
 export async function deleteProductById(tenantSlug, productId) {
   const tenant = await getTenantRowBySlug(tenantSlug);
 
+  const [menuItems, comboOptions] = await Promise.all([
+    ensureOk(await supabaseAdmin.from('menu_items').select('id, linked_component_ids').eq('tenant_id', tenant.id), 'Falha ao carregar itens do menu.'),
+    ensureOk(await supabaseAdmin.from('combo_options').select('id, linked_component_ref').eq('tenant_id', tenant.id), 'Falha ao carregar opções de combo.')
+  ]);
+
+  const isUsed = menuItems.some((item) => hasLinkedComponentId(item.linked_component_ids, 'product', productId))
+    || comboOptions.some((option) => hasLinkedComponentRef(option.linked_component_ref, 'product', productId));
+
+  if (isUsed) {
+    throw createCatalogDependencyError('Este produto está em uso no cardápio ou em combos. Remova os vínculos antes de excluir.');
+  }
+
   ensureOk(
     await supabaseAdmin
       .from('products')
@@ -3187,22 +3067,6 @@ export async function deleteProductById(tenantSlug, productId) {
       .eq('id', productId),
     'Falha ao remover produto.'
   );
-
-  const menuItems = ensureOk(
-    await supabaseAdmin.from('menu_items').select('id, linked_component_ids').eq('tenant_id', tenant.id),
-    'Falha ao carregar itens do menu.'
-  );
-
-  for (const item of menuItems) {
-    ensureOk(
-      await supabaseAdmin
-        .from('menu_items')
-        .update({ linked_component_ids: filterLinkedComponentIds(item.linked_component_ids, 'product', productId) })
-        .eq('tenant_id', tenant.id)
-        .eq('id', item.id),
-      'Falha ao limpar vínculos técnicos do cardápio.'
-    );
-  }
 
   return true;
 }

@@ -189,27 +189,28 @@ const baseBootstrap = {
     }
   ],
   ingredients: [
-    { id: 1, name: 'Farinha', unit: 'g', packageQuantity: 1000, packageCost: 4.4, unitCost: 0.0044 },
-    { id: 2, name: 'Carne Moída', unit: 'g', packageQuantity: 1000, packageCost: 32, unitCost: 0.032 },
-    { id: 3, name: 'Queijo Mussarela', unit: 'g', packageQuantity: 1000, packageCost: 28, unitCost: 0.028 },
-    { id: 4, name: 'Molho de Tomate', unit: 'g', packageQuantity: 1000, packageCost: 9, unitCost: 0.009 },
-    { id: 5, name: 'Embalagem', unit: 'un', packageQuantity: 1, packageCost: 0.35, unitCost: 0.35 }
+    { id: 1, name: 'Farinha', unit: 'G', packageQuantity: 1000, packageCost: 4.4, unitCost: 0.0044 },
+    { id: 2, name: 'Carne Moída', unit: 'G', packageQuantity: 1000, packageCost: 32, unitCost: 0.032 },
+    { id: 3, name: 'Queijo Mussarela', unit: 'G', packageQuantity: 1000, packageCost: 28, unitCost: 0.028 },
+    { id: 4, name: 'Molho de Tomate', unit: 'G', packageQuantity: 1000, packageCost: 9, unitCost: 0.009 },
+    { id: 5, name: 'Embalagem', unit: 'UN', packageQuantity: 1, packageCost: 0.35, unitCost: 0.35 }
   ],
   ingredientUnits: [
-    { id: 1, label: 'g' },
-    { id: 2, label: 'ml' },
-    { id: 3, label: 'un' },
-    { id: 4, label: 'kg' }
+    { id: 1, label: 'KG' },
+    { id: 2, label: 'G' },
+    { id: 3, label: 'ML' },
+    { id: 4, label: 'L' },
+    { id: 5, label: 'UN' }
   ],
   preparations: [
     {
       id: 1,
       name: 'Carne Moída Temperada',
       yieldQuantity: 1,
-      yieldUnit: 'kg',
+      yieldUnit: 'KG',
       recipe: [
-        { componentType: 'ingredient', componentId: 2, quantity: 0.85, quantityUnit: 'kg' },
-        { componentType: 'ingredient', componentId: 4, quantity: 120, quantityUnit: 'g' }
+        { componentType: 'ingredient', componentId: 2, quantity: 0.85, quantityUnit: 'KG' },
+        { componentType: 'ingredient', componentId: 4, quantity: 120, quantityUnit: 'G' }
       ]
     }
   ],
@@ -221,9 +222,9 @@ const baseBootstrap = {
       yieldQuantity: 1,
       targetCmvPercent: 30,
       recipe: [
-        { componentType: 'ingredient', componentId: 1, quantity: 90, quantityUnit: 'g' },
-        { componentType: 'preparation', componentId: 1, quantity: 70, quantityUnit: 'g' },
-        { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'un' }
+        { componentType: 'ingredient', componentId: 1, quantity: 90, quantityUnit: 'G' },
+        { componentType: 'preparation', componentId: 1, quantity: 70, quantityUnit: 'G' },
+        { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'UN' }
       ]
     },
     {
@@ -233,10 +234,10 @@ const baseBootstrap = {
       yieldQuantity: 1,
       targetCmvPercent: 32,
       recipe: [
-        { componentType: 'ingredient', componentId: 1, quantity: 220, quantityUnit: 'g' },
-        { componentType: 'ingredient', componentId: 3, quantity: 140, quantityUnit: 'g' },
-        { componentType: 'ingredient', componentId: 4, quantity: 90, quantityUnit: 'g' },
-        { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'un' }
+        { componentType: 'ingredient', componentId: 1, quantity: 220, quantityUnit: 'G' },
+        { componentType: 'ingredient', componentId: 3, quantity: 140, quantityUnit: 'G' },
+        { componentType: 'ingredient', componentId: 4, quantity: 90, quantityUnit: 'G' },
+        { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'UN' }
       ]
     }
   ],

@@ -123,7 +123,26 @@ export const MenuItemFormPanel = ({
     <form onSubmit={onSubmitMenuItem} className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <InputComponent label="Nome do item" value={menuItemForm.name} onChange={(e) => onMenuItemFormChange('name', e.target.value)} required />
-        <InputComponent label="Preço" type="number" step="0.01" value={menuItemForm.salePrice} onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)} required />
+        <div className="space-y-1 w-full">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Preço do CMV</label>
+            <button type="button" onClick={() => onMenuItemFormChange('priceEditable', true)} disabled={!menuItemForm.linkedComponentIds[0] || menuItemForm.priceEditable} className="text-[10px] font-black text-[#D4A373] uppercase hover:text-[#2A1E15] transition-colors disabled:text-gray-300 disabled:cursor-not-allowed">
+              Editar preço
+            </button>
+          </div>
+          <input
+            type="number"
+            step="0.01"
+            value={menuItemForm.salePrice}
+            onChange={(e) => onMenuItemFormChange('salePrice', e.target.value)}
+            disabled={!menuItemForm.priceEditable}
+            required
+            className={`w-full pl-4 pr-4 py-2.5 xl:py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#D4A373] outline-none transition-all text-sm xl:text-base font-medium ${menuItemForm.priceEditable ? 'bg-[#FFFFFF]' : 'bg-gray-50 text-[#696965] cursor-not-allowed'}`}
+          />
+          <p className="text-[10px] font-bold text-[#696965] uppercase ml-1">
+            {menuItemForm.priceEditable ? 'Ao salvar, este valor também atualiza o preço final no CMV.' : 'Selecione um produto CMV para carregar o preço.'}
+          </p>
+        </div>
         <div className="space-y-1">
           <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria</label>
           <select value={menuItemForm.category} onChange={(e) => onMenuItemFormChange('category', e.target.value)} className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]" required>
@@ -170,15 +189,15 @@ export const MenuItemFormPanel = ({
         <div className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black text-[#2A1E15] uppercase">Receitas vinculadas</p>
-              <p className="text-[11px] text-[#696965] font-semibold">Aqui entram só os produtos finais do catálogo. Insumo e base interna não pertencem a essa etapa.</p>
+              <p className="text-sm font-black text-[#2A1E15] uppercase">Produto CMV vinculado</p>
+              <p className="text-[11px] text-[#696965] font-semibold">Escolha um produto final. O preço do cardápio vem dele e só muda no CMV quando você liberar edição.</p>
             </div>
-            <div className="menu-link-counter">{menuItemForm.linkedComponentIds.length} selecionado(s)</div>
+            <div className="menu-link-counter">{menuItemForm.linkedComponentIds[0] ? '1 selecionado' : 'Obrigatório'}</div>
           </div>
 
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#696965]" />
-            <input type="text" value={menuComponentSearch} onChange={(e) => onMenuComponentSearchChange(e.target.value)} placeholder="Buscar produto final para vincular..." className="w-full pl-10 pr-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" />
+            <input type="text" value={menuComponentSearch} onChange={(e) => onMenuComponentSearchChange(e.target.value)} placeholder="Buscar produto CMV para vincular..." className="w-full pl-10 pr-4 py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#D4A373]" />
           </div>
 
           <div className="menu-component-list custom-scrollbar">
@@ -211,7 +230,7 @@ export const MenuItemFormPanel = ({
         </div>
       </div>
 
-      <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+      <button type="submit" disabled={!menuItemForm.linkedComponentIds[0]} className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
         {editingMenuItemId ? 'Salvar item' : 'Cadastrar item'}
       </button>
     </form>
@@ -441,7 +460,14 @@ export const ComboEditorModal = ({
 
                   <div className="space-y-3">
                     {group.options.map((option) => {
-                      const linkedItems = comboLinkItemsByCategory[option.linkedCategoryName] || [];
+                      const linkedCategoryNames = Array.isArray(option.linkedCategoryNames) && option.linkedCategoryNames.length > 0
+                        ? option.linkedCategoryNames
+                        : option.linkedCategoryName
+                          ? [option.linkedCategoryName]
+                          : [];
+                      const linkedItems = linkedCategoryNames
+                        .flatMap((categoryName) => comboLinkItemsByCategory[categoryName] || [])
+                        .filter((item, index, items) => items.findIndex((candidate) => candidate.key === item.key) === index);
                       const linkedMeta = resolveLinkedComponentMeta(option.linkedComponentRef, catalogMetrics, ingredients, formatMoney, menuItems);
 
                       return (
@@ -450,17 +476,27 @@ export const ComboEditorModal = ({
                                     <InputComponent label="Opção" value={option.name} onChange={(e) => onComboOptionChange(group.id, option.id, 'name', e.target.value)} required />
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                               <div className="space-y-1">
-                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categoria vinculada</label>
-                                <select
-                                  value={option.linkedCategoryName || ''}
-                                  onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedCategoryName', e.target.value)}
-                                  className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
-                                >
-                                  <option value="">Selecionar categoria</option>
+                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Categorias vinculadas</label>
+                                <div className="combo-category-picker">
                                   {comboLinkCategoryOptions.map((category) => (
-                                    <option key={category.value} value={category.value}>{formatComboboxLabel(category.label)}</option>
+                                    <label key={category.value} className={`combo-category-picker__option ${linkedCategoryNames.includes(category.value) ? 'combo-category-picker__option--selected' : ''}`}>
+                                      <input
+                                        type="checkbox"
+                                        checked={linkedCategoryNames.includes(category.value)}
+                                        onChange={(event) => {
+                                          const nextCategoryNames = event.target.checked
+                                            ? [...linkedCategoryNames, category.value]
+                                            : linkedCategoryNames.filter((categoryName) => categoryName !== category.value);
+                                          onComboOptionChange(group.id, option.id, 'linkedCategoryNames', nextCategoryNames);
+                                        }}
+                                      />
+                                      <span>{formatComboboxLabel(category.label)}</span>
+                                    </label>
                                   ))}
-                                </select>
+                                  {comboLinkCategoryOptions.length === 0 && (
+                                    <p className="combo-category-picker__empty">Nenhuma categoria com item cadastrado.</p>
+                                  )}
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Item cadastrado</label>
@@ -468,9 +504,9 @@ export const ComboEditorModal = ({
                                   value={option.linkedComponentRef}
                                   onChange={(e) => onComboOptionChange(group.id, option.id, 'linkedComponentRef', e.target.value)}
                                   className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373] disabled:bg-gray-100 disabled:text-[#8f8f88]"
-                                  disabled={!option.linkedCategoryName}
+                                  disabled={linkedCategoryNames.length === 0}
                                 >
-                                  <option value="">{option.linkedCategoryName ? 'Selecionar item' : 'Escolha a categoria primeiro'}</option>
+                                  <option value="">{linkedCategoryNames.length > 0 ? 'Selecionar item' : 'Escolha a categoria primeiro'}</option>
                                   {linkedItems.map((component) => (
                                     <option key={component.key} value={component.key}>{formatComboboxLabel(`${component.name} · ${component.subtitle}`)}</option>
                                   ))}

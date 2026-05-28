@@ -1,7 +1,7 @@
 import { createMockDataset } from '../mocks/sharedMockData.js';
 import { getMockAuthUser } from './mockAuth.js';
 import { defaultPermissionMap, normalizePermissionMap } from '../features/permissions/permissionCatalog.js';
-import { createEmptyAppDataState } from '../mocks/appStateDefaults.js';
+import { assertIngredientUnitLabel, createEmptyAppDataState, createDefaultIngredientUnits } from '../mocks/appStateDefaults.js';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -75,6 +75,17 @@ function createId(prefix) {
 
 function normalizeCatalogName(value) {
   return String(value || '').trim().toLocaleUpperCase('pt-BR');
+}
+
+function normalizeLinkedCategoryNames(option = {}) {
+  const categoryNames = Array.isArray(option.linkedCategoryNames) ? option.linkedCategoryNames : [];
+  const fallback = option.linkedCategoryName;
+
+  return [...categoryNames, fallback].reduce((acc, categoryName) => {
+    const normalized = String(categoryName || '').trim();
+    if (normalized && !acc.includes(normalized)) acc.push(normalized);
+    return acc;
+  }, []);
 }
 
 function onlyDigits(value) {
@@ -173,12 +184,17 @@ function createEmptyTenantBootstrap(businessName) {
   const bootstrap = createEmptyAppDataState();
   return {
     ...bootstrap,
+    ingredientUnits: createDefaultIngredientUnits(() => createId('unit')),
     menuCategories: [],
     settings: {
       ...bootstrap.settings,
       businessName
     }
   };
+}
+
+function ensureDefaultIngredientUnits(bootstrap) {
+  bootstrap.ingredientUnits = createDefaultIngredientUnits(() => createId('unit'));
 }
 
 function cloneWithNewIds(items, prefix) {
@@ -244,7 +260,7 @@ function importHeadquartersData(targetTenant, sourceTenant, options) {
   };
 
   if (options.importCmvFromHeadquarters) {
-    target.ingredientUnits = clone(source.ingredientUnits || []).map((unit) => ({ ...unit, id: createId('unit') }));
+    target.ingredientUnits = createDefaultIngredientUnits(() => createId('unit'));
 
     const ingredients = cloneWithNewIds(source.ingredients || [], 'ingredient');
     target.ingredients = ingredients.items;
@@ -264,6 +280,8 @@ function importHeadquartersData(targetTenant, sourceTenant, options) {
       recipe: remapRecipe(product.recipe, maps.ingredientIds, maps.preparationIds)
     }));
   }
+
+  ensureDefaultIngredientUnits(target);
 
   if (options.importMenuFromHeadquarters) {
     const categories = cloneWithNewIds(source.menuCategories || [], 'cat');
@@ -309,7 +327,8 @@ function buildTenantBootstrap(tenantSlug) {
       company: getTenantCompany(tenant)
     },
     roleProfiles: listRoleProfiles(tenantSlug),
-    ...clone(tenant.bootstrap)
+    ...clone(tenant.bootstrap),
+    ingredientUnits: createDefaultIngredientUnits()
   };
 }
 
@@ -384,30 +403,41 @@ function buildAdminBootstrap(selectedTenantSlug = '') {
   };
 }
 
-function normalizeRecipe(value) {
-  return Array.isArray(value) ? clone(value) : [];
+function normalizeRecipe(value, { validateUnits = false } = {}) {
+  const recipe = Array.isArray(value) ? clone(value) : [];
+  if (!validateUnits) return recipe;
+
+  return recipe.map((line) => ({
+    ...line,
+    quantityUnit: assertIngredientUnitLabel(line.quantityUnit, 'Unidade da ficha técnica inválida.')
+  }));
 }
 
-function getIngredientReferenceFactor(unit) {
-  return unit === 'g' || unit === 'ml' ? 1000 : 1;
+function createCatalogDependencyError(message) {
+  const error = new Error(message);
+  error.statusCode = 409;
+  return error;
 }
 
-function filterRecipeComponent(recipe, componentType, componentId) {
-  return normalizeRecipe(recipe).filter((line) => (
-    !(line.componentType === componentType && String(line.componentId) === String(componentId))
+function hasRecipeComponent(recipe, componentType, componentId) {
+  return normalizeRecipe(recipe).some((line) => (
+    line.componentType === componentType && String(line.componentId) === String(componentId)
   ));
 }
 
-function filterLinkedComponents(components, type, id) {
-  return normalizeRecipe(components).filter((component) => {
-    if (typeof component === 'string') return component !== `${type}:${id}`;
-    return !(component?.type === type && String(component?.id) === String(id));
+function hasLinkedComponent(components, type, id) {
+  return normalizeRecipe(components).some((component) => {
+    if (typeof component === 'string') return component === `${type}:${id}`;
+    return component?.type === type && String(component?.id) === String(id);
   });
 }
 
-function renameRecipeUnit(recipe, previousLabel, nextLabel) {
-  return normalizeRecipe(recipe).map((line) => (
-    line.quantityUnit === previousLabel ? { ...line, quantityUnit: nextLabel } : line
+function hasComboLinkedComponentRef(menuItems, type, id) {
+  return menuItems.some((item) => (
+    item.itemType === 'combo'
+      && (item.comboGroups || []).some((group) => (
+        (group.options || []).some((option) => option.linkedComponentRef === `${type}:${id}`)
+      ))
   ));
 }
 
@@ -907,11 +937,24 @@ export const menuApi = {
   },
   async saveItem(tenantSlug, payload) {
     const tenant = findTenantRecord(tenantSlug);
+    const comboGroups = payload.itemType === 'combo'
+      ? clone(payload.comboGroups || []).map((group) => ({
+          ...group,
+          options: (group.options || []).map((option) => {
+            const linkedCategoryNames = normalizeLinkedCategoryNames(option);
+            return {
+              ...option,
+              linkedCategoryName: linkedCategoryNames[0] || '',
+              linkedCategoryNames
+            };
+          })
+        }))
+      : [];
     const item = {
       ...clone(payload),
       id: payload.id || createId('menu'),
       itemType: payload.itemType === 'combo' ? 'combo' : 'regular',
-      comboGroups: payload.itemType === 'combo' ? clone(payload.comboGroups || []) : [],
+      comboGroups,
       linkedComponents: payload.itemType === 'combo' ? [] : clone(payload.linkedComponents || [])
     };
 
@@ -932,7 +975,7 @@ export const menuApi = {
               ...group,
               options: (group.options || []).map((option) => (
                 option.linkedComponentRef === `menu-item:${id}`
-                  ? { ...option, linkedComponentRef: '', linkedCategoryName: '' }
+                  ? { ...option, linkedComponentRef: '', linkedCategoryName: '', linkedCategoryNames: [] }
                   : option
               ))
             }))
@@ -944,69 +987,29 @@ export const menuApi = {
 };
 
 export const catalogApi = {
-  async saveUnit(tenantSlug, payload) {
-    const tenant = findTenantRecord(tenantSlug);
-    const label = String(payload.label || '').trim();
-
-    if (!label) throw new Error('Nome da unidade é obrigatório.');
-
-    const unit = { id: payload.id || createId('unit'), label };
-    const previousUnit = payload.id
-      ? tenant.bootstrap.ingredientUnits.find((current) => current.id === payload.id)
-      : null;
-
-    tenant.bootstrap.ingredientUnits = payload.id
-      ? tenant.bootstrap.ingredientUnits.map((current) => (current.id === payload.id ? unit : current))
-      : [...tenant.bootstrap.ingredientUnits, unit];
-
-    if (previousUnit && previousUnit.label !== label) {
-      tenant.bootstrap.ingredients = tenant.bootstrap.ingredients.map((ingredient) => (
-        ingredient.unit === previousUnit.label ? { ...ingredient, unit: label } : ingredient
-      ));
-      tenant.bootstrap.preparations = tenant.bootstrap.preparations.map((preparation) => ({
-        ...preparation,
-        yieldUnit: preparation.yieldUnit === previousUnit.label ? label : preparation.yieldUnit,
-        recipe: renameRecipeUnit(preparation.recipe, previousUnit.label, label)
-      }));
-      tenant.bootstrap.products = tenant.bootstrap.products.map((product) => ({
-        ...product,
-        recipe: renameRecipeUnit(product.recipe, previousUnit.label, label)
-      }));
-    }
-
-    return clone(unit);
+  async saveUnit() {
+    throw new Error('As unidades são fixas e não podem ser alteradas.');
   },
-  async deleteUnit(tenantSlug, id) {
-    const tenant = findTenantRecord(tenantSlug);
-    const unit = tenant.bootstrap.ingredientUnits.find((current) => current.id === id);
-    const inUse = unit && (
-      tenant.bootstrap.ingredients.some((ingredient) => ingredient.unit === unit.label)
-      || tenant.bootstrap.preparations.some((preparation) => preparation.yieldUnit === unit.label)
-      || tenant.bootstrap.preparations.some((preparation) => normalizeRecipe(preparation.recipe).some((line) => line.quantityUnit === unit.label))
-      || tenant.bootstrap.products.some((product) => normalizeRecipe(product.recipe).some((line) => line.quantityUnit === unit.label))
-    );
-
-    if (inUse) throw new Error('Unidade em uso não pode ser excluída.');
-
-    tenant.bootstrap.ingredientUnits = tenant.bootstrap.ingredientUnits.filter((current) => current.id !== id);
-    return { id };
+  async deleteUnit() {
+    throw new Error('As unidades são fixas e não podem ser excluídas.');
   },
   async saveIngredient(tenantSlug, payload) {
     const tenant = findTenantRecord(tenantSlug);
     const packageCost = Number(payload.packageCost ?? payload.unitCost) || 0;
-    const unitCost = Number(payload.unitCost) || (packageCost / getIngredientReferenceFactor(payload.unit));
     const packageQuantity = Number(payload.packageQuantity) || 1;
+    const fallbackUnitCost = packageQuantity > 0 ? packageCost / packageQuantity : packageCost;
+    const unitCost = Number(payload.unitCost) || fallbackUnitCost;
     const ingredient = {
       id: payload.id || createId('ingredient'),
       name: normalizeCatalogName(payload.name),
-      unit: payload.unit,
+      unit: payload.unit ? assertIngredientUnitLabel(payload.unit, 'Unidade do insumo inválida.') : '',
       packageQuantity,
       packageCost,
       unitCost
     };
 
     if (!ingredient.name || !ingredient.unit) throw new Error('Nome e unidade do insumo são obrigatórios.');
-    if (ingredient.packageCost <= 0) throw new Error('Custo do insumo é obrigatório.');
+    if (ingredient.unitCost <= 0) throw new Error('Custo do insumo é obrigatório.');
 
     tenant.bootstrap.ingredients = payload.id
       ? tenant.bootstrap.ingredients.map((current) => (current.id === payload.id ? ingredient : current))
@@ -1017,19 +1020,15 @@ export const catalogApi = {
   async deleteIngredient(tenantSlug, id) {
     const tenant = findTenantRecord(tenantSlug);
 
+    const isUsed = tenant.bootstrap.preparations.some((preparation) => hasRecipeComponent(preparation.recipe, 'ingredient', id))
+      || tenant.bootstrap.products.some((product) => hasRecipeComponent(product.recipe, 'ingredient', id))
+      || tenant.bootstrap.menuItems.some((item) => hasLinkedComponent(item.linkedComponents, 'ingredient', id));
+
+    if (isUsed) {
+      throw createCatalogDependencyError('Este insumo está em uso em fichas técnicas ou itens do cardápio. Remova os vínculos antes de excluir.');
+    }
+
     tenant.bootstrap.ingredients = tenant.bootstrap.ingredients.filter((ingredient) => ingredient.id !== id);
-    tenant.bootstrap.preparations = tenant.bootstrap.preparations.map((preparation) => ({
-      ...preparation,
-      recipe: filterRecipeComponent(preparation.recipe, 'ingredient', id)
-    }));
-    tenant.bootstrap.products = tenant.bootstrap.products.map((product) => ({
-      ...product,
-      recipe: filterRecipeComponent(product.recipe, 'ingredient', id)
-    }));
-    tenant.bootstrap.menuItems = tenant.bootstrap.menuItems.map((item) => ({
-      ...item,
-      linkedComponents: filterLinkedComponents(item.linkedComponents, 'ingredient', id)
-    }));
 
     return { id };
   },
@@ -1039,8 +1038,8 @@ export const catalogApi = {
       id: payload.id || createId('preparation'),
       name: normalizeCatalogName(payload.name),
       yieldQuantity: Number(payload.yieldQuantity) || 0,
-      yieldUnit: payload.yieldUnit,
-      recipe: normalizeRecipe(payload.recipe)
+      yieldUnit: payload.yieldUnit ? assertIngredientUnitLabel(payload.yieldUnit, 'Unidade de rendimento inválida.') : '',
+      recipe: normalizeRecipe(payload.recipe, { validateUnits: true })
     };
 
     if (!preparation.name || !preparation.yieldUnit) throw new Error('Nome e unidade da receita base são obrigatórios.');
@@ -1054,20 +1053,17 @@ export const catalogApi = {
   async deletePreparation(tenantSlug, id) {
     const tenant = findTenantRecord(tenantSlug);
 
-    tenant.bootstrap.preparations = tenant.bootstrap.preparations
-      .filter((preparation) => preparation.id !== id)
-      .map((preparation) => ({
-        ...preparation,
-        recipe: filterRecipeComponent(preparation.recipe, 'preparation', id)
-      }));
-    tenant.bootstrap.products = tenant.bootstrap.products.map((product) => ({
-      ...product,
-      recipe: filterRecipeComponent(product.recipe, 'preparation', id)
-    }));
-    tenant.bootstrap.menuItems = tenant.bootstrap.menuItems.map((item) => ({
-      ...item,
-      linkedComponents: filterLinkedComponents(item.linkedComponents, 'preparation', id)
-    }));
+    const isUsed = tenant.bootstrap.preparations.some((preparation) => (
+      String(preparation.id) !== String(id) && hasRecipeComponent(preparation.recipe, 'preparation', id)
+    ))
+      || tenant.bootstrap.products.some((product) => hasRecipeComponent(product.recipe, 'preparation', id))
+      || tenant.bootstrap.menuItems.some((item) => hasLinkedComponent(item.linkedComponents, 'preparation', id));
+
+    if (isUsed) {
+      throw createCatalogDependencyError('Esta receita base está em uso em outras fichas técnicas ou itens do cardápio. Remova os vínculos antes de excluir.');
+    }
+
+    tenant.bootstrap.preparations = tenant.bootstrap.preparations.filter((preparation) => preparation.id !== id);
 
     return { id };
   },
@@ -1079,7 +1075,7 @@ export const catalogApi = {
       salePrice: Number(payload.salePrice) || 0,
       yieldQuantity: Number(payload.yieldQuantity) || 1,
       targetCmvPercent: Number(payload.targetCmvPercent) || 0,
-      recipe: normalizeRecipe(payload.recipe)
+      recipe: normalizeRecipe(payload.recipe, { validateUnits: true })
     };
 
     if (!product.name) throw new Error('Nome do produto é obrigatório.');
@@ -1093,11 +1089,14 @@ export const catalogApi = {
   async deleteProduct(tenantSlug, id) {
     const tenant = findTenantRecord(tenantSlug);
 
+    const isUsed = tenant.bootstrap.menuItems.some((item) => hasLinkedComponent(item.linkedComponents, 'product', id))
+      || hasComboLinkedComponentRef(tenant.bootstrap.menuItems, 'product', id);
+
+    if (isUsed) {
+      throw createCatalogDependencyError('Este produto está em uso no cardápio ou em combos. Remova os vínculos antes de excluir.');
+    }
+
     tenant.bootstrap.products = tenant.bootstrap.products.filter((product) => product.id !== id);
-    tenant.bootstrap.menuItems = tenant.bootstrap.menuItems.map((item) => ({
-      ...item,
-      linkedComponents: filterLinkedComponents(item.linkedComponents, 'product', id)
-    }));
 
     return { id };
   }

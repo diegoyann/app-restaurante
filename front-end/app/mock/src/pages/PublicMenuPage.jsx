@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Minus, Plus, ShoppingBag } from 'lucide-react';
 import { publicMenuApi } from '../services/api.js';
+import '../App.css';
 
 const BEVERAGE_MATCHER = /bebida|refrigerante|refri|suco|agua|água|cerveja|drink|lata|garrafa/i;
+const DESCRIPTION_PREVIEW_LIMIT = 70;
 
 function formatMoney(value) {
   return new Intl.NumberFormat('pt-BR', {
@@ -56,6 +58,7 @@ export default function PublicMenuPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
   const [customerLookup, setCustomerLookup] = useState({ phone: '', status: 'idle', message: '' });
+  const [expandedMenuItems, setExpandedMenuItems] = useState(() => ({}));
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +175,13 @@ export default function PublicMenuPage() {
     cart.find((cartItem) => cartItem.menuItemId === menuItemId)?.quantity || 0
   );
 
+  const toggleMenuItemDescription = (menuItemId) => {
+    setExpandedMenuItems((current) => ({
+      ...current,
+      [menuItemId]: !current[menuItemId]
+    }));
+  };
+
   const handlePhoneChange = (value) => {
     setCustomer((current) => ({
       ...current,
@@ -247,15 +257,36 @@ export default function PublicMenuPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {category.items.map((item) => {
                   const quantity = getCartQuantity(item.id);
+                  const description = String(item.description || '').trim();
+                  const hasLongDescription = description.length > DESCRIPTION_PREVIEW_LIMIT;
+                  const isDescriptionExpanded = Boolean(expandedMenuItems[item.id]);
+                  const descriptionId = `public-menu-item-description-${item.id}`;
 
                   return (
-                    <article key={item.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                      <div className="flex gap-3">
-                        {item.photoPreview ? <img src={item.photoPreview} alt="" className="h-20 w-20 rounded-xl object-cover" /> : null}
-                        <div className="min-w-0 flex-1">
+                    <article key={item.id} className="public-menu-item-card rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                      <div className="public-menu-item-layout">
+                        {item.photoPreview ? <img src={item.photoPreview} alt="" className="public-menu-item-image" /> : null}
+                        <div className="public-menu-item-content">
                           <h3 className="text-sm font-black uppercase text-[#2A1E15]">{item.name}</h3>
-                          <p className="mt-1 line-clamp-2 text-xs font-bold text-[#696965]">{item.description}</p>
-                          <div className="mt-3 flex items-center justify-between gap-3">
+                          {description ? (
+                            <div className="public-menu-item-description-block">
+                              <p id={descriptionId} className={`public-menu-item-description ${isDescriptionExpanded ? 'public-menu-item-description--expanded' : ''}`}>
+                                {description}
+                              </p>
+                              {hasLongDescription ? (
+                                <button
+                                  type="button"
+                                  aria-controls={descriptionId}
+                                  aria-expanded={isDescriptionExpanded}
+                                  onClick={() => toggleMenuItemDescription(item.id)}
+                                  className="public-menu-description-toggle"
+                                >
+                                  {isDescriptionExpanded ? 'Ver menos' : 'Ver mais'}
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          <div className="public-menu-item-actions">
                             <strong className="text-base font-black text-[#241312]">{formatMoney(item.salePrice || item.basePrice)}</strong>
                             {quantity > 0 ? (
                               <div className="inline-flex h-9 items-center overflow-hidden rounded-xl border border-[#D4A373] bg-[#fff8e4] text-[#3A281B]">

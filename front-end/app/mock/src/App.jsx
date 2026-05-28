@@ -68,6 +68,18 @@ import { ReviewManagementPage } from './features/reviews/ReviewManagement.jsx';
 import OrderOperationsPage from './features/orders/OrderOperationsPage.jsx';
 import AiBehaviorSettingsPage from './features/settings/AiBehaviorSettings.jsx';
 import { createDefaultAiBehaviorSettings, normalizeAiBehaviorSettings } from './features/settings/settingsModel.js';
+import { createDefaultIngredientUnits } from './mocks/appStateDefaults.js';
+import {
+    calculateComponentLineCost,
+    calculateIngredientUnitCost,
+    calculateRecipeCost,
+    getCompatibleUnits,
+    getDefaultCompatibleUnit,
+    getIngredientCostReferenceFactor,
+    getIngredientCostReferenceUnit,
+    getIngredientCostReferenceValue,
+    resolveSelectableUnitLabel
+} from './features/catalog/cmvModel.js';
 import {
     appApi,
     catalogApi,
@@ -87,6 +99,7 @@ import { signOutMock } from './services/mockAuth.js';
 const LOGO_URL = "/hero-logo.png";
 const USE_BACKEND_BOOTSTRAP = true;
 const USE_REVENUE_CHART_MOCK = false;
+const MENU_DESCRIPTION_PREVIEW_LIMIT = 70;
 const MONTHLY_REVENUE_CHART_MOCK = [
     { day: '01', bruto: 4200, liquido: 3610, pedidos: 32 },
     { day: '02', bruto: 5100, liquido: 4380, pedidos: 39 },
@@ -659,86 +672,62 @@ const EmployeeRoleModal = ({ isOpen, onClose, roles, setRoles }) => {
     );
 };
 
-const UnitModal = ({ isOpen, onClose, units, setUnits, ingredients }) => {
-    const [newUnitName, setNewUnitName] = useState('');
-    const [editingId, setEditingId] = useState(null);
-    const [editingValue, setEditingValue] = useState('');
+const PreparationManagerModal = ({ isOpen, onClose, preparations, onEditPreparation, onDeletePreparation }) => {
+    const [deletingId, setDeletingId] = useState(null);
+    const [error, setError] = useState('');
 
     if (!isOpen) return null;
 
-    const handleAddNew = () => {
-        if (!newUnitName.trim()) return;
-        setUnits((prev) => [...prev, { id: Date.now(), label: newUnitName.trim() }]);
-        setNewUnitName('');
-    };
+    const handleDelete = async (preparationId) => {
+        setDeletingId(preparationId);
+        setError('');
 
-    const handleSaveEdit = (id) => {
-        if (!editingValue.trim()) return;
-        setUnits((prev) => prev.map((unit) => unit.id === id ? { ...unit, label: editingValue.trim() } : unit));
-        setEditingId(null);
+        try {
+            await onDeletePreparation(preparationId);
+        } catch (apiError) {
+            setError(apiError.message || 'Não foi possível excluir a receita base.');
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100">
-                <div className="flex justify-between items-center mb-6 font-sans italic">
+            <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-gray-100 max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="flex justify-between items-center mb-6 font-sans italic shrink-0">
                     <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
-                        <Wallet size={20} /> Unidades
+                        <Briefcase size={20} /> Receitas Base
                     </h3>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
                 </div>
 
-                <div className="flex gap-2 mb-6">
-                    <input
-                        type="text"
-                        value={newUnitName}
-                        onChange={(e) => setNewUnitName(e.target.value)}
-                        placeholder="Nova unidade..."
-                        className="flex-1 p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-[#D4A373] text-sm font-bold"
-                    />
-                    <button type="button" onClick={handleAddNew} className="bg-[#2A1E15] text-white px-4 rounded-xl hover:bg-[#3A281B] transition-all flex items-center justify-center">
-                        <Plus size={18} />
-                    </button>
-                </div>
+                {error && <p className="mb-4 text-xs font-bold text-red-600 uppercase">{error}</p>}
 
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                    {units.map((unit) => {
-                        const inUse = ingredients.some((ingredient) => ingredient.unit === unit.label);
+                <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+                    {preparations.length === 0 && (
+                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-xs font-bold text-[#6F6258] uppercase">
+                            Nenhuma receita base cadastrada.
+                        </div>
+                    )}
 
-                        return (
-                            <div key={unit.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group border border-transparent hover:border-[#D4A373]/30">
-                                {editingId === unit.id ? (
-                                    <div className="flex items-center gap-2 w-full">
-                                        <input
-                                            type="text"
-                                            value={editingValue}
-                                            onChange={(e) => setEditingValue(e.target.value)}
-                                            className="flex-1 p-1 bg-white border border-[#D4A373] rounded-md outline-none text-xs font-bold uppercase"
-                                            autoFocus
-                                        />
-                                        <button type="button" onClick={() => handleSaveEdit(unit.id)} className="p-1 text-green-600"><Check size={16} /></button>
-                                        <button type="button" onClick={() => setEditingId(null)} className="p-1 text-gray-400"><X size={16} /></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className="font-bold text-[#6F6258] uppercase text-xs truncate mr-2">{unit.label}</span>
-                                        <div className="flex gap-2 shrink-0">
-                                            <button type="button" onClick={() => { setEditingId(unit.id); setEditingValue(unit.label); }} className="text-blue-600 hover:scale-110 transition-transform"><Edit size={14} /></button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setUnits((prev) => prev.filter((item) => item.id !== unit.id))}
-                                                disabled={inUse}
-                                                className={`hover:scale-110 transition-transform ${inUse ? 'text-gray-300 cursor-not-allowed' : 'text-red-600'}`}
-                                                title={inUse ? 'Existem insumos usando essa unidade.' : 'Excluir unidade'}
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                    {preparations.map((preparation) => (
+                        <div key={preparation.id} className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-[#D4A373]/30">
+                            <div className="min-w-0">
+                                <p className="font-black text-[#2A1E15] uppercase truncate">{preparation.name}</p>
+                                <p className="text-xs text-[#6F6258] font-bold uppercase">
+                                    Rendimento: {preparation.yieldQuantity} {preparation.yieldUnit} • {preparation.recipe?.length || 0} componente(s)
+                                </p>
                             </div>
-                        );
-                    })}
+                            <div className="flex gap-2 shrink-0">
+                                <button type="button" onClick={() => onEditPreparation(preparation)} className="p-2 text-blue-600 hover:text-blue-800 transition-colors" title="Editar receita base">
+                                    <Edit size={16} />
+                                </button>
+                                <button type="button" onClick={() => handleDelete(preparation.id)} disabled={deletingId === preparation.id} className="p-2 text-red-600 hover:text-red-800 transition-colors disabled:opacity-50" title="Excluir receita base">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
@@ -755,6 +744,7 @@ const PreparationModal = ({
     onPreparationRecipeDraftChange,
     onRemovePreparationRecipeLine,
     onSubmit,
+    editingPreparationId,
     ingredientUnits,
     ingredients,
     preparations
@@ -766,7 +756,7 @@ const PreparationModal = ({
             <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 font-sans italic shrink-0">
                     <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
-                        <Briefcase size={20} /> Registrar Receita Base
+                        <Briefcase size={20} /> {editingPreparationId ? 'Editar Receita Base' : 'Registrar Receita Base'}
                     </h3>
                     <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
                 </div>
@@ -779,7 +769,7 @@ const PreparationModal = ({
                             <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade do Rendimento</label>
                                 <select
-                                    value={preparationForm.yieldUnit}
+                                    value={resolveUnitValue(ingredientUnits, preparationForm.yieldUnit)}
                                     onChange={(e) => onPreparationFormChange('yieldUnit', e.target.value)}
                                     className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                 >
@@ -800,10 +790,8 @@ const PreparationModal = ({
 
                             <div className="space-y-3">
                                 {preparationRecipeDraft.map((line, index) => {
-                                    const compatibleUnits = getCompatibleUnits(
-                                        getComponentBaseUnit(line.componentRef, ingredients, preparations),
-                                        ingredientUnits
-                                    );
+                                    const baseUnit = getComponentBaseUnit(line.componentRef, ingredients, preparations);
+                                    const compatibleUnits = getCompatibleUnits(baseUnit, ingredientUnits);
 
                                     return (
                                         <div key={line.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_48px] gap-3 items-end">
@@ -846,7 +834,7 @@ const PreparationModal = ({
                                             <div className="space-y-1">
                                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
                                                 <select
-                                                    value={line.quantityUnit}
+                                                    value={resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit)}
                                                     onChange={(e) => onPreparationRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
                                                     className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                     disabled={!line.componentRef}
@@ -875,7 +863,134 @@ const PreparationModal = ({
 
                     <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0">
                         <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
-                            Salvar Receita Base
+                            {editingPreparationId ? 'Atualizar Receita Base' : 'Salvar Receita Base'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const ProductModal = ({
+    isOpen,
+    onClose,
+    productForm,
+    onProductFormChange,
+    productRecipeDraft,
+    onAddRecipeLine,
+    onRecipeDraftChange,
+    onRemoveRecipeLine,
+    onSubmit,
+    ingredientUnits,
+    ingredients,
+    preparations
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 font-sans italic shrink-0">
+                    <h3 className="text-xl font-black text-[#2A1E15] uppercase tracking-tighter flex items-center gap-2">
+                        <ShoppingBag size={20} /> Editar Produto
+                    </h3>
+                    <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
+                </div>
+
+                <form onSubmit={onSubmit} className="flex flex-col min-h-0">
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <CustomInput label="Produto" value={productForm.name} onChange={(e) => onProductFormChange('name', e.target.value)} required />
+                            <CustomInput label="Preço de Venda" type="number" step="0.01" value={productForm.salePrice} onChange={(e) => onProductFormChange('salePrice', e.target.value)} required />
+                            <CustomInput label="Rendimento" type="number" step="0.01" value={productForm.yieldQuantity} onChange={(e) => onProductFormChange('yieldQuantity', e.target.value)} required />
+                            <CustomInput label="CMV Alvo (%)" type="number" step="0.1" value={productForm.targetCmvPercent} onChange={(e) => onProductFormChange('targetCmvPercent', e.target.value)} required />
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-sm font-black text-[#2A1E15] uppercase">Receita / Componentes</p>
+                                <button type="button" onClick={onAddRecipeLine} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto">
+                                    Adicionar Componente
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                {productRecipeDraft.map((line, index) => {
+                                    const baseUnit = getComponentBaseUnit(line.componentRef, ingredients, preparations);
+                                    const compatibleUnits = getCompatibleUnits(baseUnit, ingredientUnits);
+
+                                    return (
+                                        <div key={line.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_48px] gap-3 items-end">
+                                            <div className="space-y-1">
+                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">
+                                                    Componente {index + 1}
+                                                </label>
+                                                <select
+                                                    value={line.componentRef}
+                                                    onChange={(e) => onRecipeDraftChange(line.id, 'componentRef', e.target.value)}
+                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
+                                                >
+                                                    <option value="">Selecione</option>
+                                                    <optgroup label="Insumos">
+                                                        {ingredients.map((ingredient) => (
+                                                            <option key={`edit-product-ingredient-${ingredient.id}`} value={`ingredient:${ingredient.id}`}>
+                                                                {formatComboboxLabel(ingredient.name)}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="Receitas Base">
+                                                        {preparations.map((preparation) => (
+                                                            <option key={`edit-product-preparation-${preparation.id}`} value={`preparation:${preparation.id}`}>
+                                                                {formatComboboxLabel(preparation.name)}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                </select>
+                                            </div>
+
+                                            <CustomInput
+                                                label="Quantidade"
+                                                type="number"
+                                                step="0.01"
+                                                value={line.quantity}
+                                                onChange={(e) => onRecipeDraftChange(line.id, 'quantity', e.target.value)}
+                                                required
+                                            />
+
+                                            <div className="space-y-1">
+                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
+                                                <select
+                                                    value={resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit)}
+                                                    onChange={(e) => onRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
+                                                    className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
+                                                    disabled={!line.componentRef}
+                                                >
+                                                    <option value="">Selecione</option>
+                                                    {compatibleUnits.map((unit) => (
+                                                        <option key={`edit-product-line-unit-${line.id}-${unit.id}`} value={unit.label}>{formatComboboxLabel(unit.label)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => onRemoveRecipeLine(line.id)}
+                                                disabled={productRecipeDraft.length === 1}
+                                                className={`h-11 rounded-xl transition-colors ${productRecipeDraft.length === 1 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}
+                                            >
+                                                <Trash2 size={16} className="mx-auto" />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-5 sm:p-6 border-t border-gray-100 bg-white shrink-0">
+                        <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md">
+                            Salvar Produto
                         </button>
                     </div>
                 </form>
@@ -1208,51 +1323,6 @@ const EmployeeModal = ({
 
 const formatMoney = (value) => `R$ ${Number(value || 0).toFixed(2)}`;
 
-const UNIT_DEFINITIONS = {
-    g: { group: 'weight', factor: 1 },
-    kg: { group: 'weight', factor: 1000 },
-    ml: { group: 'volume', factor: 1 },
-    l: { group: 'volume', factor: 1000 },
-    un: { group: 'count', factor: 1 }
-};
-
-const getUnitDefinition = (unit) => UNIT_DEFINITIONS[unit] || null;
-
-const convertQuantityBetweenUnits = (quantity, fromUnit, toUnit) => {
-    const numericQuantity = Number(quantity) || 0;
-
-    if (!fromUnit || !toUnit || fromUnit === toUnit) return numericQuantity;
-
-    const fromDefinition = getUnitDefinition(fromUnit);
-    const toDefinition = getUnitDefinition(toUnit);
-
-    if (!fromDefinition || !toDefinition) return numericQuantity;
-    if (fromDefinition.group !== toDefinition.group) return numericQuantity;
-
-    return (numericQuantity * fromDefinition.factor) / toDefinition.factor;
-};
-
-const getIngredientCostReferenceUnit = (unit) => {
-    return unit || 'un';
-};
-
-const getIngredientCostReferenceFactor = () => 1;
-
-const getCompatibleUnits = (sourceUnit, ingredientUnits) => {
-    if (!sourceUnit) return ingredientUnits;
-
-    const sourceDefinition = getUnitDefinition(sourceUnit);
-
-    if (!sourceDefinition) {
-        return ingredientUnits.filter((unit) => unit.label === sourceUnit);
-    }
-
-    return ingredientUnits.filter((unit) => {
-        const currentDefinition = getUnitDefinition(unit.label);
-        return currentDefinition?.group === sourceDefinition.group;
-    });
-};
-
 const formatDateBr = (date) => {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '--';
     return date.toLocaleDateString('pt-BR');
@@ -1388,22 +1458,6 @@ const getNextWeekdayDate = (weekdayNumber) => {
     return current;
 };
 
-const calculateIngredientUnitCost = (ingredient) => {
-    const unitCost = Number(ingredient?.unitCost);
-    if (unitCost > 0) return unitCost;
-
-    const packageQuantity = Number(ingredient?.packageQuantity) || 0;
-    const packageCost = Number(ingredient?.packageCost) || 0;
-
-    if (packageQuantity <= 0) return 0;
-
-    return packageCost / packageQuantity;
-};
-
-const getIngredientCostReferenceValue = (ingredient) => (
-    calculateIngredientUnitCost(ingredient) * getIngredientCostReferenceFactor(ingredient?.unit)
-);
-
 const parseComponentValue = (value) => {
     const [componentType, rawId] = String(value || '').split(':');
 
@@ -1416,6 +1470,25 @@ const parseComponentValue = (value) => {
 const idsEqual = (left, right) => String(left) === String(right);
 
 const findById = (items, id) => items.find((current) => idsEqual(current.id, id));
+
+const normalizeComboCategoryNames = (option = {}) => {
+    const values = Array.isArray(option.linkedCategoryNames)
+        ? option.linkedCategoryNames
+        : [];
+    const fallback = option.linkedCategoryName ? [option.linkedCategoryName] : [];
+
+    return [...values, ...fallback].reduce((acc, categoryName) => {
+        const normalized = String(categoryName || '').trim();
+        if (normalized && !acc.includes(normalized)) acc.push(normalized);
+        return acc;
+    }, []);
+};
+
+const resolveUnitValue = (units, unitLabel) => resolveSelectableUnitLabel(units, unitLabel);
+
+const resolveCompatibleUnitValue = (units, sourceUnit, unitLabel) => (
+    resolveSelectableUnitLabel(getCompatibleUnits(sourceUnit, units), unitLabel)
+);
 
 const getComponentBaseUnit = (componentRef, ingredients, preparations) => {
     const parsed = parseComponentValue(componentRef);
@@ -1453,9 +1526,15 @@ const buildPreparationCostMap = (preparations, ingredients) => {
             const nextStack = new Set(stack);
             nextStack.add(componentKey);
 
-            const totalCost = (preparation.recipe || []).reduce((total, item) => (
-                total + (resolveComponentUnitCost(item.componentType, item.componentId, nextStack) * (Number(item.quantity) || 0))
-            ), 0);
+            const totalCost = calculateRecipeCost(preparation.recipe, (item) => {
+                const component = item.componentType === 'ingredient'
+                    ? findById(ingredients, item.componentId)
+                    : findById(preparations, item.componentId);
+                return {
+                    sourceUnit: item.componentType === 'ingredient' ? component?.unit : component?.yieldUnit,
+                    unitCost: resolveComponentUnitCost(item.componentType, item.componentId, nextStack)
+                };
+            });
 
             const yieldQuantity = Number(preparation.yieldQuantity) || 1;
             const unitCost = totalCost / yieldQuantity;
@@ -1475,44 +1554,34 @@ const buildPreparationCostMap = (preparations, ingredients) => {
 };
 
 const calculatePreparationMetrics = (preparation, ingredients, preparations, preparationCostMap) => {
-    const totalCost = (preparation.recipe || []).reduce((total, item) => {
+    const totalCost = calculateRecipeCost(preparation.recipe, (item) => {
         const componentSourceUnit = item.componentType === 'ingredient'
             ? findById(ingredients, item.componentId)?.unit
             : findById(preparations, item.componentId)?.yieldUnit;
-        const normalizedQuantity = convertQuantityBetweenUnits(
-            item.quantity,
-            item.quantityUnit || componentSourceUnit,
-            componentSourceUnit
-        );
         const componentUnitCost = item.componentType === 'ingredient'
             ? calculateIngredientUnitCost(findById(ingredients, item.componentId))
             : (preparationCostMap.get(String(item.componentId)) || 0);
 
-        return total + (componentUnitCost * normalizedQuantity);
-    }, 0);
+        return { sourceUnit: componentSourceUnit, unitCost: componentUnitCost };
+    });
 
     return {
         totalCost,
-        unitCost: preparationCostMap.get(preparation.id) || 0
+        unitCost: preparationCostMap.get(String(preparation.id)) || 0
     };
 };
 
 const calculateProductMetrics = (product, ingredients, preparations, preparationCostMap) => {
-    const recipeCost = (product.recipe || []).reduce((total, item) => {
+    const recipeCost = calculateRecipeCost(product.recipe, (item) => {
         const componentSourceUnit = item.componentType === 'ingredient'
             ? findById(ingredients, item.componentId)?.unit
             : findById(preparations, item.componentId)?.yieldUnit;
-        const normalizedQuantity = convertQuantityBetweenUnits(
-            item.quantity,
-            item.quantityUnit || componentSourceUnit,
-            componentSourceUnit
-        );
         const componentUnitCost = item.componentType === 'ingredient'
             ? calculateIngredientUnitCost(findById(ingredients, item.componentId))
             : (preparationCostMap.get(String(item.componentId)) || 0);
 
-        return total + (componentUnitCost * normalizedQuantity);
-    }, 0);
+        return { sourceUnit: componentSourceUnit, unitCost: componentUnitCost };
+    });
 
     const yieldQuantity = Number(product.yieldQuantity) || 1;
     const unitCost = recipeCost / yieldQuantity;
@@ -1619,8 +1688,8 @@ export default function App({ tenantSlug = 'default' }) {
     const [highlightedCostIds, setHighlightedCostIds] = useState([]);
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
-    const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
     const [isPreparationModalOpen, setIsPreparationModalOpen] = useState(false);
+    const [isPreparationManagerModalOpen, setIsPreparationManagerModalOpen] = useState(false);
     const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
     const [isFinanceCategoryModalOpen, setIsFinanceCategoryModalOpen] = useState(false);
     const [isDiscountCategoryModalOpen, setIsDiscountCategoryModalOpen] = useState(false);
@@ -1769,24 +1838,19 @@ export default function App({ tenantSlug = 'default' }) {
     }));
 
     const [ingredients, setIngredients] = useState(() => [
-        { id: 1, name: 'Farinha', unit: 'g', packageQuantity: 1000, packageCost: 4.4, unitCost: 0.0044 },
-        { id: 2, name: 'Carne Moída', unit: 'g', packageQuantity: 1000, packageCost: 32.0, unitCost: 0.032 },
-        { id: 3, name: 'Queijo Mussarela', unit: 'g', packageQuantity: 1000, packageCost: 28.0, unitCost: 0.028 },
-        { id: 4, name: 'Molho de Tomate', unit: 'g', packageQuantity: 1000, packageCost: 9.0, unitCost: 0.009 },
-        { id: 5, name: 'Embalagem', unit: 'un', packageQuantity: 1, packageCost: 0.35, unitCost: 0.35 }
+        { id: 1, name: 'Farinha', unit: 'G', packageQuantity: 1000, packageCost: 4.4, unitCost: 0.0044 },
+        { id: 2, name: 'Carne Moída', unit: 'G', packageQuantity: 1000, packageCost: 32.0, unitCost: 0.032 },
+        { id: 3, name: 'Queijo Mussarela', unit: 'G', packageQuantity: 1000, packageCost: 28.0, unitCost: 0.028 },
+        { id: 4, name: 'Molho de Tomate', unit: 'G', packageQuantity: 1000, packageCost: 9.0, unitCost: 0.009 },
+        { id: 5, name: 'Embalagem', unit: 'UN', packageQuantity: 1, packageCost: 0.35, unitCost: 0.35 }
     ]);
 
-    const [ingredientUnits, setIngredientUnits] = useState(() => [
-        { id: 1, label: 'g' },
-        { id: 2, label: 'ml' },
-        { id: 3, label: 'un' },
-        { id: 4, label: 'kg' }
-    ]);
+    const [ingredientUnits, setIngredientUnits] = useState(() => createDefaultIngredientUnits());
 
     const [editingIngredientId, setEditingIngredientId] = useState(null);
     const [ingredientForm, setIngredientForm] = useState(() => ({
         name: '',
-        unit: 'g',
+        unit: 'G',
         unitCost: ''
     }));
     const [financeFormType, setFinanceFormType] = useState('receita');
@@ -1799,18 +1863,19 @@ export default function App({ tenantSlug = 'default' }) {
     const [preparationForm, setPreparationForm] = useState(() => ({
         name: '',
         yieldQuantity: '1',
-        yieldUnit: 'g'
+        yieldUnit: 'G'
     }));
+    const [editingPreparationId, setEditingPreparationId] = useState(null);
 
     const [preparations, setPreparations] = useState(() => [
         {
             id: 1,
             name: 'Carne Moída Temperada',
             yieldQuantity: 1,
-            yieldUnit: 'kg',
+            yieldUnit: 'KG',
             recipe: [
-                { componentType: 'ingredient', componentId: 2, quantity: 0.85, quantityUnit: 'kg' },
-                { componentType: 'ingredient', componentId: 4, quantity: 120, quantityUnit: 'g' }
+                { componentType: 'ingredient', componentId: 2, quantity: 0.85, quantityUnit: 'KG' },
+                { componentType: 'ingredient', componentId: 4, quantity: 120, quantityUnit: 'G' }
             ]
         }
     ]);
@@ -1823,9 +1888,9 @@ export default function App({ tenantSlug = 'default' }) {
             yieldQuantity: 1,
             targetCmvPercent: 30,
             recipe: [
-                { componentType: 'ingredient', componentId: 1, quantity: 90, quantityUnit: 'g' },
-                { componentType: 'preparation', componentId: 1, quantity: 70, quantityUnit: 'g' },
-                { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'un' }
+                { componentType: 'ingredient', componentId: 1, quantity: 90, quantityUnit: 'G' },
+                { componentType: 'preparation', componentId: 1, quantity: 70, quantityUnit: 'G' },
+                { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'UN' }
             ]
         },
         {
@@ -1835,10 +1900,10 @@ export default function App({ tenantSlug = 'default' }) {
             yieldQuantity: 1,
             targetCmvPercent: 32,
             recipe: [
-                { componentType: 'ingredient', componentId: 1, quantity: 220, quantityUnit: 'g' },
-                { componentType: 'ingredient', componentId: 3, quantity: 140, quantityUnit: 'g' },
-                { componentType: 'ingredient', componentId: 4, quantity: 90, quantityUnit: 'g' },
-                { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'un' }
+                { componentType: 'ingredient', componentId: 1, quantity: 220, quantityUnit: 'G' },
+                { componentType: 'ingredient', componentId: 3, quantity: 140, quantityUnit: 'G' },
+                { componentType: 'ingredient', componentId: 4, quantity: 90, quantityUnit: 'G' },
+                { componentType: 'ingredient', componentId: 5, quantity: 1, quantityUnit: 'UN' }
             ]
         }
     ]);
@@ -1935,6 +2000,14 @@ export default function App({ tenantSlug = 'default' }) {
     const [productRecipeDraft, setProductRecipeDraft] = useState(() => [
         { id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }
     ]);
+    const [editingProductId, setEditingProductId] = useState(null);
+    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [productForm, setProductForm] = useState(() => ({
+        name: '',
+        salePrice: '',
+        yieldQuantity: '1',
+        targetCmvPercent: '30'
+    }));
 
     const [preparationRecipeDraft, setPreparationRecipeDraft] = useState(() => [
         { id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }
@@ -2018,7 +2091,7 @@ export default function App({ tenantSlug = 'default' }) {
                     setEmployeeRoles(payload.employeeRoles || []);
                     setDiscountCategories(payload.discountCategories || []);
                     setIngredients(payload.ingredients || []);
-                    setIngredientUnits(payload.ingredientUnits || []);
+                    setIngredientUnits(createDefaultIngredientUnits());
                     setPreparations(payload.preparations || []);
                     setProducts(payload.products || []);
                     setMenuCategories(payload.menuCategories || []);
@@ -2114,6 +2187,7 @@ export default function App({ tenantSlug = 'default' }) {
             type: 'product',
             id: product.id,
             name: product.name,
+            salePrice: product.metrics.salePrice,
             subtitle: `Preço base ${formatMoney(product.metrics.salePrice)}`,
             tag: 'Produto final'
         }));
@@ -2132,6 +2206,10 @@ export default function App({ tenantSlug = 'default' }) {
             || component.subtitle.toLowerCase().includes(normalizedSearch)
         ));
     }, [menuComponentOptions, menuComponentSearch]);
+
+    const menuComponentOptionByKey = useMemo(() => (
+        new Map(menuComponentOptions.map((component) => [component.key, component]))
+    ), [menuComponentOptions]);
 
     const menuCategoryOptions = useMemo(() => menuCategories.map((category) => category.name), [menuCategories]);
 
@@ -2881,13 +2959,28 @@ export default function App({ tenantSlug = 'default' }) {
         setEditingIngredientId(null);
         setIngredientForm({
             name: '',
-            unit: ingredientUnits[0]?.label || 'g',
+            unit: ingredientUnits[0]?.label || 'G',
             unitCost: ''
         });
     };
 
+    const resetPreparationForm = () => {
+        setEditingPreparationId(null);
+        setPreparationForm({ name: '', yieldQuantity: '1', yieldUnit: ingredientUnits[0]?.label || 'G' });
+        setPreparationRecipeDraft([{ id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }]);
+    };
+
     useEffect(() => {
-        if (!ingredientUnits.some((unit) => unit.label === ingredientForm.unit)) {
+        const resolvedUnit = resolveUnitValue(ingredientUnits, ingredientForm.unit);
+        if (resolvedUnit && resolvedUnit !== ingredientForm.unit) {
+            setIngredientForm((prev) => ({
+                ...prev,
+                unit: resolvedUnit
+            }));
+            return;
+        }
+
+        if (!resolvedUnit) {
             setIngredientForm((prev) => ({
                 ...prev,
                 unit: ingredientUnits[0]?.label || ''
@@ -2896,7 +2989,16 @@ export default function App({ tenantSlug = 'default' }) {
     }, [ingredientUnits, ingredientForm.unit]);
 
     useEffect(() => {
-        if (!ingredientUnits.some((unit) => unit.label === preparationForm.yieldUnit)) {
+        const resolvedUnit = resolveUnitValue(ingredientUnits, preparationForm.yieldUnit);
+        if (resolvedUnit && resolvedUnit !== preparationForm.yieldUnit) {
+            setPreparationForm((prev) => ({
+                ...prev,
+                yieldUnit: resolvedUnit
+            }));
+            return;
+        }
+
+        if (!resolvedUnit) {
             setPreparationForm((prev) => ({
                 ...prev,
                 yieldUnit: ingredientUnits[0]?.label || ''
@@ -2927,7 +3029,7 @@ export default function App({ tenantSlug = 'default' }) {
 
         const payload = {
             name: ingredientForm.name.trim(),
-            unit: ingredientForm.unit,
+            unit: resolveUnitValue(ingredientUnits, ingredientForm.unit) || ingredientForm.unit,
             packageQuantity: referenceFactor,
             packageCost: referenceCost,
             unitCost: referenceFactor > 0 ? referenceCost / referenceFactor : referenceCost
@@ -2949,6 +3051,7 @@ export default function App({ tenantSlug = 'default' }) {
                 setIngredients((prev) => [...prev, savedIngredient]);
             }
 
+            setSettingsError('');
             resetIngredientForm();
         } catch (apiError) {
             setSettingsError(apiError.message || 'Não foi possível salvar o insumo.');
@@ -2959,7 +3062,7 @@ export default function App({ tenantSlug = 'default' }) {
         setEditingIngredientId(ingredient.id);
         setIngredientForm({
             name: ingredient.name,
-            unit: ingredient.unit,
+            unit: resolveUnitValue(ingredientUnits, ingredient.unit) || ingredient.unit,
             unitCost: String(getIngredientCostReferenceValue(ingredient))
         });
     };
@@ -2967,23 +3070,8 @@ export default function App({ tenantSlug = 'default' }) {
     const handleDeleteIngredient = async (ingredientId) => {
         try {
             await catalogApi.deleteIngredient(tenantSlug, ingredientId);
+            setSettingsError('');
             setIngredients((prev) => prev.filter((item) => item.id !== ingredientId));
-            setPreparations((prev) =>
-                prev
-                    .map((preparation) => ({
-                        ...preparation,
-                        recipe: preparation.recipe.filter((line) => !(line.componentType === 'ingredient' && idsEqual(line.componentId, ingredientId)))
-                    }))
-                    .filter((preparation) => preparation.recipe.length > 0)
-            );
-            setProducts((prev) =>
-                prev
-                    .map((product) => ({
-                        ...product,
-                        recipe: product.recipe.filter((line) => !(line.componentType === 'ingredient' && idsEqual(line.componentId, ingredientId)))
-                    }))
-                    .filter((product) => product.recipe.length > 0)
-            );
 
             if (editingIngredientId === ingredientId) {
                 resetIngredientForm();
@@ -3007,7 +3095,7 @@ export default function App({ tenantSlug = 'default' }) {
 
                 if (field === 'componentRef') {
                     const baseUnit = getComponentBaseUnit(value, ingredients, preparations);
-                    return { ...line, componentRef: value, quantityUnit: baseUnit };
+                    return { ...line, componentRef: value, quantityUnit: getDefaultCompatibleUnit(baseUnit, ingredientUnits) };
                 }
 
                 return { ...line, [field]: value };
@@ -3018,6 +3106,37 @@ export default function App({ tenantSlug = 'default' }) {
     const handleRemoveRecipeLine = (id) => {
         setProductRecipeDraft((prev) => prev.filter((line) => line.id !== id));
     };
+
+    const handleProductFormChange = (field, value) => {
+        setProductForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const resetProductEditForm = () => {
+        setEditingProductId(null);
+        setIsProductModalOpen(false);
+        setProductForm({
+            name: '',
+            salePrice: '',
+            yieldQuantity: '1',
+            targetCmvPercent: '30'
+        });
+        setProductRecipeDraft([{ id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }]);
+    };
+
+    const buildProductRecipePayload = () => (
+        productRecipeDraft
+            .filter((line) => line.componentRef && line.quantityUnit && Number(line.quantity) > 0)
+            .map((line) => {
+                const parsed = parseComponentValue(line.componentRef);
+                const baseUnit = getComponentBaseUnit(line.componentRef, ingredients, preparations);
+                return {
+                    componentType: parsed.componentType,
+                    componentId: parsed.componentId,
+                    quantity: Number(line.quantity),
+                    quantityUnit: resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit) || line.quantityUnit
+                };
+            })
+    );
 
     const handlePreparationFormChange = (field, value) => {
         setPreparationForm((prev) => ({ ...prev, [field]: value }));
@@ -3037,7 +3156,7 @@ export default function App({ tenantSlug = 'default' }) {
 
                 if (field === 'componentRef') {
                     const baseUnit = getComponentBaseUnit(value, ingredients, preparations);
-                    return { ...line, componentRef: value, quantityUnit: baseUnit };
+                    return { ...line, componentRef: value, quantityUnit: getDefaultCompatibleUnit(baseUnit, ingredientUnits) };
                 }
 
                 return { ...line, [field]: value };
@@ -3052,18 +3171,7 @@ export default function App({ tenantSlug = 'default' }) {
     const handleAddProduct = async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-
-        const recipe = productRecipeDraft
-            .filter((line) => line.componentRef && line.quantityUnit && Number(line.quantity) > 0)
-            .map((line) => {
-                const parsed = parseComponentValue(line.componentRef);
-                return {
-                    componentType: parsed.componentType,
-                    componentId: parsed.componentId,
-                    quantity: Number(line.quantity),
-                    quantityUnit: line.quantityUnit
-                };
-            });
+        const recipe = buildProductRecipePayload();
 
         if (recipe.length === 0) return;
 
@@ -3077,8 +3185,58 @@ export default function App({ tenantSlug = 'default' }) {
             });
 
             setProducts((prev) => [...prev, savedProduct]);
+            setSettingsError('');
             setProductRecipeDraft([{ id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }]);
             e.target.reset();
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível salvar o produto.');
+        }
+    };
+
+    const handleEditProduct = (product) => {
+        setEditingProductId(product.id);
+        setProductForm({
+            name: product.name || '',
+            salePrice: String(product.salePrice || ''),
+            yieldQuantity: String(product.yieldQuantity || 1),
+            targetCmvPercent: String(product.targetCmvPercent || 30)
+        });
+        const recipeDraft = (product.recipe || []).map((line) => {
+            const componentRef = `${line.componentType}:${line.componentId}`;
+            const baseUnit = getComponentBaseUnit(componentRef, ingredients, preparations);
+            return {
+                id: Date.now() + Math.random(),
+                componentRef,
+                quantity: String(line.quantity || ''),
+                quantityUnit: resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit) || line.quantityUnit || baseUnit
+            };
+        });
+        setProductRecipeDraft(recipeDraft.length > 0 ? recipeDraft : [{ id: Date.now(), componentRef: '', quantity: '', quantityUnit: '' }]);
+        setIsProductModalOpen(true);
+    };
+
+    const handleUpdateProduct = async (e) => {
+        e.preventDefault();
+        if (!editingProductId) return;
+
+        const recipe = buildProductRecipePayload();
+        if (!productForm.name.trim() || recipe.length === 0) return;
+
+        try {
+            const savedProduct = await catalogApi.saveProduct(tenantSlug, {
+                id: editingProductId,
+                name: productForm.name.trim(),
+                salePrice: parseFloat(productForm.salePrice) || 0,
+                yieldQuantity: parseFloat(productForm.yieldQuantity) || 1,
+                targetCmvPercent: parseFloat(productForm.targetCmvPercent) || 30,
+                recipe
+            });
+
+            setProducts((prev) => prev.map((product) => (
+                idsEqual(product.id, savedProduct.id) ? savedProduct : product
+            )));
+            setSettingsError('');
+            resetProductEditForm();
         } catch (apiError) {
             setSettingsError(apiError.message || 'Não foi possível salvar o produto.');
         }
@@ -3087,7 +3245,11 @@ export default function App({ tenantSlug = 'default' }) {
     const handleDeleteProduct = async (productId) => {
         try {
             await catalogApi.deleteProduct(tenantSlug, productId);
+            setSettingsError('');
             setProducts((prev) => prev.filter((item) => item.id !== productId));
+            if (idsEqual(editingProductId, productId)) {
+                resetProductEditForm();
+            }
         } catch (apiError) {
             setSettingsError(apiError.message || 'Não foi possível remover o produto.');
         }
@@ -3155,12 +3317,27 @@ export default function App({ tenantSlug = 'default' }) {
     };
 
     const handleToggleMenuComponent = (componentKey) => {
-        setMenuItemForm((prev) => ({
-            ...prev,
-            linkedComponentIds: prev.linkedComponentIds.includes(componentKey)
-                ? prev.linkedComponentIds.filter((item) => item !== componentKey)
-                : [...prev.linkedComponentIds, componentKey]
-        }));
+        const component = menuComponentOptionByKey.get(componentKey);
+
+        setMenuItemForm((prev) => {
+            const alreadySelected = prev.linkedComponentIds[0] === componentKey;
+
+            if (alreadySelected) {
+                return {
+                    ...prev,
+                    salePrice: '',
+                    priceEditable: false,
+                    linkedComponentIds: []
+                };
+            }
+
+            return {
+                ...prev,
+                salePrice: component ? String(component.salePrice || '') : '',
+                priceEditable: false,
+                linkedComponentIds: component ? [componentKey] : []
+            };
+        });
     };
 
     const handleComboFormChange = (field, value) => {
@@ -3247,10 +3424,29 @@ export default function App({ tenantSlug = 'default' }) {
                         ...group,
                         options: group.options.map((option) => {
                             if (option.id !== optionId) return option;
+                            if (field === 'linkedCategoryNames') {
+                                const linkedCategoryNames = Array.isArray(value) ? value : [];
+                                const linkedCategoryName = linkedCategoryNames[0] || '';
+                                const parsed = parseComponentValue(option.linkedComponentRef);
+                                const linkedItem = parsed.componentType === 'menu-item'
+                                    ? findById(menuItems, parsed.componentId)
+                                    : null;
+                                const keepLinkedComponent = linkedItem
+                                    && linkedCategoryNames.includes(linkedItem.category);
+
+                                return {
+                                    ...option,
+                                    linkedCategoryName,
+                                    linkedCategoryNames,
+                                    linkedComponentRef: keepLinkedComponent ? option.linkedComponentRef : ''
+                                };
+                            }
                             if (field === 'linkedCategoryName') {
+                                const linkedCategoryNames = value ? [value] : [];
                                 return {
                                     ...option,
                                     linkedCategoryName: value,
+                                    linkedCategoryNames,
                                     linkedComponentRef: ''
                                 };
                             }
@@ -3264,32 +3460,51 @@ export default function App({ tenantSlug = 'default' }) {
 
     const handleSubmitMenuItem = async (e) => {
         e.preventDefault();
+        const selectedComponentKey = menuItemForm.linkedComponentIds[0] || '';
+        const selectedProductId = parseComponentValue(selectedComponentKey).componentId;
+        const selectedProduct = products.find((product) => idsEqual(product.id, selectedProductId));
+        const nextSalePrice = parseFloat(menuItemForm.salePrice) || 0;
 
         const payload = {
             name: menuItemForm.name.trim(),
             category: menuItemForm.category,
             description: menuItemForm.description.trim(),
             status: menuItemForm.status,
-            salePrice: parseFloat(menuItemForm.salePrice) || 0,
+            salePrice: nextSalePrice,
             photoPreview: menuItemForm.photoPreview,
-            linkedComponents: menuItemForm.linkedComponentIds.map((componentKey) => {
-                const parsed = parseComponentValue(componentKey);
-                return {
-                    type: parsed.componentType,
-                    id: parsed.componentId
-                };
-            }),
+            linkedComponents: selectedComponentKey ? [{
+                type: 'product',
+                id: selectedProductId
+            }] : [],
             createdAt: new Date().toISOString()
         };
 
-        if (!payload.name || !payload.description || payload.salePrice <= 0) return;
+        if (!payload.name || !payload.description || payload.salePrice <= 0 || !selectedProduct) return;
 
         try {
+            let syncedProduct = null;
+            if (menuItemForm.priceEditable && Number(selectedProduct.salePrice || 0) !== nextSalePrice) {
+                syncedProduct = await catalogApi.saveProduct(tenantSlug, {
+                    id: selectedProduct.id,
+                    name: selectedProduct.name,
+                    salePrice: nextSalePrice,
+                    yieldQuantity: selectedProduct.yieldQuantity || 1,
+                    targetCmvPercent: selectedProduct.targetCmvPercent || 30,
+                    recipe: selectedProduct.recipe || []
+                });
+            }
+
             const savedItem = await menuApi.saveItem(tenantSlug, {
                 id: editingMenuItemId || undefined,
                 itemType: 'regular',
                 ...payload
             });
+
+            if (syncedProduct) {
+                setProducts((prev) => prev.map((product) => (
+                    idsEqual(product.id, syncedProduct.id) ? syncedProduct : product
+                )));
+            }
 
             if (editingMenuItemId) {
                 setMenuItems((prev) => prev.map((item) => item.id === savedItem.id ? savedItem : item));
@@ -3306,15 +3521,21 @@ export default function App({ tenantSlug = 'default' }) {
     };
 
     const handleEditMenuItem = (item) => {
+        const linkedProductRef = (item.linkedComponents || []).find((component) => component.type === 'product');
+        const linkedProduct = linkedProductRef
+            ? products.find((product) => idsEqual(product.id, linkedProductRef.id))
+            : null;
+
         setEditingMenuItemId(item.id);
         setMenuItemForm({
             name: item.name,
             category: item.category,
             description: item.description,
             status: item.status,
-            salePrice: String(item.salePrice || ''),
+            salePrice: String(linkedProduct?.salePrice ?? item.salePrice ?? ''),
+            priceEditable: false,
             photoPreview: item.photoPreview || '',
-            linkedComponentIds: item.linkedComponents.map((component) => `${component.type}:${component.id}`)
+            linkedComponentIds: linkedProduct ? [`product:${linkedProduct.id}`] : []
         });
         setIsMenuItemModalOpen(true);
     };
@@ -3327,13 +3548,18 @@ export default function App({ tenantSlug = 'default' }) {
             name: group.name.trim(),
             minSelect: Number(group.minSelect) || 0,
             maxSelect: Number(group.maxSelect) || 0,
-            options: group.options.map((option) => ({
-                ...option,
-                name: option.name.trim(),
-                extraPrice: Number(option.extraPrice) || 0,
-                maxQty: Number(option.maxQty) || 0,
-                isAvailable: Boolean(option.isAvailable)
-            }))
+            options: group.options.map((option) => {
+                const linkedCategoryNames = normalizeComboCategoryNames(option);
+                return {
+                    ...option,
+                    name: option.name.trim(),
+                    extraPrice: Number(option.extraPrice) || 0,
+                    maxQty: Number(option.maxQty) || 0,
+                    isAvailable: Boolean(option.isAvailable),
+                    linkedCategoryName: linkedCategoryNames[0] || '',
+                    linkedCategoryNames
+                };
+            })
         }));
 
         const invalidGroup = normalizedGroups.some((group) => (
@@ -3395,6 +3621,16 @@ export default function App({ tenantSlug = 'default' }) {
                     ...option,
                     extraPrice: String(option.extraPrice ?? 0),
                     maxQty: String(option.maxQty ?? 1),
+                    linkedCategoryNames: normalizeComboCategoryNames({
+                        ...option,
+                        linkedCategoryName: option.linkedCategoryName || (() => {
+                            const [componentType, rawId] = String(option.linkedComponentRef || '').split(':');
+                            if (componentType !== 'menu-item') return '';
+
+                            const linkedItem = findById(menuItems, rawId);
+                            return linkedItem?.category || '';
+                        })()
+                    }),
                     linkedCategoryName: option.linkedCategoryName || (() => {
                         const [componentType, rawId] = String(option.linkedComponentRef || '').split(':');
                         if (componentType !== 'menu-item') return '';
@@ -3539,11 +3775,12 @@ export default function App({ tenantSlug = 'default' }) {
             .filter((line) => line.componentRef && line.quantityUnit && Number(line.quantity) > 0)
             .map((line) => {
                 const parsed = parseComponentValue(line.componentRef);
+                const baseUnit = getComponentBaseUnit(line.componentRef, ingredients, preparations);
                 return {
                     componentType: parsed.componentType,
                     componentId: parsed.componentId,
                     quantity: Number(line.quantity),
-                    quantityUnit: line.quantityUnit
+                    quantityUnit: resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit) || line.quantityUnit
                 };
             });
 
@@ -3551,18 +3788,60 @@ export default function App({ tenantSlug = 'default' }) {
 
         try {
             const savedPreparation = await catalogApi.savePreparation(tenantSlug, {
+                id: editingPreparationId || undefined,
                 name: preparationForm.name.trim(),
                 yieldQuantity: parseFloat(preparationForm.yieldQuantity) || 1,
-                yieldUnit: preparationForm.yieldUnit || ingredientUnits[0]?.label || 'g',
+                yieldUnit: resolveUnitValue(ingredientUnits, preparationForm.yieldUnit) || ingredientUnits[0]?.label || 'G',
                 recipe
             });
 
-            setPreparations((prev) => [...prev, savedPreparation]);
-            setPreparationForm({ name: '', yieldQuantity: '1', yieldUnit: ingredientUnits[0]?.label || 'g' });
-            setPreparationRecipeDraft([{ id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }]);
+            setPreparations((prev) => (
+                editingPreparationId
+                    ? prev.map((preparation) => (idsEqual(preparation.id, savedPreparation.id) ? savedPreparation : preparation))
+                    : [...prev, savedPreparation]
+            ));
+            setSettingsError('');
+            resetPreparationForm();
             setIsPreparationModalOpen(false);
         } catch (apiError) {
             setSettingsError(apiError.message || 'Não foi possível salvar a receita base.');
+        }
+    };
+
+    const handleEditPreparation = (preparation) => {
+        setEditingPreparationId(preparation.id);
+        setPreparationForm({
+            name: preparation.name,
+            yieldQuantity: String(preparation.yieldQuantity || 1),
+            yieldUnit: resolveUnitValue(ingredientUnits, preparation.yieldUnit) || ingredientUnits[0]?.label || 'G'
+        });
+        const recipeDraft = (preparation.recipe || []).map((line) => ({
+            id: Date.now() + Math.random(),
+            componentRef: `${line.componentType}:${line.componentId}`,
+            quantity: String(line.quantity || ''),
+            quantityUnit: resolveCompatibleUnitValue(
+                ingredientUnits,
+                getComponentBaseUnit(`${line.componentType}:${line.componentId}`, ingredients, preparations),
+                line.quantityUnit
+            ) || getComponentBaseUnit(`${line.componentType}:${line.componentId}`, ingredients, preparations)
+        }));
+        setPreparationRecipeDraft(recipeDraft.length > 0 ? recipeDraft : [{ id: Date.now() + 1, componentRef: '', quantity: '', quantityUnit: '' }]);
+        setIsPreparationManagerModalOpen(false);
+        setIsPreparationModalOpen(true);
+    };
+
+    const handleDeletePreparation = async (preparationId) => {
+        try {
+            await catalogApi.deletePreparation(tenantSlug, preparationId);
+            setSettingsError('');
+            setPreparations((prev) => prev.filter((preparation) => !idsEqual(preparation.id, preparationId)));
+
+            if (idsEqual(editingPreparationId, preparationId)) {
+                resetPreparationForm();
+                setIsPreparationModalOpen(false);
+            }
+        } catch (apiError) {
+            setSettingsError(apiError.message || 'Não foi possível remover a receita base.');
         }
     };
 
@@ -3736,9 +4015,6 @@ export default function App({ tenantSlug = 'default' }) {
             {isRoleModalOpen && (
                 <EmployeeRoleModal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} roles={employeeRoles} setRoles={setEmployeeRoles} />
             )}
-            {isUnitModalOpen && (
-                <UnitModal isOpen={isUnitModalOpen} onClose={() => setIsUnitModalOpen(false)} units={ingredientUnits} setUnits={setIngredientUnits} ingredients={ingredients} />
-            )}
             {isChannelModalOpen && (
                 <SimpleOptionsModal isOpen={isChannelModalOpen} onClose={() => setIsChannelModalOpen(false)} title="Canais" options={salesChannels} setOptions={setSalesChannels} />
             )}
@@ -3773,10 +4049,22 @@ export default function App({ tenantSlug = 'default' }) {
                     isEditing={Boolean(editingEmployeeId)}
                 />
             )}
+            {isPreparationManagerModalOpen && (
+                <PreparationManagerModal
+                    isOpen={isPreparationManagerModalOpen}
+                    onClose={() => setIsPreparationManagerModalOpen(false)}
+                    preparations={preparations}
+                    onEditPreparation={handleEditPreparation}
+                    onDeletePreparation={handleDeletePreparation}
+                />
+            )}
             {isPreparationModalOpen && (
                 <PreparationModal
                     isOpen={isPreparationModalOpen}
-                    onClose={() => setIsPreparationModalOpen(false)}
+                    onClose={() => {
+                        setIsPreparationModalOpen(false);
+                        resetPreparationForm();
+                    }}
                     preparationForm={preparationForm}
                     onPreparationFormChange={handlePreparationFormChange}
                     preparationRecipeDraft={preparationRecipeDraft}
@@ -3784,6 +4072,23 @@ export default function App({ tenantSlug = 'default' }) {
                     onPreparationRecipeDraftChange={handlePreparationRecipeDraftChange}
                     onRemovePreparationRecipeLine={handleRemovePreparationRecipeLine}
                     onSubmit={handleAddPreparation}
+                    editingPreparationId={editingPreparationId}
+                    ingredientUnits={ingredientUnits}
+                    ingredients={ingredients}
+                    preparations={preparations}
+                />
+            )}
+            {isProductModalOpen && (
+                <ProductModal
+                    isOpen={isProductModalOpen}
+                    onClose={resetProductEditForm}
+                    productForm={productForm}
+                    onProductFormChange={handleProductFormChange}
+                    productRecipeDraft={productRecipeDraft}
+                    onAddRecipeLine={handleAddRecipeLine}
+                    onRecipeDraftChange={handleRecipeDraftChange}
+                    onRemoveRecipeLine={handleRemoveRecipeLine}
+                    onSubmit={handleUpdateProduct}
                     ingredientUnits={ingredientUnits}
                     ingredients={ingredients}
                     preparations={preparations}
@@ -4327,10 +4632,13 @@ export default function App({ tenantSlug = 'default' }) {
                                                                 }).filter(Boolean);
                                                                 const comboSummary = item.itemType === 'combo' ? summarizeComboGroups(item.comboGroups) : null;
                                                                 const comboGroups = item.itemType === 'combo' ? item.comboGroups : [];
+                                                                const itemDescription = String(item.description || '').trim();
+                                                                const hasLongDescription = itemDescription.length > MENU_DESCRIPTION_PREVIEW_LIMIT;
+                                                                const descriptionId = `menu-item-accordion-description-${item.id}`;
 
                                                                 return (
                                                                     <div key={item.id} className="menu-item-accordion">
-                                                                        <button type="button" onClick={() => toggleMenuItemExpansion(item.id)} className="menu-item-accordion__trigger">
+                                                                        <button type="button" onClick={() => toggleMenuItemExpansion(item.id)} className="menu-item-accordion__trigger" aria-expanded={itemExpanded}>
                                                                             <div className="menu-item-accordion__summary">
                                                                                 <div className="menu-item-accordion__thumb">
                                                                                     {item.photoPreview ? (
@@ -4349,7 +4657,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                                                             {item.itemType === 'combo' && <span className="menu-component-tag">{comboGroups.length} grupo(s)</span>}
                                                                                         </div>
                                                                                         <p className="text-sm font-black text-[#2A1E15] uppercase tracking-tight truncate leading-tight">{item.name}</p>
-                                                                                        <p className="menu-item-accordion__description">{item.description}</p>
+                                                                                        <p id={descriptionId} className={`menu-item-accordion__description ${itemExpanded ? 'menu-item-accordion__description--expanded' : ''}`}>{itemDescription}</p>
                                                                                         {item.itemType === 'combo' && <p className="menu-item-accordion__support">{comboSummary}</p>}
                                                                                     </div>
                                                                                 </div>
@@ -4368,6 +4676,19 @@ export default function App({ tenantSlug = 'default' }) {
                                                                                 </svg>
                                                                             </div>
                                                                         </button>
+                                                                        {hasLongDescription ? (
+                                                                            <div className="menu-item-accordion__description-action">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    aria-controls={descriptionId}
+                                                                                    aria-expanded={itemExpanded}
+                                                                                    onClick={() => toggleMenuItemExpansion(item.id)}
+                                                                                    className="menu-item-accordion__description-toggle"
+                                                                                >
+                                                                                    {itemExpanded ? 'Ver menos' : 'Ver mais'}
+                                                                                </button>
+                                                                            </div>
+                                                                        ) : null}
 
                                                                         {itemExpanded && (
                                                                             <div className="menu-item-accordion__content">
@@ -4508,20 +4829,21 @@ export default function App({ tenantSlug = 'default' }) {
                                 <StatCard title="Markup Médio" value={`${catalogMetrics.averageMarkupPercent.toFixed(1)}%`} icon={DollarSign} colorClass="text-amber-700" bgColorClass="bg-amber-50" iconColorClass="text-amber-700" />
                             </div>
 
+                            {settingsError && (
+                                <p role="alert" className="text-xs text-red-700 font-bold bg-red-50 p-4 rounded-2xl border border-red-100 uppercase tracking-wide">
+                                    {settingsError}
+                                </p>
+                            )}
+
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-8">
                                 <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
                                     <h3 className="text-lg font-black text-[#2A1E15] uppercase mb-6 tracking-tighter">Cadastro de Insumos</h3>
                                     <form onSubmit={handleSubmitIngredient} className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                                         <CustomInput label="Nome do Insumo" value={ingredientForm.name} onChange={(e) => handleIngredientFormChange('name', e.target.value)} required />
                                         <div className="space-y-1">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
-                                                <button type="button" onClick={() => setIsUnitModalOpen(true)} className="text-[10px] font-black text-[#D4A373] uppercase hover:text-[#2A1E15] transition-colors">
-                                                    Cadastrar Unidades
-                                                </button>
-                                            </div>
+                                            <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
                                             <select
-                                                value={ingredientForm.unit}
+                                                value={resolveUnitValue(ingredientUnits, ingredientForm.unit)}
                                                 onChange={(e) => handleIngredientFormChange('unit', e.target.value)}
                                                 className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                 required
@@ -4569,9 +4891,21 @@ export default function App({ tenantSlug = 'default' }) {
                                 <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                                         <h3 className="text-lg font-black text-[#2A1E15] uppercase tracking-tighter">Ficha Técnica do Produto</h3>
-                                        <button type="button" onClick={() => setIsPreparationModalOpen(true)} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto">
-                                            Registrar Receita
-                                        </button>
+                                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                            <button type="button" onClick={() => setIsPreparationManagerModalOpen(true)} className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto">
+                                                Editar Receitas
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    resetPreparationForm();
+                                                    setIsPreparationModalOpen(true);
+                                                }}
+                                                className="text-[10px] font-black text-[#D4A373] border border-[#D4A373] px-3 py-2 rounded-full uppercase hover:bg-[#C58F5E] hover:text-[#2B2520] transition-all w-full sm:w-auto"
+                                            >
+                                                Registrar Receita
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <form onSubmit={handleAddProduct} className="space-y-5">
@@ -4591,10 +4925,8 @@ export default function App({ tenantSlug = 'default' }) {
                                             </div>
 
                                             {productRecipeDraft.map((line) => {
-                                                const compatibleUnits = getCompatibleUnits(
-                                                    getComponentBaseUnit(line.componentRef, ingredients, preparations),
-                                                    ingredientUnits
-                                                );
+                                                const baseUnit = getComponentBaseUnit(line.componentRef, ingredients, preparations);
+                                                const compatibleUnits = getCompatibleUnits(baseUnit, ingredientUnits);
 
                                                 return (
                                                     <div key={line.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_48px] gap-3 items-end">
@@ -4635,7 +4967,7 @@ export default function App({ tenantSlug = 'default' }) {
                                                         <div className="space-y-1">
                                                             <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#6F6258] uppercase ml-1 tracking-wider">Unidade</label>
                                                             <select
-                                                                value={line.quantityUnit}
+                                                                value={resolveCompatibleUnitValue(ingredientUnits, baseUnit, line.quantityUnit)}
                                                                 onChange={(e) => handleRecipeDraftChange(line.id, 'quantityUnit', e.target.value)}
                                                                 className="w-full px-3 py-2.5 xl:py-3 bg-[#FFFFFF] border border-gray-200 rounded-xl font-medium text-sm xl:text-base outline-none focus:ring-2 focus:ring-[#D4A373]"
                                                                 disabled={!line.componentRef}
@@ -4710,28 +5042,20 @@ export default function App({ tenantSlug = 'default' }) {
 
                                                 {/* ── Métricas em grid de badges ── */}
                                                 <div className="px-4 pt-4 pb-3">
-                                                    <div className="grid grid-cols-3 gap-1.5">
+                                                    <div className="grid grid-cols-2 gap-1.5">
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-[#2A1E15]/5 rounded-lg">
                                                             <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Custo Receita</span>
                                                             <span className="text-xs font-black text-[#2A1E15]">{formatMoney(product.metrics.recipeCost)}</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-blue-50 rounded-lg">
-                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Custo Unit.</span>
-                                                            <span className="text-xs font-black text-blue-700">{formatMoney(product.metrics.unitCost)}</span>
                                                         </div>
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50 rounded-lg">
                                                             <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Markup</span>
                                                             <span className="text-xs font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+                                                    <div className="grid grid-cols-2 gap-1.5 mt-1.5">
                                                         <div className={`flex flex-col items-center px-2 py-1.5 rounded-lg ${cmvOk ? 'bg-green-50' : 'bg-red-50'}`}>
                                                             <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">CMV Atual</span>
                                                             <span className={`text-xs font-black ${cmvOk ? 'text-green-700' : 'text-red-600'}`}>{product.metrics.cmvPercent.toFixed(1)}%</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50 rounded-lg">
-                                                            <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Markup</span>
-                                                            <span className="text-xs font-black text-amber-700">{product.metrics.markupPercent.toFixed(1)}%</span>
                                                         </div>
                                                         <div className="flex flex-col items-center px-2 py-1.5 bg-amber-50/60 rounded-lg border border-amber-100">
                                                             <span className="text-[8px] font-bold text-[#6F6258] uppercase tracking-wider leading-tight">Preço Sug.</span>
@@ -4756,8 +5080,12 @@ export default function App({ tenantSlug = 'default' }) {
                                                                 ? calculateIngredientUnitCost(ingredient)
                                                                 : (catalogMetrics.preparationSummaries.find((c) => idsEqual(c.id, item.componentId))?.metrics.unitCost || 0);
                                                             const sourceUnit = ingredient?.unit || preparation?.yieldUnit || componentUnit;
-                                                            const normalizedQuantity = convertQuantityBetweenUnits(item.quantity, componentUnit, sourceUnit);
-                                                            const lineCost = componentUnitCost * normalizedQuantity;
+                                                            const { lineCost } = calculateComponentLineCost({
+                                                                quantity: item.quantity,
+                                                                quantityUnit: componentUnit,
+                                                                componentSourceUnit: sourceUnit,
+                                                                componentUnitCost
+                                                            });
 
                                                             return (
                                                                 <div key={`${product.id}-${index}`} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-50 last:border-b-0">
@@ -4788,8 +5116,16 @@ export default function App({ tenantSlug = 'default' }) {
                                                             Margem s/ venda: <strong className="font-black">{product.metrics.marginPercent.toFixed(1)}%</strong>
                                                         </span>
                                                     </div>
-                                                    <div className="flex justify-end mt-1">
+                                                    <div className="flex justify-end gap-3 mt-2">
                                                         <button
+                                                            type="button"
+                                                            onClick={() => handleEditProduct(product)}
+                                                            className="flex items-center gap-1 text-[9px] font-bold text-blue-500 hover:text-blue-700 uppercase tracking-wide transition-colors"
+                                                        >
+                                                            <Edit size={11} /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
                                                             onClick={() => handleDeleteProduct(product.id)}
                                                             className="flex items-center gap-1 text-[9px] font-bold text-red-400 hover:text-red-600 uppercase tracking-wide transition-colors"
                                                         >

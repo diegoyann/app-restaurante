@@ -174,6 +174,19 @@ export function mapSimpleName(row) {
   return { id: row.id, name: row.name };
 }
 
+function normalizeLinkedCategoryNames(option = {}) {
+  const categoryNames = Array.isArray(option.linkedCategoryNames || option.linked_category_names)
+    ? option.linkedCategoryNames || option.linked_category_names
+    : [];
+  const fallback = option.linkedCategoryName || option.linked_category_name;
+
+  return [...categoryNames, fallback].reduce((acc, categoryName) => {
+    const normalized = String(categoryName || '').trim();
+    if (normalized && !acc.includes(normalized)) acc.push(normalized);
+    return acc;
+  }, []);
+}
+
 export function mapMenuCategory(row) {
   return { id: row.id, name: row.name };
 }
@@ -204,7 +217,8 @@ export function mapMenuItem(row) {
           extraPrice: String(Number(option.extra_price || 0)),
           maxQty: String(option.max_qty || 1),
           isAvailable: option.is_available,
-          linkedCategoryName: option.linked_category_name || '',
+          linkedCategoryName: normalizeLinkedCategoryNames(option)[0] || '',
+          linkedCategoryNames: normalizeLinkedCategoryNames(option),
           linkedComponentRef: option.linked_component_ref || ''
         }))
     }))

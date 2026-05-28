@@ -60,6 +60,7 @@ function formatDate(value) {
 }
 
 const EMPTY_LIST = [];
+const MENU_DESCRIPTION_PREVIEW_LIMIT = 70;
 
 function StatCard({ title, value, icon: Icon, colorClass, bgColorClass, iconColorClass }) {
   return (
@@ -167,6 +168,7 @@ export default function TenantWorkspacePage({ tenantSlug }) {
   const [menuComponentSearch, setMenuComponentSearch] = useState('');
   const [editingMenuCategoryId, setEditingMenuCategoryId] = useState(null);
   const [editingMenuItemId, setEditingMenuItemId] = useState(null);
+  const [expandedInternalMenuItems, setExpandedInternalMenuItems] = useState(() => ({}));
   const [menuSaving, setMenuSaving] = useState(false);
   const [menuError, setMenuError] = useState('');
   const [catalogSaving, setCatalogSaving] = useState(false);
@@ -508,6 +510,13 @@ export default function TenantWorkspacePage({ tenantSlug }) {
 
   const handleMenuItemFormChange = (field, value) => {
     setMenuItemForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleInternalMenuItemDescription = (itemId) => {
+    setExpandedInternalMenuItems((current) => ({
+      ...current,
+      [itemId]: !current[itemId]
+    }));
   };
 
   const resetMenuItemForm = () => {
@@ -948,13 +957,32 @@ export default function TenantWorkspacePage({ tenantSlug }) {
                     </div>
                   ) : menuItems.map((item) => {
                     const statusMeta = getMenuStatusMeta(item.status);
+                    const description = String(item.description || '').trim();
+                    const hasLongDescription = description.length > MENU_DESCRIPTION_PREVIEW_LIMIT;
+                    const isDescriptionExpanded = Boolean(expandedInternalMenuItems[item.id]);
+                    const descriptionId = `internal-menu-item-description-${item.id}`;
 
                     return (
-                      <div key={item.id} className="rounded-2xl bg-[#FAF6EF] px-4 py-4 border border-gray-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div key={item.id} className="internal-menu-item-card rounded-2xl bg-[#FAF6EF] px-4 py-4 border border-gray-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                           <p className="text-sm font-black uppercase tracking-tight text-[#2A1E15]">{item.name}</p>
                           <p className="mt-1 text-xs font-semibold text-[#7a6666]">{item.category || 'Sem categoria'} • {formatCurrency(item.basePrice || item.salePrice || 0)}</p>
-                          <p className="mt-2 text-xs font-semibold text-[#7a6666] line-clamp-2">{item.description || 'Sem descrição cadastrada.'}</p>
+                          <div className="internal-menu-item-description-block">
+                            <p id={descriptionId} className={`internal-menu-item-description ${isDescriptionExpanded ? 'internal-menu-item-description--expanded' : ''}`}>
+                              {description || 'Sem descrição cadastrada.'}
+                            </p>
+                            {hasLongDescription ? (
+                              <button
+                                type="button"
+                                aria-controls={descriptionId}
+                                aria-expanded={isDescriptionExpanded}
+                                onClick={() => toggleInternalMenuItemDescription(item.id)}
+                                className="internal-menu-description-toggle"
+                              >
+                                {isDescriptionExpanded ? 'Ver menos' : 'Ver mais'}
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 shrink-0">
                           <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase ${statusMeta.badgeClass}`}>{statusMeta.label}</span>

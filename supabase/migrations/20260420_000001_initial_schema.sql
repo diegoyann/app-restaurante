@@ -253,6 +253,7 @@ create table if not exists public.combo_options (
   max_qty integer not null default 1,
   is_available boolean not null default true,
   linked_category_name text not null default '',
+  linked_category_names jsonb not null default '[]'::jsonb,
   linked_component_ref text not null default '',
   sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
