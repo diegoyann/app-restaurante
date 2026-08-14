@@ -7,7 +7,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -26,15 +27,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const roleWhitelist = req.method === 'PUT' ? ['tenant_admin', 'tenant_staff'] : ['tenant_admin'];
-      requireTenantAccess(identity, tenantSlug, roleWhitelist);
-      return sendJson(res, req.method === 'POST' ? 201 : 200, await saveEmployee(tenantSlug, validateEmployeePayload(req.body || {})));
+      requireTenantAccess(identity, tenantSlug, ['tenant_admin', 'tenant_staff']);
+      return await sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => saveEmployee(tenantSlug, validateEmployeePayload(req.body || {}))
+      });
     }
 
     if (req.method === 'DELETE') {
-      requireTenantAccess(identity, tenantSlug, ['tenant_admin']);
-      await deleteEmployeeById(tenantSlug, req.body?.id);
-      return sendJson(res, 200, { success: true });
+      requireTenantAccess(identity, tenantSlug, ['tenant_admin', 'tenant_staff']);
+      return await sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deleteEmployeeById(tenantSlug, req.body?.id);
+          return { id: req.body?.id, success: true };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);

@@ -17,5 +17,6 @@ export const publicMenuApi = adapter.publicMenuApi;
 export const hrApi = adapter.hrApi;
 export const menuApi = adapter.menuApi;
 export const catalogApi = adapter.catalogApi;
+export const supplyChainApi = adapter.supplyChainApi;
 export const adminApi = adapter.adminApi;
 export const roleProfilesApi = adapter.roleProfilesApi;

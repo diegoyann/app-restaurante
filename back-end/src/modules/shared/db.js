@@ -4,8 +4,10 @@ export { supabaseAdmin };
 
 export function ensureOk(result, fallbackMessage) {
   if (result.error) {
-    const error = new Error(result.error.message || fallbackMessage);
-    error.statusCode = result.status || 500;
+    const error = new Error(result.error.code === '23505'
+      ? fallbackMessage
+      : result.error.message || fallbackMessage);
+    error.statusCode = result.error.code === '23505' ? 409 : result.status || 500;
     throw error;
   }
 

@@ -1368,6 +1368,12 @@
   padding-right: 0;
 }
 
+.menu-accordion-list__sortable {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
 .menu-category-accordion,
 .menu-item-accordion {
   position: relative;
@@ -1405,6 +1411,17 @@
   padding: 1rem 1.15rem;
   text-align: left;
   cursor: pointer;
+}
+
+.menu-drag-handle--category {
+  position: absolute;
+  left: 0.85rem;
+  top: 1rem;
+  z-index: 2;
+}
+
+.menu-drag-handle--category + .menu-category-accordion__trigger {
+  padding-left: 3.35rem;
 }
 
 .menu-category-accordion__heading {

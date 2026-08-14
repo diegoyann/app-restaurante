@@ -1,4 +1,4 @@
-export function mapEmployee(row) {
+export function mapEmployee(row, dailyRateTypes = [], scheduledDaysOff = []) {
   return {
     id: row.id,
     name: row.full_name,
@@ -16,7 +16,15 @@ export function mapEmployee(row) {
     baseAmount: Number(row.base_amount || 0),
     weekday: row.weekday,
     specificDate: row.specific_date || '',
-    startDate: row.start_date || ''
+    startDate: row.start_date || '',
+    controlAttendance: Boolean(row.control_attendance),
+    attendanceControlFrom: row.attendance_control_from || '',
+    weeklyDayOff: row.weekly_day_off == null ? '' : Number(row.weekly_day_off),
+    monthlySundayOffOrdinal: row.monthly_sunday_off_ordinal == null ? '' : Number(row.monthly_sunday_off_ordinal),
+    firstPaymentPercentage: row.first_payment_percentage == null ? null : Number(row.first_payment_percentage),
+    finalPaymentPercentage: row.final_payment_percentage == null ? null : Number(row.final_payment_percentage),
+    dailyRateTypes,
+    scheduledDaysOff
   };
 }
 
@@ -131,7 +139,12 @@ export function mapTransaction(row) {
     category: row.category,
     note: row.note,
     sourceType: row.source_type || 'manual',
-    sourceId: row.source_id || ''
+    sourceId: row.source_id || '',
+    economicCategory: row.economic_category || '',
+    financialOrigin: row.financial_origin || '',
+    obligationId: row.obligation_id || '',
+    paymentId: row.payment_id || '',
+    batchId: row.batch_id || ''
   };
 }
 
@@ -141,7 +154,19 @@ export function mapRecurringCost(row) {
     desc: row.description,
     amount: Number(row.amount || 0),
     dueDay: row.due_day,
-    lastPaidMonth: row.last_paid_month || ''
+    lastPaidMonth: row.last_paid_month || '',
+    normalizedKey: row.normalized_key || '',
+    category: row.category || 'CUSTO_FIXO',
+    forecastType: row.forecast_type || 'FIXED',
+    recurrence: row.recurrence || 'MONTHLY',
+    weekday: row.weekday == null ? null : Number(row.weekday),
+    effectiveFrom: row.effective_from || '',
+    active: row.active !== false,
+    aliases: row.aliases || [],
+    sourceType: row.source_type || 'MANUAL',
+    originalImportLabel: row.original_import_label || '',
+    mergedIntoId: row.merged_into_id || '',
+    requiresDuplicateReview: Boolean(row.requires_duplicate_review)
   };
 }
 
@@ -172,6 +197,20 @@ export function mapFinancialClosing(row) {
 
 export function mapSimpleName(row) {
   return { id: row.id, name: row.name };
+}
+
+export function mapSalesChannel(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    active: row.active !== false,
+    feePercent: Number(row.fee_percent || 0),
+    settlementType: row.settlement_type || 'IMMEDIATE',
+    settlementFrequency: row.settlement_frequency || 'NONE',
+    settlementWeekday: row.settlement_weekday == null ? null : Number(row.settlement_weekday),
+    settlementDelayDays: Number(row.settlement_delay_days || 0),
+    notes: row.notes || ''
+  };
 }
 
 function normalizeLinkedCategoryNames(option = {}) {
@@ -224,7 +263,8 @@ export function mapMenuItem(row) {
           isAvailable: option.is_available,
           linkedCategoryName: normalizeLinkedCategoryNames(option)[0] || '',
           linkedCategoryNames: normalizeLinkedCategoryNames(option),
-          linkedComponentRef: option.linked_component_ref || ''
+          linkedComponentRef: option.linked_component_ref || '',
+          linkedComponentRefs: option.linked_component_ref ? [option.linked_component_ref] : []
         }))
     }))
   };
@@ -290,6 +330,10 @@ export function mapIngredient(row) {
     unit: row.unit,
     packageQuantity,
     packageCost,
-    unitCost: Number(row.unit_cost || fallbackUnitCost)
+    unitCost: Number(row.unit_cost || fallbackUnitCost),
+    category: row.category || 'GERAL',
+    primarySupplierId: row.primary_supplier_id || '',
+    stockMinimum: row.stock_minimum == null ? null : Number(row.stock_minimum),
+    active: row.active !== false
   };
 }

@@ -51,7 +51,45 @@ const supabase = createClient(required('SUPABASE_URL'), required('SUPABASE_SECRE
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+async function ensureCompany(tenant) {
+  const existing = await supabase
+    .from('companies')
+    .select('*')
+    .eq('slug', tenant.slug)
+    .maybeSingle();
+
+  if (existing.error && existing.status !== 406) throw existing.error;
+
+  const companyPayload = {
+    name: tenant.businessName,
+    business_name: tenant.businessName,
+    status: 'active'
+  };
+
+  if (existing.data) {
+    const { data, error } = await supabase
+      .from('companies')
+      .update(companyPayload)
+      .eq('id', existing.data.id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from('companies')
+    .insert({ slug: tenant.slug, ...companyPayload })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 async function ensureTenant(tenant) {
+  const company = await ensureCompany(tenant);
   const existing = await supabase
     .from('tenants')
     .select('*')
@@ -65,7 +103,11 @@ async function ensureTenant(tenant) {
       .from('tenants')
       .update({
         name: tenant.name,
-        business_name: tenant.businessName
+        business_name: tenant.businessName,
+        company_id: company.id,
+        branch_code: tenant.slug,
+        branch_name: tenant.name,
+        is_headquarters: true
       })
       .eq('id', existing.data.id)
       .select('*')
@@ -80,7 +122,11 @@ async function ensureTenant(tenant) {
     .insert({
       slug: tenant.slug,
       name: tenant.name,
-      business_name: tenant.businessName
+      business_name: tenant.businessName,
+      company_id: company.id,
+      branch_code: tenant.slug,
+      branch_name: tenant.name,
+      is_headquarters: true
     })
     .select('*')
     .single();

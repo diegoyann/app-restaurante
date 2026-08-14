@@ -1,4 +1,5 @@
 import { getTenantBootstrap } from '../../src/modules/public/index.js';
+import { isPurchasableCombo } from '../../src/modules/menu/comboValidation.js';
 import {
   badRequest,
   getTenantSlug,
@@ -9,7 +10,7 @@ import {
 } from '../_shared/http.js';
 
 function isVisibleMenuItem(item) {
-  return item.status === 'active' || item.status === 'seasonal';
+  return (item.status === 'active' || item.status === 'seasonal') && isPurchasableCombo(item);
 }
 
 export default async function handler(req, res) {

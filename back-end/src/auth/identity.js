@@ -204,3 +204,15 @@ export async function requireTenantPermission(identity, tenantSlug, permissionKe
 
   return access;
 }
+
+export async function requireAnyTenantPermission(identity, tenantSlug, permissionKeys = []) {
+  const access = requireTenantAccess(identity, tenantSlug, ['tenant_admin', 'tenant_staff']);
+  if (identity.isSuperAdmin) return access;
+  const permissions = await getEffectivePermissionsForIdentity(identity, tenantSlug);
+  if (!permissionKeys.some((key) => permissions[key])) {
+    const error = new Error('Você não tem permissão para este recurso.');
+    error.statusCode = 403;
+    throw error;
+  }
+  return access;
+}

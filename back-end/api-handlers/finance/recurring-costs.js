@@ -36,7 +36,13 @@ function sanitizeRecurringCostUpdate(body) {
     desc: body.desc,
     amount,
     dueDay: body.dueDay,
-    lastPaidMonth: body.lastPaidMonth || ''
+    lastPaidMonth: body.lastPaidMonth || '',
+    category: body.category || 'CUSTO_FIXO',
+    forecastType: body.forecastType || 'FIXED',
+    recurrence: body.recurrence || 'MONTHLY',
+    weekday: body.weekday,
+    effectiveFrom: body.effectiveFrom,
+    active: body.active !== false
   };
 }
 
@@ -60,16 +66,24 @@ export default async function handler(req, res) {
       const desc = String(body.desc || body.reference || '').trim();
       const amount = Number(body.amount);
       const dueDay = Number(body.dueDay);
+      const recurrence = ['MONTHLY', 'WEEKLY', 'SPECIAL'].includes(body.recurrence) ? body.recurrence : 'MONTHLY';
+      const weekday = body.weekday == null || body.weekday === '' ? null : Number(body.weekday);
 
       if (!desc) throw new Error('Descrição do custo fixo é obrigatória.');
       if (Number.isNaN(amount) || amount <= 0) throw new Error('amount precisa ser maior que zero.');
-      if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) throw new Error('dueDay precisa estar entre 1 e 31.');
+      if (recurrence === 'MONTHLY' && (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)) throw new Error('dueDay precisa estar entre 1 e 31.');
+      if (recurrence === 'WEEKLY' && (!Number.isInteger(weekday) || weekday < 0 || weekday > 6)) throw new Error('weekday precisa estar entre 0 e 6.');
 
       const recurringCost = await saveRecurringCost(tenantSlug, {
         desc,
         amount,
         dueDay,
-        lastPaidMonth: String(body.lastPaidMonth || '')
+        lastPaidMonth: String(body.lastPaidMonth || ''),
+        category: body.category || 'CUSTO_FIXO',
+        forecastType: body.forecastType || 'FIXED',
+        recurrence,
+        weekday,
+        effectiveFrom: body.effectiveFrom
       });
       return sendJson(res, 201, recurringCost);
     }

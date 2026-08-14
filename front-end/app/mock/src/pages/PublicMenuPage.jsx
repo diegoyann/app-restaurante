@@ -37,6 +37,59 @@ function isValidPhone(value) {
   return digits.length === 10 || digits.length === 11;
 }
 
+function toNonNegativeNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function getComboGroupMin(group) {
+  return toNonNegativeNumber(group?.minSelect ?? group?.minQty, 0);
+}
+
+function getComboGroupMax(group) {
+  return toNonNegativeNumber(group?.maxSelect ?? group?.maxQty, 0);
+}
+
+function getComboOptionMax(option) {
+  return toNonNegativeNumber(option?.maxQty, 1);
+}
+
+function sumSelectionQuantities(selections = {}) {
+  return Object.values(selections).reduce((sum, qty) => sum + toNonNegativeNumber(qty, 0), 0);
+}
+
+function normalizeComboSelections(item, selections = {}) {
+  return (item.comboGroups || []).reduce((acc, group) => {
+    const groupSelections = selections[group.id] || {};
+    const normalizedOptions = (group.options || []).reduce((optionAcc, option) => {
+      const qty = toNonNegativeNumber(groupSelections[option.id], 0);
+      if (qty > 0) optionAcc[option.id] = qty;
+      return optionAcc;
+    }, {});
+
+    if (Object.keys(normalizedOptions).length > 0) {
+      acc[group.id] = normalizedOptions;
+    }
+
+    return acc;
+  }, {});
+}
+
+function getComboSelectionKey(selections) {
+  return Object.entries(selections || {})
+    .map(([groupId, options]) => {
+      const optionKey = Object.entries(options || {})
+        .filter(([, qty]) => Number(qty) > 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([optionId, qty]) => `${optionId}:${qty}`)
+        .join(',');
+      return optionKey ? `${groupId}[${optionKey}]` : '';
+    })
+    .filter(Boolean)
+    .sort()
+    .join('|') || 'none';
+}
+
 export default function PublicMenuPage() {
   const { tenant } = useParams();
   const [loading, setLoading] = useState(true);
@@ -55,11 +108,13 @@ export default function PublicMenuPage() {
     addressComplement: ''
   });
   const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [acceptPaymentArrangement, setAcceptPaymentArrangement] = useState(false);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
   const [customerLookup, setCustomerLookup] = useState({ phone: '', status: 'idle', message: '' });
   const [expandedMenuItems, setExpandedMenuItems] = useState(() => ({}));
+  const [expandedComboItems, setExpandedComboItems] = useState(() => ({}));
   const [inlineComboSelections, setInlineComboSelections] = useState({});
 
   useEffect(() => {
@@ -139,13 +194,15 @@ export default function PublicMenuPage() {
     const unitPrice = Number(item.salePrice || item.basePrice || item.unitPrice || 0);
     let extraPrice = 0;
     let comboDescription = '';
+    let comboSelections = null;
     
     if (selections && item.comboGroups) {
+       comboSelections = normalizeComboSelections(item, selections);
        const descParts = [];
        item.comboGroups.forEach(g => {
-          const groupSelections = selections[g.id] || {};
+          const groupSelections = comboSelections[g.id] || {};
           const groupParts = [];
-          g.options.forEach(opt => {
+          (g.options || []).forEach(opt => {
              const qty = groupSelections[opt.id] || 0;
              if (qty > 0) {
                 extraPrice += (Number(opt.extraPrice) || 0) * qty;
@@ -158,7 +215,7 @@ export default function PublicMenuPage() {
     }
 
     const finalUnitPrice = unitPrice + extraPrice;
-    const selectionKey = selections ? JSON.stringify(selections) : 'none';
+    const selectionKey = comboSelections ? getComboSelectionKey(comboSelections) : 'none';
 
     setCart((current) => {
       const existing = current.find(
@@ -187,7 +244,8 @@ export default function PublicMenuPage() {
           totalPrice: finalUnitPrice,
           notes: comboDescription,
           selectionKey,
-          selections
+          selections: comboSelections,
+          comboSelections
         }
       ];
     });
@@ -217,6 +275,14 @@ export default function PublicMenuPage() {
     }));
   };
 
+  const incrementCartItem = (cartId) => {
+    setCart((current) => current.map((cartItem) => {
+      if (cartItem.cartId !== cartId) return cartItem;
+      const quantity = cartItem.quantity + 1;
+      return { ...cartItem, quantity, totalPrice: quantity * cartItem.unitPrice };
+    }));
+  };
+
   const getCartQuantity = (menuItemId) => {
     return cart.filter((cartItem) => cartItem.menuItemId === menuItemId).reduce((sum, item) => sum + item.quantity, 0);
   };
@@ -229,22 +295,28 @@ export default function PublicMenuPage() {
     setInlineComboSelections(current => {
       const itemSelections = current[itemId] || {};
       const groupSelections = itemSelections[groupId] || {};
-      const currentOptionQty = groupSelections[optionId] || 0;
-      const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
+      const currentOptionQty = toNonNegativeNumber(groupSelections[optionId], 0);
+      const currentGroupTotal = sumSelectionQuantities(groupSelections);
+      const groupLimit = toNonNegativeNumber(maxGroupQty, 0);
+      const optionLimit = toNonNegativeNumber(maxOptionQty, 0);
 
       const newOptionQty = currentOptionQty + delta;
       if (newOptionQty < 0) return current;
-      if (maxOptionQty !== undefined && maxOptionQty !== null && newOptionQty > maxOptionQty) return current;
-      if (delta > 0 && maxGroupQty !== undefined && maxGroupQty !== null && currentGroupTotal >= maxGroupQty) return current;
+      if (optionLimit > 0 && newOptionQty > optionLimit) return current;
+      if (delta > 0 && groupLimit > 0 && currentGroupTotal >= groupLimit) return current;
+
+      const nextGroupSelections = { ...groupSelections };
+      if (newOptionQty > 0) {
+        nextGroupSelections[optionId] = newOptionQty;
+      } else {
+        delete nextGroupSelections[optionId];
+      }
 
       return {
         ...current,
         [itemId]: {
           ...itemSelections,
-          [groupId]: {
-            ...groupSelections,
-            [optionId]: newOptionQty
-          }
+          [groupId]: nextGroupSelections
         }
       };
     });
@@ -254,12 +326,39 @@ export default function PublicMenuPage() {
     const itemSelections = inlineComboSelections[item.id] || {};
     for (const group of item.comboGroups || []) {
        const groupSelections = itemSelections[group.id] || {};
-       const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
-       if (group.minQty && currentGroupTotal < group.minQty) {
+       const currentGroupTotal = sumSelectionQuantities(groupSelections);
+       const minSelect = getComboGroupMin(group);
+       const maxSelect = getComboGroupMax(group);
+       if (currentGroupTotal < minSelect) {
+          return false;
+       }
+       if (maxSelect > 0 && currentGroupTotal > maxSelect) {
           return false;
        }
     }
     return true;
+  };
+
+  const openComboBuilder = (itemId) => {
+    setExpandedComboItems((current) => ({
+      ...current,
+      [itemId]: true
+    }));
+  };
+
+  const closeComboBuilder = (itemId) => {
+    setExpandedComboItems((current) => ({
+      ...current,
+      [itemId]: false
+    }));
+  };
+
+  const addComboToCart = (item) => {
+    if (!validateInlineCombo(item)) return;
+
+    addItem(item, inlineComboSelections[item.id] || {});
+    setInlineComboSelections((current) => ({ ...current, [item.id]: {} }));
+    closeComboBuilder(item.id);
   };
 
   const toggleMenuItemDescription = (menuItemId) => {
@@ -295,6 +394,15 @@ export default function PublicMenuPage() {
       setError('Informe telefone com DDD e número.');
       return;
     }
+    const hasPaymentMethods = (menu?.paymentMethods || []).length > 0;
+    if (hasPaymentMethods && !paymentMethodId) {
+      setError('Selecione uma forma de pagamento.');
+      return;
+    }
+    if (!hasPaymentMethods && !acceptPaymentArrangement) {
+      setError('Confirme que o pagamento será combinado com a loja.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -311,6 +419,7 @@ export default function PublicMenuPage() {
       setSuccess(`Pedido ${response.order.orderNumber} enviado.`);
       setCart([]);
       setNotes('');
+      setAcceptPaymentArrangement(false);
     } catch (apiError) {
       setError(apiError.message || 'Não foi possível enviar o pedido.');
     } finally {
@@ -350,6 +459,8 @@ export default function PublicMenuPage() {
                   const descriptionId = `public-menu-item-description-${item.id}`;
 
                   const isCombo = item.itemType === 'combo' || (item.comboGroups && item.comboGroups.length > 0);
+                  const isComboBuilderOpen = Boolean(expandedComboItems[item.id]);
+                  const isComboSelectionValid = isCombo ? validateInlineCombo(item) : false;
 
                   return (
                     <article key={item.id} className="public-menu-item-card rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -376,36 +487,48 @@ export default function PublicMenuPage() {
                             </div>
                           ) : null}
                           
-                          {isCombo && (
+                          {isCombo && isComboBuilderOpen && (
                             <div className="mt-4 mb-4 space-y-4 border-t border-gray-100 pt-4">
                               {item.comboGroups?.map(group => {
                                 const groupSelections = getGroupSelections(item.id, group.id);
-                                const currentGroupTotal = Object.values(groupSelections).reduce((a, b) => a + b, 0);
+                                const currentGroupTotal = sumSelectionQuantities(groupSelections);
+                                const minSelect = getComboGroupMin(group);
+                                const maxSelect = getComboGroupMax(group);
+                                const availableOptions = (group.options || []).filter(opt => opt.isAvailable !== false);
                                 
                                 return (
                                   <div key={group.id} className="space-y-2">
                                     <div className="flex justify-between items-baseline">
                                       <h4 className="text-xs font-black text-[#2A1E15] uppercase">{group.name}</h4>
                                       <span className="text-[10px] font-bold text-gray-500">
-                                        {group.minQty > 0 ? `Mín: ${group.minQty} ` : ''} 
-                                        {group.maxQty ? `Máx: ${group.maxQty}` : ''}
+                                        {minSelect > 0 ? `Mín: ${minSelect} ` : ''}
+                                        {maxSelect > 0 ? `Máx: ${maxSelect}` : ''}
                                       </span>
                                     </div>
+                                    <p className={`text-[10px] font-black ${currentGroupTotal < minSelect ? 'text-red-600' : 'text-[#696965]'}`}>
+                                      Selecionado: {currentGroupTotal}{maxSelect > 0 ? `/${maxSelect}` : ''}
+                                    </p>
                                     
                                     <div className="space-y-1">
-                                      {group.options?.filter(opt => opt.isAvailable !== false).map(opt => {
-                                        const qty = groupSelections[opt.id] || 0;
+                                      {availableOptions.length === 0 ? (
+                                        <p className="rounded-lg border border-dashed border-gray-200 p-2 text-[11px] font-bold text-[#696965]">
+                                          Nenhuma opção disponível neste grupo.
+                                        </p>
+                                      ) : availableOptions.map(opt => {
+                                        const qty = toNonNegativeNumber(groupSelections[opt.id], 0);
+                                        const optionMax = getComboOptionMax(opt);
                                         return (
                                           <div key={opt.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-2">
                                             <div>
                                               <p className="text-xs font-bold text-[#2A1E15]">{opt.name}</p>
-                                              {opt.extraPrice > 0 && <p className="text-[10px] text-[#D4A373] font-bold">+ {formatMoney(opt.extraPrice)}</p>}
+                                              <p className="text-[10px] text-[#696965] font-bold">Até {optionMax}</p>
+                                              {Number(opt.extraPrice) > 0 && <p className="text-[10px] text-[#D4A373] font-bold">+ {formatMoney(opt.extraPrice)}</p>}
                                             </div>
                                             
                                             <div className="inline-flex h-7 items-center overflow-hidden rounded bg-white text-[#2A1E15] border border-gray-200">
                                               <button 
                                                 type="button" 
-                                                onClick={() => updateInlineComboSelection(item.id, group.id, opt.id, -1, group.maxQty, opt.maxQty)}
+                                                onClick={() => updateInlineComboSelection(item.id, group.id, opt.id, -1, maxSelect, optionMax)}
                                                 disabled={qty === 0}
                                                 className="flex h-full w-7 items-center justify-center text-red-600 disabled:opacity-30"
                                               >
@@ -414,8 +537,8 @@ export default function PublicMenuPage() {
                                               <span className="min-w-6 text-center text-[10px] font-black">{qty}</span>
                                               <button 
                                                 type="button" 
-                                                onClick={() => updateInlineComboSelection(item.id, group.id, opt.id, 1, group.maxQty, opt.maxQty)}
-                                                disabled={(group.maxQty && currentGroupTotal >= group.maxQty) || (opt.maxQty && qty >= opt.maxQty)}
+                                                onClick={() => updateInlineComboSelection(item.id, group.id, opt.id, 1, maxSelect, optionMax)}
+                                                disabled={(maxSelect > 0 && currentGroupTotal >= maxSelect) || (optionMax > 0 && qty >= optionMax)}
                                                 className="flex h-full w-7 items-center justify-center disabled:opacity-30"
                                               >
                                                 <Plus size={11} />
@@ -428,6 +551,23 @@ export default function PublicMenuPage() {
                                   </div>
                                 );
                               })}
+                              <div className="flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => closeComboBuilder(item.id)}
+                                  className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 px-3 text-[10px] font-black uppercase text-[#696965]"
+                                >
+                                  Fechar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => addComboToCart(item)}
+                                  disabled={!isComboSelectionValid}
+                                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B] disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {quantity > 0 ? <span className="mr-1 rounded-full bg-[#3A281B] px-1.5 py-0.5 text-[#fff8e4]">{quantity}</span> : <Plus size={13} />} Adicionar ao pedido
+                                </button>
+                              </div>
                             </div>
                           )}
 
@@ -446,16 +586,11 @@ export default function PublicMenuPage() {
                             ) : isCombo ? (
                               <button 
                                 type="button" 
-                                onClick={() => {
-                                  if (validateInlineCombo(item)) {
-                                    addItem(item, inlineComboSelections[item.id] || {});
-                                    setInlineComboSelections(curr => ({ ...curr, [item.id]: {} }));
-                                  }
-                                }} 
-                                disabled={!validateInlineCombo(item)}
-                                className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B] disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => openComboBuilder(item.id)}
+                                className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B]"
                               >
-                                {quantity > 0 ? <span className="mr-1 rounded-full bg-[#3A281B] px-1.5 py-0.5 text-[#fff8e4]">{quantity}</span> : <Plus size={13} />} Adicionar
+                                {quantity > 0 ? <span className="mr-1 rounded-full bg-[#3A281B] px-1.5 py-0.5 text-[#fff8e4]">{quantity}</span> : <Plus size={13} />}
+                                {isComboBuilderOpen ? 'Editando' : 'Adicionar'}
                               </button>
                             ) : (
                               <button type="button" onClick={() => addItem(item)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#D4A373] px-3 text-[10px] font-black uppercase text-[#3A281B]">
@@ -492,7 +627,7 @@ export default function PublicMenuPage() {
                       <Minus size={13} />
                     </button>
                     <span className="min-w-7 text-center text-xs font-black">{item.quantity}</span>
-                    <button type="button" aria-label={`Aumentar ${item.name}`} onClick={() => addItem(item, item.selections)} className="flex h-full w-8 items-center justify-center">
+                    <button type="button" aria-label={`Aumentar ${item.name}`} onClick={() => incrementCartItem(item.cartId)} className="flex h-full w-8 items-center justify-center">
                       <Plus size={13} />
                     </button>
                   </div>
@@ -519,15 +654,15 @@ export default function PublicMenuPage() {
             </div>
             <input required placeholder="Cidade" value={customer.city} onChange={(event) => updateCustomer('city', event.target.value)} className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
             <input placeholder="Complemento" value={customer.addressComplement} onChange={(event) => updateCustomer('addressComplement', event.target.value)} className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
-            <SearchableSelect
+            {(menu?.paymentMethods || []).length > 0 ? <SearchableSelect
               value={paymentMethodId}
               onChange={(value) => setPaymentMethodId(value)}
-              placeholder="Pagamento a combinar"
+              placeholder="Selecione o pagamento"
               options={(menu?.paymentMethods || []).map((method) => ({
                 value: method.id,
                 label: method.name
               }))}
-            />
+            /> : <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900"><input type="checkbox" checked={acceptPaymentArrangement} onChange={(event) => setAcceptPaymentArrangement(event.target.checked)} className="mt-0.5 size-4" /><span>Esta loja ainda não cadastrou formas de pagamento. Concordo em combinar o pagamento diretamente com a loja.</span></label>}
             <textarea placeholder="Observações" value={notes} onChange={(event) => setNotes(event.target.value)} className="min-h-[80px] rounded-xl border border-gray-200 px-3 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#D4A373]" />
           </div>
 

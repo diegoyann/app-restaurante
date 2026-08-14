@@ -22,7 +22,7 @@ function buildTransactionPayload(body, bootstrap) {
   const type = body.type;
   const amount = roundCurrency(body.amount);
 
-  if (!['receita', 'despesa', 'custo_fixo'].includes(type)) throw new Error('type inválido.');
+  if (!['receita', 'despesa', 'custo_fixo', 'controle'].includes(type)) throw new Error('type inválido.');
   if (amount <= 0) throw new Error('amount precisa ser maior que zero.');
 
   if (type === 'custo_fixo') {
@@ -30,7 +30,11 @@ function buildTransactionPayload(body, bootstrap) {
     const dueDay = Number(body.dueDay);
     if (!desc) throw new Error('reference é obrigatório para custo fixo.');
     if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) throw new Error('dueDay precisa estar entre 1 e 31.');
-    return { kind: 'recurring_cost', value: { desc, amount, dueDay, lastPaidMonth: '' } };
+    return { kind: 'recurring_cost', value: {
+      desc, amount, dueDay, lastPaidMonth: '',
+      category: body.economicCategory || 'CUSTO_FIXO',
+      forecastType: body.forecastType || 'FIXED'
+    } };
   }
 
   const reference = String(body.reference || '').trim();
@@ -39,7 +43,7 @@ function buildTransactionPayload(body, bootstrap) {
   if (!reference) throw new Error('reference é obrigatório.');
   if (!date) throw new Error('date é obrigatório.');
 
-  const platform = type === 'receita' ? reference : 'despesa';
+  const platform = type === 'receita' ? reference : type === 'controle' ? 'controle' : 'despesa';
   const normalizedPlatform = platform.toLowerCase().replace(/\s+/g, '');
   const tax = type === 'receita'
     ? normalizedPlatform === 'ifood'
@@ -57,10 +61,12 @@ function buildTransactionPayload(body, bootstrap) {
       payment,
       amount,
       tax,
-      net: type === 'receita' ? roundCurrency(amount * (1 - (tax / 100))) : -amount,
+      net: type === 'receita' ? roundCurrency(amount * (1 - (tax / 100))) : type === 'controle' ? amount : -amount,
       type,
       category: reference,
-      note: String(body.note || '').trim()
+      note: String(body.note || '').trim(),
+      economicCategory: String(body.economicCategory || '').trim().toUpperCase(),
+      financialOrigin: String(body.financialOrigin || '').trim().toUpperCase()
     }
   };
 }

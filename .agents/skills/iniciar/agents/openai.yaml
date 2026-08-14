@@ -1,0 +1,4 @@
+interface:
+  display_name: "Iniciar Desenvolvimento"
+  short_description: "Triagem automatica de bugs e features"
+  default_prompt: "Use $iniciar para classificar e executar esta solicitacao."

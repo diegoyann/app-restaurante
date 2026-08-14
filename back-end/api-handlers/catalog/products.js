@@ -10,7 +10,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -29,15 +30,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const product = await saveProduct(tenantSlug, req.body || {});
-      return sendJson(res, req.method === 'POST' ? 201 : 200, product);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => saveProduct(tenantSlug, req.body || {})
+      });
     }
 
     if (req.method === 'DELETE') {
       const productId = req.body?.id;
       if (!productId) throw new Error('id do produto é obrigatório.');
-      await deleteProductById(tenantSlug, productId);
-      return sendJson(res, 200, { id: productId });
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deleteProductById(tenantSlug, productId);
+          return { id: productId };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);

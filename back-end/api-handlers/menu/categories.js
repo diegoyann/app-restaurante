@@ -11,7 +11,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -30,20 +31,38 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const category = await saveMenuCategory(tenantSlug, req.body || {});
-      return sendJson(res, req.method === 'POST' ? 201 : 200, category);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => saveMenuCategory(tenantSlug, req.body || {})
+      });
     }
 
     if (req.method === 'PATCH') {
-      const bootstrap = await reorderMenuCategories(tenantSlug, req.body || {});
-      return sendJson(res, 200, bootstrap.menuCategories);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          const bootstrap = await reorderMenuCategories(tenantSlug, req.body || {});
+          return bootstrap.menuCategories;
+        }
+      });
     }
 
     if (req.method === 'DELETE') {
       const categoryId = req.body?.id;
       if (!categoryId) throw new Error('id da categoria é obrigatório.');
-      await deleteMenuCategoryById(tenantSlug, categoryId);
-      return sendJson(res, 200, { id: categoryId });
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deleteMenuCategoryById(tenantSlug, categoryId);
+          return { id: categoryId };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);

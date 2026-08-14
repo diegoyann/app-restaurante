@@ -20,6 +20,9 @@ test('mapPayrollConfig normalizes a persisted payroll row', () => {
     advancePercentage: 45,
     advanceFixedDay: 18,
     advanceBusinessDayPolicy: 'previous',
-    holidayDates: ['2026-05-01']
+    holidayDates: ['2026-05-01'],
+    mealCostPerWorkday: 15,
+    extraKitchenDailyRate: 70,
+    extraMotoboyDailyRate: 60
   });
 });

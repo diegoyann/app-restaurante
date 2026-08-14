@@ -73,6 +73,45 @@ export const createEmptyCategoryForm = () => ({
   name: ''
 });
 
+export const normalizeComboCategoryNames = (option = {}) => {
+  const values = Array.isArray(option.linkedCategoryNames)
+    ? option.linkedCategoryNames
+    : [];
+  const fallback = option.linkedCategoryName ? [option.linkedCategoryName] : [];
+
+  return [...values, ...fallback].reduce((acc, categoryName) => {
+    const normalized = String(categoryName || '').trim();
+    if (normalized && !acc.includes(normalized)) acc.push(normalized);
+    return acc;
+  }, []);
+};
+
+export const normalizeComboComponentRefs = (option = {}) => {
+  const values = Array.isArray(option.linkedComponentRefs)
+    ? option.linkedComponentRefs
+    : [];
+  const fallback = option.linkedComponentRef ? [option.linkedComponentRef] : [];
+
+  return [...values, ...fallback].reduce((acc, componentRef) => {
+    const normalized = String(componentRef || '').trim();
+    if (normalized && !acc.includes(normalized)) acc.push(normalized);
+    return acc;
+  }, []);
+};
+
+export const normalizeComboOptionLinking = (option = {}) => {
+  const linkedCategoryNames = normalizeComboCategoryNames(option);
+  const linkedComponentRefs = normalizeComboComponentRefs(option);
+
+  return {
+    ...option,
+    linkedCategoryName: linkedCategoryNames[0] || '',
+    linkedCategoryNames,
+    linkedComponentRef: linkedComponentRefs[0] || '',
+    linkedComponentRefs
+  };
+};
+
 export const getMenuStatusMeta = (status) => {
   const statusMap = {
     active: { label: 'Disponível', badgeClass: 'bg-green-50 text-green-700 border-green-100' },

@@ -10,7 +10,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -29,15 +30,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const driver = await saveDeliveryDriver(tenantSlug, req.body || {});
-      return sendJson(res, req.method === 'POST' ? 201 : 200, driver);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => saveDeliveryDriver(tenantSlug, req.body || {})
+      });
     }
 
     if (req.method === 'DELETE') {
       const driverId = req.body?.id;
       if (!driverId) throw new Error('id do motoboy é obrigatório.');
-      await deleteDeliveryDriverById(tenantSlug, driverId);
-      return sendJson(res, 200, { id: driverId });
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deleteDeliveryDriverById(tenantSlug, driverId);
+          return { id: driverId };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);

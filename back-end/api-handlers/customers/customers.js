@@ -10,7 +10,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -29,15 +30,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const customer = await saveCustomer(tenantSlug, req.body || {});
-      return sendJson(res, req.method === 'POST' ? 201 : 200, customer);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => saveCustomer(tenantSlug, req.body || {})
+      });
     }
 
     if (req.method === 'DELETE') {
       const customerId = req.body?.id;
       if (!customerId) throw new Error('id do cliente é obrigatório.');
-      await deleteCustomerById(tenantSlug, customerId);
-      return sendJson(res, 200, { id: customerId });
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deleteCustomerById(tenantSlug, customerId);
+          return { id: customerId };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);

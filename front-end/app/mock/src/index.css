@@ -121,19 +121,19 @@ body {
 
   --color-sidebar-top: #2E1C14;
   --color-sidebar-mid: #3A2114;
-  --color-sidebar-warm: #6B3A1C;
-  --color-sidebar-bottom: #A85A2B;
+  --color-sidebar-warm: #613519;
+  --color-sidebar-bottom: #7B431F;
   --color-sidebar-bg: #2E1C14;
   --color-sidebar-bg-start: #2E1C14;
   --color-sidebar-bg-end: #A85A2B;
   --color-sidebar-footer: rgba(31, 18, 11, 0.32);
-  --color-sidebar-hover: rgba(255, 255, 255, 0.10);
-  --color-sidebar-active-bg: #EED9B0;
-  --color-sidebar-active-hover: #F3E8DA;
+  --color-sidebar-hover: rgba(255, 247, 234, 0.16);
+  --color-sidebar-active-bg: #F4E2BE;
+  --color-sidebar-active-hover: #FFF1D8;
   --color-sidebar-active-text: #2A1E15;
-  --color-sidebar-text: #EAD8BF;
-  --color-sidebar-muted: #C9AA86;
-  --color-sidebar-icon: #E6CDA8;
+  --color-sidebar-text: #F7E9D1;
+  --color-sidebar-muted: #E6C394;
+  --color-sidebar-icon: #F2D7AE;
   --color-sidebar-divider: rgba(255, 255, 255, 0.16);
 
   --color-primary: #2A1E15;
@@ -157,10 +157,10 @@ body {
   --color-bg-app: var(--color-bg-main);
   --color-bg-alt: var(--color-bg-soft);
   --color-text-main: #2A1E15;
-  --color-text-medium: #6F6258;
-  --color-text-secondary: #6F6258;
-  --color-text-weak: #9B8E82;
-  --color-text-muted: #9B8E82;
+  --color-text-medium: #5E5148;
+  --color-text-secondary: #5E5148;
+  --color-text-weak: #7D6E62;
+  --color-text-muted: #7D6E62;
   --color-text-disabled: #B8AA9A;
   --color-text-inverse: #FFF7EA;
 
@@ -234,6 +234,10 @@ aside nav div div button.bg-\[\#c5a04a\] svg {
 }
 
 /* Menus inativos */
+aside nav a {
+  text-decoration: none;
+}
+
 aside nav button,
 aside nav div div button {
   color: var(--color-sidebar-text) !important;
@@ -273,6 +277,70 @@ div[class*="rounded-2xl"][class*="shadow-sm"] {
 .metric-icon-box svg {
   color: var(--color-brown-medium) !important;
 }
+
+/* CMV: cards com estados visuais explícitos e contraste AA para leitura rápida. */
+.metric-card--cmv-neutral {
+  background: #FFFDF9 !important;
+  border-color: #D9C5A7 !important;
+}
+
+.metric-card--cmv-product {
+  background: #F1F8FD !important;
+  border-color: #A9CAE0 !important;
+}
+
+.metric-card--cmv-health {
+  background: #F0FAF3 !important;
+  border-color: #A8D7B5 !important;
+}
+
+.metric-card--cmv-markup {
+  background: #FFF7E8 !important;
+  border-color: #E7C27B !important;
+}
+
+.metric-card--cmv-neutral .metric-card__label,
+.metric-card--cmv-neutral .metric-card__value { color: #2A1E15 !important; }
+.metric-card--cmv-product .metric-card__label,
+.metric-card--cmv-product .metric-card__value { color: #1C5A85 !important; }
+.metric-card--cmv-health .metric-card__label,
+.metric-card--cmv-health .metric-card__value { color: #1F6B3C !important; }
+.metric-card--cmv-markup .metric-card__label,
+.metric-card--cmv-markup .metric-card__value { color: #7A3E00 !important; }
+
+.metric-card--cmv-neutral .metric-icon-box { background: #F3E8DA !important; }
+.metric-card--cmv-product .metric-icon-box { background: #DCEEF9 !important; }
+.metric-card--cmv-health .metric-icon-box { background: #D8F0DE !important; }
+.metric-card--cmv-markup .metric-icon-box { background: #FFE8B9 !important; }
+
+.metric-card--cmv-neutral .metric-icon-box svg { color: #5E4025 !important; }
+.metric-card--cmv-product .metric-icon-box svg { color: #1C5A85 !important; }
+.metric-card--cmv-health .metric-icon-box svg { color: #1F6B3C !important; }
+.metric-card--cmv-markup .metric-icon-box svg { color: #7A3E00 !important; }
+
+/* Aviso de pagamento: contraste alto entre contexto, ação e contador. */
+.payment-alert {
+  background: #FFF4DE !important;
+  color: #3B2A1D !important;
+  border: 1px solid #C88722 !important;
+}
+
+.payment-alert__icon,
+.payment-alert__label { color: #7A3E00 !important; }
+
+.payment-alert__count {
+  color: #3B2A1D !important;
+  background: #F6D99D !important;
+  border-radius: 9999px;
+  padding: 0.1rem 0.4rem;
+  font-weight: 900;
+}
+
+/* Camada final: preserva os fundos dos cards CMV contra a regra global de .bg-white. */
+div.metric-card.metric-card--cmv-neutral { background: #FFFDF9 !important; }
+div.metric-card.metric-card--cmv-product { background: #F1F8FD !important; }
+div.metric-card.metric-card--cmv-health { background: #F0FAF3 !important; }
+div.metric-card.metric-card--cmv-markup { background: #FFF7E8 !important; }
 
 [class*="text-gray-900"] { color: var(--color-text-main) !important; }
 [class*="text-[#0f172a]"] { color: var(--color-text-main) !important; }
@@ -472,4 +540,80 @@ aside nav button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg,
 aside nav div div button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) span,
 aside nav div div button.menu-item-active:not(.bg-white\/12):not(.bg-\[\#c5a04a\]) svg {
   color: #2A1E15 !important;
+}
+
+/* Camada final de legibilidade: uma única linguagem para toda a navegação. */
+aside.bg-gradient-to-b {
+  border-right-color: rgba(244, 226, 190, 0.22) !important;
+}
+
+aside nav :is(a, button) {
+  color: var(--color-sidebar-text) !important;
+  text-decoration: none;
+  text-shadow: 0 1px 1px rgba(31, 18, 11, 0.22);
+}
+
+aside nav :is(a, button) :is(span, svg) {
+  color: inherit !important;
+}
+
+aside nav :is(a, button):not(.menu-item-active) {
+  background: transparent !important;
+}
+
+aside nav :is(a, button):hover {
+  background: var(--color-sidebar-hover) !important;
+  color: #FFF9EE !important;
+}
+
+aside nav :is(a, button):focus-visible {
+  outline: 3px solid var(--color-accent-strong);
+  outline-offset: 3px;
+  border-radius: 0.75rem;
+}
+
+aside nav :is(a, button).menu-item-active {
+  background: var(--color-sidebar-active-bg) !important;
+  color: var(--color-sidebar-active-text) !important;
+  border-left: 4px solid var(--color-accent-strong) !important;
+  box-shadow: 0 8px 20px rgba(31, 18, 11, 0.24) !important;
+  text-shadow: none;
+}
+
+aside nav :is(a, button).menu-item-active:hover {
+  background: var(--color-sidebar-active-hover) !important;
+  color: var(--color-sidebar-active-text) !important;
+}
+
+/* Texto de conteúdo: contraste consistente em superfícies claras. */
+.app-shell main {
+  color: var(--color-text-main);
+}
+
+.app-shell main :is(input, select, textarea) {
+  color: var(--color-text-main) !important;
+  border-color: var(--color-border-strong);
+}
+
+.app-shell main :is(input, select, textarea)::placeholder {
+  color: var(--color-text-muted) !important;
+  opacity: 1;
+}
+
+.app-shell main :is(input, select, textarea):focus {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.24) !important;
+}
+
+.app-shell main h1,
+.app-shell main h2,
+.app-shell main h3 {
+  color: var(--color-primary) !important;
+  letter-spacing: -0.02em;
+}
+
+/* O cabeçalho dos produtos de CMV usa fundo escuro e precisa escapar da cor
+   padrão dos títulos da aplicação. */
+.app-shell main .cmv-product-card__name {
+  color: #FFFFFF !important;
 }

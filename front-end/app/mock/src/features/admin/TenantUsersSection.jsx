@@ -4,7 +4,6 @@ import { AdminModal } from './AdminLayout.jsx';
 import SearchableSelect from '../../components/SearchableSelect.jsx';
 
 const inputClass = 'w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-semibold outline-none focus:border-[#D4A373]';
-const selectClass = 'w-full rounded-2xl border border-[#2A1E15]/10 bg-[#fffdf9] px-4 py-3 text-sm font-bold outline-none focus:border-[#D4A373]';
 
 export default function TenantUsersSection({
   users,

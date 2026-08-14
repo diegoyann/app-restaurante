@@ -150,6 +150,7 @@ export const MenuCategoryManager = ({
   onDeleteCategory,
   onCancelEdit,
   onReorderCategories,
+  isSaving = false,
   isModalContent = false
 }) => {
   const InputComponent = CustomInput ?? DefaultCustomInput;
@@ -172,8 +173,8 @@ export const MenuCategoryManager = ({
 
     <form onSubmit={onSubmitCategory} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_220px] gap-3">
       <InputComponent label="Nome da categoria" value={categoryForm.name} onChange={(e) => onCategoryFormChange('name', e.target.value)} required />
-      <button type="submit" className="bg-[#2A1E15] text-[#FFFFFF] h-11 mt-auto rounded-xl font-black uppercase text-[10px] shadow-md">
-        {editingCategoryId ? 'Salvar categoria' : 'Cadastrar categoria'}
+      <button type="submit" disabled={isSaving} className="bg-[#2A1E15] text-[#FFFFFF] h-11 mt-auto rounded-xl font-black uppercase text-[10px] shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+        {isSaving ? 'Salvando...' : editingCategoryId ? 'Salvar categoria' : 'Cadastrar categoria'}
       </button>
     </form>
 
@@ -220,6 +221,7 @@ export const MenuItemFormPanel = ({
   onMenuItemPhotoChange,
   onMenuComponentSearchChange,
   onToggleMenuComponent,
+  isSaving = false,
   isModalContent = false
 }) => {
   const InputComponent = CustomInput ?? DefaultCustomInput;
@@ -356,8 +358,8 @@ export const MenuItemFormPanel = ({
         </div>
       </div>
 
-      <button type="submit" disabled={!menuItemForm.linkedComponentIds[0]} className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-        {editingMenuItemId ? 'Salvar item' : 'Cadastrar item'}
+      <button type="submit" disabled={!menuItemForm.linkedComponentIds[0] || isSaving} className="w-full bg-[#2A1E15] text-[#FFFFFF] h-11 rounded-xl font-black uppercase text-[10px] shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+        {isSaving ? 'Salvando...' : editingMenuItemId ? 'Salvar item' : 'Cadastrar item'}
       </button>
     </form>
   </div>
@@ -376,6 +378,7 @@ export const MenuCategoryModal = ({
   onDeleteCategory,
   onCancelEdit,
   onReorderCategories,
+  isSaving = false,
   CustomInput = DefaultCustomInput
 }) => {
   if (!isOpen) return null;
@@ -403,6 +406,7 @@ export const MenuCategoryModal = ({
           onDeleteCategory={onDeleteCategory}
           onCancelEdit={onCancelEdit}
           onReorderCategories={onReorderCategories}
+          isSaving={isSaving}
           isModalContent
         />
       </div>
@@ -424,6 +428,7 @@ export const MenuItemModal = ({
   onMenuItemPhotoChange,
   onMenuComponentSearchChange,
   onToggleMenuComponent,
+  isSaving = false,
   CustomInput = DefaultCustomInput
 }) => {
   if (!isOpen) return null;
@@ -453,6 +458,7 @@ export const MenuItemModal = ({
           onMenuItemPhotoChange={onMenuItemPhotoChange}
           onMenuComponentSearchChange={onMenuComponentSearchChange}
           onToggleMenuComponent={onToggleMenuComponent}
+          isSaving={isSaving}
           isModalContent
         />
       </div>
@@ -484,7 +490,9 @@ export const ComboEditorModal = ({
   onComboOptionChange,
   onReorderComboOptions,
   formatMoney,
-  CustomInput
+  CustomInput,
+  error = '',
+  isSaving = false
 }) => {
   if (!isOpen) return null;
 
@@ -503,6 +511,7 @@ export const ComboEditorModal = ({
         </div>
 
         <form onSubmit={onSubmitCombo} className="space-y-6">
+          {error ? <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-black text-red-700">{error}</p> : null}
           <div className="combo-editor-shell">
             <div className="combo-editor-shell__media">
               <div className="menu-photo-dropzone">
@@ -611,10 +620,15 @@ export const ComboEditorModal = ({
                         : option.linkedCategoryName
                           ? [option.linkedCategoryName]
                           : [];
+                      const linkedComponentRefs = Array.isArray(option.linkedComponentRefs) && option.linkedComponentRefs.length > 0
+                        ? option.linkedComponentRefs
+                        : option.linkedComponentRef
+                          ? [option.linkedComponentRef]
+                          : [];
                       const linkedItems = linkedCategoryNames
                         .flatMap((categoryName) => comboLinkItemsByCategory[categoryName] || [])
                         .filter((item, index, items) => items.findIndex((candidate) => candidate.key === item.key) === index);
-                      const linkedMeta = resolveLinkedComponentMeta(option.linkedComponentRef, catalogMetrics, ingredients, formatMoney, menuItems);
+                      const linkedMeta = resolveLinkedComponentMeta(linkedComponentRefs[0] || '', catalogMetrics, ingredients, formatMoney, menuItems);
 
                       return (
                         <div className="combo-option-row">
@@ -642,7 +656,7 @@ export const ComboEditorModal = ({
                               <div className="space-y-1">
                                 <label className="text-[11px] xl:text-xs 2xl:text-sm font-black text-[#696965] uppercase ml-1 tracking-wider">Item cadastrado</label>
                                 <MultiSearchableSelect
-                                  value={option.linkedComponentRefs || []}
+                                  value={linkedComponentRefs}
                                   onChange={(value) => onComboOptionChange(group.id, option.id, 'linkedComponentRefs', value)}
                                   disabled={linkedCategoryNames.length === 0}
                                   placeholder={linkedCategoryNames.length > 0 ? 'Selecionar itens' : 'Escolha a categoria primeiro'}
@@ -689,8 +703,8 @@ export const ComboEditorModal = ({
             />
           </div>
 
-          <button type="submit" className="w-full bg-[#2A1E15] text-[#FFFFFF] h-12 rounded-xl font-black uppercase text-[11px] shadow-md">
-            {editingComboId ? 'Salvar combo' : 'Cadastrar combo'}
+          <button type="submit" disabled={isSaving} className="w-full bg-[#2A1E15] text-[#FFFFFF] h-12 rounded-xl font-black uppercase text-[11px] shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+            {isSaving ? 'Salvando...' : editingComboId ? 'Salvar combo' : 'Cadastrar combo'}
           </button>
         </form>
       </div>

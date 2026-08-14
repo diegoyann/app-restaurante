@@ -9,11 +9,17 @@ import {
   mapFinancialClosing,
   mapPaymentMethod,
   mapRecurringCost,
+  mapSalesChannel,
   mapTransaction
 } from '../shared/mappers.js';
+import { normalizeRecurringCostName } from './obligationsService.js';
+import { randomUUID } from 'node:crypto';
+import { buildDailyRevenue } from './dailyRevenueModel.js';
+import { assertCompetenceOpen } from './competenceProtection.js';
 
 export async function saveTransaction(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
+  await assertCompetenceOpen(tenant.id, String(payload.date || '').slice(0, 7));
   const sourceType = String(payload.sourceType || 'manual').trim() || 'manual';
   const sourceId = String(payload.sourceId || '').trim();
   const existingSource = sourceId
@@ -45,7 +51,12 @@ export async function saveTransaction(tenantSlug, payload) {
         category: payload.category,
         note: payload.note || '',
         source_type: sourceType,
-        source_id: sourceId
+        source_id: sourceId,
+        economic_category: payload.economicCategory || '',
+        financial_origin: payload.financialOrigin || '',
+        obligation_id: payload.obligationId || null,
+        payment_id: payload.paymentId || null,
+        batch_id: payload.batchId || null
       })
       .select('*')
       .single(),
@@ -57,6 +68,12 @@ export async function saveTransaction(tenantSlug, payload) {
 
 export async function deleteTransactionById(tenantSlug, transactionId) {
   const tenant = await getTenantRowBySlug(tenantSlug);
+  const current = maybeSingle(
+    await supabaseAdmin.from('transactions').select('transaction_date').eq('tenant_id', tenant.id).eq('id', transactionId).maybeSingle(),
+    'Falha ao carregar lançamento.'
+  );
+  if (!current) throw new Error('Lançamento não encontrado.');
+  await assertCompetenceOpen(tenant.id, String(current.transaction_date).slice(0, 7));
 
   ensureOk(
     await supabaseAdmin
@@ -70,7 +87,40 @@ export async function deleteTransactionById(tenantSlug, transactionId) {
   return true;
 }
 
+export async function saveDailyRevenue(tenantSlug, payload) {
+  const tenant = await getTenantRowBySlug(tenantSlug);
+  const date = String(payload.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Data da venda diária inválida.');
+  await assertCompetenceOpen(tenant.id, date.slice(0, 7));
+  const channels = ensureOk(await supabaseAdmin.from('sales_channels').select('*').eq('tenant_id', tenant.id).eq('active', true), 'Falha ao carregar canais de venda.');
+  const previous = ensureOk(await supabaseAdmin.from('transactions').select('batch_id').eq('tenant_id', tenant.id).eq('source_type', 'DAILY_REVENUE').eq('transaction_date', date), 'Falha ao verificar entrada diária existente.');
+  const batchId = previous.find((row) => row.batch_id)?.batch_id || randomUUID();
+  const daily = buildDailyRevenue({ date, batchId, channels, entries: Array.isArray(payload.entries) ? payload.entries : [] });
+  ensureOk(await supabaseAdmin.from('transactions').delete().eq('tenant_id', tenant.id).eq('source_type', 'DAILY_REVENUE').eq('transaction_date', date), 'Falha ao substituir entrada diária.');
+  const transactions = [];
+  for (const row of daily.rows) transactions.push(await saveTransaction(tenantSlug, { ...row, note: String(payload.note || '') }));
+  const existingReconciliation = maybeSingle(await supabaseAdmin.from('daily_cash_reconciliations').select('*').eq('tenant_id', tenant.id).eq('reconciliation_date', date).maybeSingle(), 'Falha ao carregar conferência do dia.');
+  ensureOk(await supabaseAdmin.from('daily_cash_reconciliations').upsert({
+    id: existingReconciliation?.id || undefined,
+    tenant_id: tenant.id,
+    reconciliation_date: date,
+    gross_revenue: daily.totals.grossRevenue,
+    cash_revenue: daily.totals.cashRevenue,
+    bank_revenue: daily.totals.bankRevenue,
+    receivable_revenue: daily.totals.receivableRevenue,
+    opening_cash_balance: Number(existingReconciliation?.opening_cash_balance || 0),
+    counted_closing_cash: existingReconciliation?.counted_closing_cash ?? null,
+    observation: String(payload.note || existingReconciliation?.observation || '')
+  }, { onConflict: 'tenant_id,reconciliation_date' }), 'Falha ao atualizar conferência financeira do dia.');
+  return { batchId, transactions, totals: daily.totals };
+}
+
 export async function deleteTransactionBySource(tenantId, sourceType, sourceId) {
+  const existing = ensureOk(
+    await supabaseAdmin.from('transactions').select('transaction_date').eq('tenant_id', tenantId).eq('source_type', sourceType).eq('source_id', sourceId),
+    'Falha ao carregar lançamento automático.'
+  );
+  for (const row of existing) await assertCompetenceOpen(tenantId, String(row.transaction_date).slice(0, 7));
   ensureOk(
     await supabaseAdmin
       .from('transactions')
@@ -170,21 +220,76 @@ async function getOrdersInClosingRange(tenantId, periodStart, periodEnd) {
 
 export async function saveRecurringCost(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
+  const today = new Date().toISOString().slice(0, 10);
+  const previous = payload.id ? maybeSingle(
+    await supabaseAdmin.from('recurring_costs').select('*').eq('tenant_id', tenant.id).eq('id', payload.id).maybeSingle(),
+    'Falha ao carregar o cadastro recorrente atual.'
+  ) : null;
+  const normalized = normalizeRecurringCostName(payload.desc);
+  const category = String(payload.category || 'CUSTO_FIXO').trim().toUpperCase();
+  const duplicate = payload.id ? null : maybeSingle(
+    await supabaseAdmin.from('recurring_costs').select('id').eq('tenant_id', tenant.id).eq('category', category).eq('normalized_key', normalized.key).eq('active', true).is('merged_into_id', null).maybeSingle(),
+    'Falha ao verificar custo fixo duplicado.'
+  );
+  if (duplicate) throw new Error(`Já existe um cadastro mestre equivalente: ${normalized.name}.`);
+  const requestedEffectiveDate = String(payload.effectiveFrom || today).slice(0, 10);
+  const effectiveDate = previous && requestedEffectiveDate < today ? today : requestedEffectiveDate;
   const row = ensureOk(
     await supabaseAdmin
       .from('recurring_costs')
       .upsert({
         id: payload.id || undefined,
         tenant_id: tenant.id,
-        description: payload.desc,
+        description: normalized.name,
         amount: payload.amount,
         due_day: payload.dueDay,
-        last_paid_month: payload.lastPaidMonth || ''
+        last_paid_month: payload.lastPaidMonth || '',
+        normalized_key: normalized.key,
+        category,
+        forecast_type: payload.forecastType === 'ESTIMATED' ? 'ESTIMATED' : 'FIXED',
+        recurrence: ['MONTHLY', 'WEEKLY', 'SPECIAL'].includes(payload.recurrence) ? payload.recurrence : 'MONTHLY',
+        weekday: payload.recurrence === 'WEEKLY' ? Number(payload.weekday) : null,
+        effective_from: effectiveDate,
+        active: payload.active !== false,
+        aliases: Array.isArray(payload.aliases) ? payload.aliases : [],
+        source_type: payload.sourceType || 'MANUAL'
       })
       .select('*')
       .single(),
     'Falha ao salvar custo fixo.'
   );
+
+  ensureOk(
+    await supabaseAdmin.from('recurring_cost_history').upsert({
+      tenant_id: tenant.id,
+      recurring_cost_id: row.id,
+      effective_month: effectiveDate.slice(0, 7),
+      description: row.description,
+      amount: row.amount,
+      due_day: row.due_day,
+      category: row.category,
+      forecast_type: row.forecast_type,
+      recurrence: row.recurrence,
+      weekday: row.weekday,
+      active: row.active,
+    }, { onConflict: 'tenant_id,recurring_cost_id,effective_month' }),
+    'Falha ao preservar a vigência do custo recorrente.'
+  );
+
+  if (previous) {
+    const effectiveMonth = effectiveDate.slice(0, 7);
+    ensureOk(
+      await supabaseAdmin
+        .from('financial_obligations')
+        .delete()
+        .eq('tenant_id', tenant.id)
+        .eq('recurring_cost_id', row.id)
+        .eq('source_type', 'RECURRING')
+        .eq('paid_amount', 0)
+        .gte('competence_month', effectiveMonth),
+      'Falha ao substituir previsões futuras do cadastro recorrente.'
+    );
+  }
 
   return mapRecurringCost(row);
 }
@@ -201,6 +306,35 @@ export async function deleteRecurringCostById(tenantSlug, recurringCostId) {
     'Falha ao remover custo fixo.'
   );
 
+  return true;
+}
+
+export async function saveSalesChannel(tenantSlug, payload) {
+  const tenant = await getTenantRowBySlug(tenantSlug);
+  const name = String(payload.name || '').trim();
+  const feePercent = Number(payload.feePercent || 0);
+  if (!name) throw new Error('Nome do canal é obrigatório.');
+  if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) throw new Error('A taxa deve estar entre 0% e 100%.');
+  const settlementType = payload.settlementType === 'SCHEDULED' ? 'SCHEDULED' : 'IMMEDIATE';
+  const settlementFrequency = settlementType === 'SCHEDULED' && payload.settlementFrequency === 'WEEKLY' ? 'WEEKLY' : 'NONE';
+  const row = ensureOk(await supabaseAdmin.from('sales_channels').upsert({
+    id: payload.id || undefined,
+    tenant_id: tenant.id,
+    name,
+    active: payload.active !== false,
+    fee_percent: feePercent,
+    settlement_type: settlementType,
+    settlement_frequency: settlementFrequency,
+    settlement_weekday: settlementFrequency === 'WEEKLY' ? Number(payload.settlementWeekday ?? 3) : null,
+    settlement_delay_days: settlementFrequency === 'WEEKLY' ? Number(payload.settlementDelayDays ?? 3) : 0,
+    notes: String(payload.notes || '').trim()
+  }).select('*').single(), 'Falha ao salvar canal de venda.');
+  return mapSalesChannel(row);
+}
+
+export async function deleteSalesChannelById(tenantSlug, channelId) {
+  const tenant = await getTenantRowBySlug(tenantSlug);
+  ensureOk(await supabaseAdmin.from('sales_channels').delete().eq('tenant_id', tenant.id).eq('id', channelId), 'Falha ao excluir canal de venda.');
   return true;
 }
 

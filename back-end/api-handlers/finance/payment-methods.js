@@ -10,7 +10,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -29,15 +30,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const paymentMethod = await savePaymentMethod(tenantSlug, req.body || {});
-      return sendJson(res, req.method === 'POST' ? 201 : 200, paymentMethod);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => savePaymentMethod(tenantSlug, req.body || {})
+      });
     }
 
     if (req.method === 'DELETE') {
       const paymentMethodId = req.body?.id;
       if (!paymentMethodId) throw new Error('id da forma de pagamento é obrigatório.');
-      await deletePaymentMethodById(tenantSlug, paymentMethodId);
-      return sendJson(res, 200, { id: paymentMethodId });
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deletePaymentMethodById(tenantSlug, paymentMethodId);
+          return { id: paymentMethodId };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);

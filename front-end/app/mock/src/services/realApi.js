@@ -1,8 +1,49 @@
 import { supabase } from '../lib/supabase.js';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:3000/api';
+const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const pendingMutations = new Map();
 
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '');
+
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function normalizeBodyForKey(body) {
+  if (!body) return '';
+
+  if (typeof body === 'string') {
+    try {
+      return stableStringify(JSON.parse(body));
+    } catch {
+      return body;
+    }
+  }
+
+  return stableStringify(body);
+}
+
+function createMutationKey(path, options) {
+  const method = String(options.method || 'GET').toUpperCase();
+  return `${method}:${path}:${normalizeBodyForKey(options.body)}`;
+}
+
+function createIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `idem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -27,31 +68,66 @@ async function parseResponse(response) {
 export async function apiRequest(path, options = {}) {
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
+  const method = String(options.method || 'GET').toUpperCase();
+  const isMutation = MUTATION_METHODS.has(method);
+  const mutationKey = isMutation ? createMutationKey(path, { ...options, method }) : '';
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  if (mutationKey && pendingMutations.has(mutationKey)) {
+    return pendingMutations.get(mutationKey);
+  }
+
+  const requestOptions = {
+    ...options,
     cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(method === 'POST' ? { 'Idempotency-Key': createIdempotencyKey() } : {}),
+      'X-Request-Id': createIdempotencyKey(),
       ...(options.headers || {})
-    },
-    ...options
-  });
+    }
+  };
 
-  return parseResponse(response);
+  const requestPromise = fetch(`${API_BASE_URL}${path}`, requestOptions)
+    .then((response) => parseResponse(response));
+
+  if (mutationKey) {
+    pendingMutations.set(mutationKey, requestPromise);
+    requestPromise.finally(() => pendingMutations.delete(mutationKey)).catch(() => {});
+  }
+
+  return requestPromise;
 }
 
 export async function publicApiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const method = String(options.method || 'GET').toUpperCase();
+  const isMutation = MUTATION_METHODS.has(method);
+  const mutationKey = isMutation ? createMutationKey(path, { ...options, method }) : '';
+
+  if (mutationKey && pendingMutations.has(mutationKey)) {
+    return pendingMutations.get(mutationKey);
+  }
+
+  const requestOptions = {
+    ...options,
     cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
+      ...(method === 'POST' ? { 'Idempotency-Key': createIdempotencyKey() } : {}),
+      'X-Request-Id': createIdempotencyKey(),
       ...(options.headers || {})
-    },
-    ...options
-  });
+    }
+  };
 
-  return parseResponse(response);
+  const requestPromise = fetch(`${API_BASE_URL}${path}`, requestOptions)
+    .then((response) => parseResponse(response));
+
+  if (mutationKey) {
+    pendingMutations.set(mutationKey, requestPromise);
+    requestPromise.finally(() => pendingMutations.delete(mutationKey)).catch(() => {});
+  }
+
+  return requestPromise;
 }
 
 export function withTenant(path, tenantSlug) {
@@ -111,6 +187,21 @@ export const financeApi = {
       body: JSON.stringify(payload)
     });
   },
+  createSalesChannel(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/sales-channels', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
+  },
+  saveDailyRevenue(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/daily-revenue', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
+  },
+  receiveChannelSettlement(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/channel-settlements', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
+  },
+  updateSalesChannel(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/sales-channels', tenantSlug), { method: 'PUT', body: JSON.stringify(payload) });
+  },
+  deleteSalesChannel(tenantSlug, id) {
+    return apiRequest(withTenant('/finance/sales-channels', tenantSlug), { method: 'DELETE', body: JSON.stringify({ id }) });
+  },
   updateRecurringCost(tenantSlug, payload) {
     return apiRequest(withTenant('/finance/recurring-costs', tenantSlug), {
       method: 'PUT',
@@ -147,7 +238,55 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify(payload)
     });
+  },
+  getObligations(tenantSlug) {
+    return apiRequest(withTenant('/finance/obligations', tenantSlug));
+  },
+  updateObligation(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/obligations', tenantSlug), { method: 'PUT', body: JSON.stringify(payload) });
+  },
+  addObligationPayment(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/obligations', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
+  },
+  resolveObligationDuplicate(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/obligations', tenantSlug), { method: 'PATCH', body: JSON.stringify(payload) });
+  },
+  getCashReconciliations(tenantSlug) {
+    return apiRequest(withTenant('/finance/cash-reconciliations', tenantSlug));
+  },
+  saveCashReconciliation(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/cash-reconciliations', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
+  },
+  getBalances(tenantSlug) {
+    return apiRequest(withTenant('/finance/balances', tenantSlug));
+  },
+  saveBalancePeriod(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/balances', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
+  },
+  changeBalanceStatus(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/balances', tenantSlug), { method: 'PUT', body: JSON.stringify(payload) });
+  },
+  saveAccountMovement(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/balances', tenantSlug), { method: 'POST', body: JSON.stringify({ ...payload, resource: 'MOVEMENT' }) });
+  },
+  reverseAccountMovement(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/balances', tenantSlug), { method: 'PUT', body: JSON.stringify({ ...payload, resource: 'MOVEMENT' }) });
+  },
+  closeIntegratedMonth(tenantSlug, payload) {
+    return apiRequest(withTenant('/finance/integrated-close', tenantSlug), { method: 'POST', body: JSON.stringify(payload) });
   }
+};
+
+export const supplyChainApi = {
+  getData(tenantSlug) { return apiRequest(withTenant('/supply-chain/data', tenantSlug)); },
+  saveSupplier(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/suppliers', tenantSlug), { method: payload.id ? 'PUT' : 'POST', body: JSON.stringify(payload) }); },
+  deleteSupplier(tenantSlug, id) { return apiRequest(withTenant('/supply-chain/suppliers', tenantSlug), { method: 'DELETE', body: JSON.stringify({ id }) }); },
+  saveOrder(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/orders', tenantSlug), { method: payload.id ? 'PUT' : 'POST', body: JSON.stringify(payload) }); },
+  changeOrderStatus(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/orders', tenantSlug), { method: 'PATCH', body: JSON.stringify(payload) }); },
+  receiveOrder(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/receipts', tenantSlug), { method: 'POST', body: JSON.stringify(payload) }); },
+  reverseReceipt(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/receipts', tenantSlug), { method: 'PUT', body: JSON.stringify(payload) }); },
+  saveInventory(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/inventory', tenantSlug), { method: 'POST', body: JSON.stringify(payload) }); },
+  changeInventoryStatus(tenantSlug, payload) { return apiRequest(withTenant('/supply-chain/inventory', tenantSlug), { method: 'PUT', body: JSON.stringify(payload) }); }
 };
 
 export const customersApi = {
@@ -247,6 +386,21 @@ export const publicMenuApi = {
 };
 
 export const hrApi = {
+  getFixedPayroll(tenantSlug, month) {
+    return apiRequest(withTenant(`/hr/fixed-payroll?month=${encodeURIComponent(month)}`, tenantSlug));
+  },
+  saveScheduledDayOff(tenantSlug, payload) {
+    return apiRequest(withTenant('/hr/fixed-payroll', tenantSlug), { method: 'POST', body: JSON.stringify({ ...payload, resource: 'DAY_OFF' }) });
+  },
+  cancelScheduledDayOff(tenantSlug, payload) {
+    return apiRequest(withTenant('/hr/fixed-payroll', tenantSlug), { method: 'DELETE', body: JSON.stringify({ ...payload, resource: 'DAY_OFF' }) });
+  },
+  savePayrollAdjustment(tenantSlug, payload) {
+    return apiRequest(withTenant('/hr/fixed-payroll', tenantSlug), { method: 'POST', body: JSON.stringify({ ...payload, resource: 'ADJUSTMENT' }) });
+  },
+  cancelPayrollAdjustment(tenantSlug, payload) {
+    return apiRequest(withTenant('/hr/fixed-payroll', tenantSlug), { method: 'DELETE', body: JSON.stringify({ ...payload, resource: 'ADJUSTMENT' }) });
+  },
   saveEmployee(tenantSlug, payload) {
     const method = payload.id ? 'PUT' : 'POST';
 
@@ -259,6 +413,24 @@ export const hrApi = {
     return apiRequest(withTenant('/hr/employees', tenantSlug), {
       method: 'DELETE',
       body: JSON.stringify({ id })
+    });
+  },
+  saveWorkLog(tenantSlug, payload) {
+    return apiRequest(withTenant('/hr/work-logs', tenantSlug), {
+      method: payload.id ? 'PUT' : 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+  updateWeeklyClosingPayment(tenantSlug, payload) {
+    return apiRequest(withTenant('/hr/weekly-closings', tenantSlug), {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  },
+  savePayrollConfig(tenantSlug, payload) {
+    return apiRequest(withTenant('/payroll/config', tenantSlug), {
+      method: 'PUT',
+      body: JSON.stringify(payload)
     });
   }
 };

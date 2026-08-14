@@ -16,7 +16,20 @@ import { useAuthSession } from '../hooks/useAuthSession.js';
 import { resolveSessionDestination } from '../features/session/sessionModel.js';
 import { authApi } from '../services/api.js';
 import { isMockDataSource } from '../config/dataSource.js';
+import { featureFlags } from '../config/featureFlags.js';
 import { signInWithMockPassword } from '../services/mockAuth.js';
+
+function getLoginErrorMessage(error, stage) {
+    const message = error?.message || '';
+
+    if (/failed to fetch|networkerror|network request failed/i.test(message)) {
+        return stage === 'supabase'
+            ? 'Não foi possível alcançar o Supabase. Verifique bloqueadores de conteúdo, DNS ou rede que possam bloquear *.supabase.co.'
+            : 'Login confirmado, mas não foi possível validar a sessão na API. Tente novamente em instantes.';
+    }
+
+    return message || 'E-mail ou senha inválidos.';
+}
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -38,6 +51,7 @@ export default function LoginPage() {
     const doLogin = async (emailValue, passwordValue) => {
         setError('');
         setLoading(true);
+        let stage = 'supabase';
 
         try {
             if (isMockDataSource()) {
@@ -58,8 +72,12 @@ export default function LoginPage() {
             if (signInError) {
                 throw signInError;
             }
+
+            stage = 'session';
+            const payload = await authApi.getSession();
+            navigate(resolveSessionDestination(payload), { replace: true });
         } catch (apiError) {
-            setError(apiError.message || 'E-mail ou senha inválidos.');
+            setError(getLoginErrorMessage(apiError, stage));
         } finally {
             setLoading(false);
         }
@@ -134,6 +152,7 @@ export default function LoginPage() {
 
                         {/* Formulário */}
                         <form onSubmit={handleSubmit} className="space-y-5">
+                        {featureFlags.googleAuth && (<>
                         <button
                             type="button"
                             onClick={handleGoogleLogin}
@@ -149,6 +168,7 @@ export default function LoginPage() {
                             <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">ou</span>
                             <div className="h-px flex-1 bg-white/10" />
                         </div>
+                        </>)}
 
                         {/* E-mail */}
                         <div className="space-y-2">

@@ -9,7 +9,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 function buildOrderNumber() {
@@ -31,51 +32,57 @@ export default async function handler(req, res) {
       return methodNotAllowed(res, ['POST']);
     }
 
-    const body = req.body || {};
-    const customerPayload = body.customer || {};
-    const items = Array.isArray(body.items) ? body.items : [];
-    const phone = String(customerPayload.phone || '').replace(/\D/g, '');
+    return sendMutationJson(req, res, {
+      tenantSlug,
+      statusCode: 201,
+      action: async () => {
+        const body = req.body || {};
+        const customerPayload = body.customer || {};
+        const items = Array.isArray(body.items) ? body.items : [];
+        const phone = String(customerPayload.phone || '').replace(/\D/g, '');
 
-    if (items.length === 0) throw new Error('Pedido precisa ter pelo menos um item.');
-    if (phone.length < 10 || phone.length > 11) throw new Error('Telefone com DDD é obrigatório.');
+        if (items.length === 0) throw new Error('Pedido precisa ter pelo menos um item.');
+        if (phone.length < 10 || phone.length > 11) throw new Error('Telefone com DDD é obrigatório.');
 
-    const existingCustomer = customerPayload.id
-      ? null
-      : await getCustomerByPhone(tenantSlug, phone);
+        const existingCustomer = customerPayload.id
+          ? null
+          : await getCustomerByPhone(tenantSlug, phone);
 
-    const customer = await saveCustomer(tenantSlug, {
-      id: customerPayload.id || existingCustomer?.id,
-      name: customerPayload.name,
-      phone,
-      email: customerPayload.email || '',
-      addressLine: customerPayload.addressLine,
-      addressNumber: customerPayload.addressNumber,
-      addressComplement: customerPayload.addressComplement || '',
-      district: customerPayload.district,
-      city: customerPayload.city,
-      state: customerPayload.state,
-      postalCode: customerPayload.postalCode || '',
-      notes: customerPayload.notes || ''
-    });
+        const customer = await saveCustomer(tenantSlug, {
+          id: customerPayload.id || existingCustomer?.id,
+          name: customerPayload.name,
+          phone,
+          email: customerPayload.email || '',
+          addressLine: customerPayload.addressLine,
+          addressNumber: customerPayload.addressNumber,
+          addressComplement: customerPayload.addressComplement || '',
+          district: customerPayload.district,
+          city: customerPayload.city,
+          state: customerPayload.state,
+          postalCode: customerPayload.postalCode || '',
+          notes: customerPayload.notes || ''
+        });
 
-    const order = await saveOrder(tenantSlug, {
-      customerId: customer.id,
-      paymentMethodId: body.paymentMethodId || null,
-      orderNumber: buildOrderNumber(),
-      channel: 'proprio',
-      orderType: body.orderType || 'delivery',
-      status: 'placed',
-      deliveryFee: Number(body.deliveryFee) || 0,
-      discount: 0,
-      paidAmount: Number(body.paidAmount) || 0,
-      changeAmount: Number(body.changeAmount) || 0,
-      notes: body.notes || '',
-      items
-    });
+        const order = await saveOrder(tenantSlug, {
+          customerId: customer.id,
+          paymentMethodId: body.paymentMethodId || null,
+          orderNumber: buildOrderNumber(),
+          channel: 'proprio',
+          orderType: body.orderType || 'delivery',
+          status: 'placed',
+          deliveryFee: Number(body.deliveryFee) || 0,
+          discount: 0,
+          paidAmount: Number(body.paidAmount) || 0,
+          changeAmount: Number(body.changeAmount) || 0,
+          notes: body.notes || '',
+          items
+        });
 
-    return sendJson(res, 201, {
-      customer,
-      order
+        return {
+          customer,
+          order
+        };
+      }
     });
   } catch (error) {
     return sendError(res, error, 400);

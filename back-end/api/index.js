@@ -17,7 +17,22 @@ import paymentMethodsHandler from '../api-handlers/finance/payment-methods.js';
 import financeClosingsHandler from '../api-handlers/finance/closings.js';
 import financeRecurringCostsHandler from '../api-handlers/finance/recurring-costs.js';
 import financeTransactionsHandler from '../api-handlers/finance/transactions.js';
+import financeObligationsHandler from '../api-handlers/finance/obligations.js';
+import financeCashReconciliationsHandler from '../api-handlers/finance/cash-reconciliations.js';
+import financeBalancesHandler from '../api-handlers/finance/balances.js';
+import financeIntegratedCloseHandler from '../api-handlers/finance/integrated-close.js';
+import financeSalesChannelsHandler from '../api-handlers/finance/sales-channels.js';
+import financeDailyRevenueHandler from '../api-handlers/finance/daily-revenue.js';
+import financeChannelSettlementsHandler from '../api-handlers/finance/channel-settlements.js';
+import supplyChainDataHandler from '../api-handlers/supply-chain/data.js';
+import supplyChainSuppliersHandler from '../api-handlers/supply-chain/suppliers.js';
+import supplyChainOrdersHandler from '../api-handlers/supply-chain/orders.js';
+import supplyChainReceiptsHandler from '../api-handlers/supply-chain/receipts.js';
+import supplyChainInventoryHandler from '../api-handlers/supply-chain/inventory.js';
 import hrEmployeesHandler from '../api-handlers/hr/employees.js';
+import hrWorkLogsHandler from '../api-handlers/hr/work-logs.js';
+import hrWeeklyClosingsHandler from '../api-handlers/hr/weekly-closings.js';
+import hrFixedPayrollHandler from '../api-handlers/hr/fixed-payroll.js';
 import integrationsIfoodOrdersHandler from '../api-handlers/integrations/ifood-orders.js';
 import menuCategoriesHandler from '../api-handlers/menu/categories.js';
 import menuItemsHandler from '../api-handlers/menu/items.js';
@@ -31,6 +46,7 @@ import publicOrdersHandler from '../api-handlers/public/orders.js';
 import settingsAiBehaviorHandler from '../api-handlers/settings/ai-behavior.js';
 import settingsGeneralHandler from '../api-handlers/settings/general.js';
 import tenantRoleProfilesHandler from '../api-handlers/tenant/role-profiles.js';
+import { sendJson } from '../api-handlers/_shared/http.js';
 
 const routes = new Map([
   ['health', healthHandler],
@@ -52,7 +68,22 @@ const routes = new Map([
   ['finance/closings', financeClosingsHandler],
   ['finance/recurring-costs', financeRecurringCostsHandler],
   ['finance/transactions', financeTransactionsHandler],
+  ['finance/obligations', financeObligationsHandler],
+  ['finance/cash-reconciliations', financeCashReconciliationsHandler],
+  ['finance/balances', financeBalancesHandler],
+  ['finance/integrated-close', financeIntegratedCloseHandler],
+  ['finance/sales-channels', financeSalesChannelsHandler],
+  ['finance/daily-revenue', financeDailyRevenueHandler],
+  ['finance/channel-settlements', financeChannelSettlementsHandler],
+  ['supply-chain/data', supplyChainDataHandler],
+  ['supply-chain/suppliers', supplyChainSuppliersHandler],
+  ['supply-chain/orders', supplyChainOrdersHandler],
+  ['supply-chain/receipts', supplyChainReceiptsHandler],
+  ['supply-chain/inventory', supplyChainInventoryHandler],
   ['hr/employees', hrEmployeesHandler],
+  ['hr/work-logs', hrWorkLogsHandler],
+  ['hr/weekly-closings', hrWeeklyClosingsHandler],
+  ['hr/fixed-payroll', hrFixedPayrollHandler],
   ['integrations/ifood/orders', integrationsIfoodOrdersHandler],
   ['menu/categories', menuCategoriesHandler],
   ['menu/items', menuItemsHandler],
@@ -84,10 +115,7 @@ export default async function handler(req, res) {
   const routeHandler = routes.get(route);
 
   if (!routeHandler) {
-    res.statusCode = 404;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ error: 'Rota não encontrada.' }));
-    return;
+    return sendJson(res, 404, { error: 'Rota não encontrada.' });
   }
 
   return routeHandler(req, res);

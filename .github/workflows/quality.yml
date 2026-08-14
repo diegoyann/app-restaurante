@@ -1,0 +1,47 @@
+name: Quality Gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests and syntax
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back-end
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: back-end/package-lock.json
+      - run: npm ci
+      - name: Check JavaScript syntax
+        run: find src api api-handlers -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - run: npm test
+
+  frontend:
+    name: Frontend tests, lint, and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front-end/app/mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: front-end/app/mock/package-lock.json
+      - run: npm ci
+      - run: node --test "src/**/*.test.mjs"
+      - run: npm run lint
+      - run: npm run build

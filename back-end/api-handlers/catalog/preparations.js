@@ -10,7 +10,8 @@ import {
   handleOptions,
   methodNotAllowed,
   sendError,
-  sendJson
+  sendJson,
+  sendMutationJson
 } from '../_shared/http.js';
 
 export default async function handler(req, res) {
@@ -29,15 +30,26 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
-      const preparation = await savePreparation(tenantSlug, req.body || {});
-      return sendJson(res, req.method === 'POST' ? 201 : 200, preparation);
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: req.method === 'POST' ? 201 : 200,
+        action: () => savePreparation(tenantSlug, req.body || {})
+      });
     }
 
     if (req.method === 'DELETE') {
       const preparationId = req.body?.id;
       if (!preparationId) throw new Error('id da receita base é obrigatório.');
-      await deletePreparationById(tenantSlug, preparationId);
-      return sendJson(res, 200, { id: preparationId });
+      return sendMutationJson(req, res, {
+        tenantSlug,
+        identity,
+        statusCode: 200,
+        action: async () => {
+          await deletePreparationById(tenantSlug, preparationId);
+          return { id: preparationId };
+        }
+      });
     }
 
     return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);
