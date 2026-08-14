@@ -4,7 +4,10 @@ import { authApi } from '../services/api.js';
 import { normalizeSessionPayload } from '../features/session/sessionModel.js';
 import { isMockDataSource } from '../config/dataSource.js';
 import { onMockAuthStateChange } from '../services/mockAuth.js';
-import { shouldClearSessionAfterValidationError } from './sessionRecovery.js';
+import {
+  shouldClearSessionAfterValidationError,
+  validateSessionWithRefresh
+} from './sessionRecovery.js';
 
 export function useAuthSession() {
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,10 @@ export function useAuthSession() {
         activeController?.abort();
         activeController = new AbortController();
 
-        const payload = normalizeSessionPayload(await authApi.getSession({ signal: activeController.signal }));
+        const payload = normalizeSessionPayload(await validateSessionWithRefresh({
+          validate: () => authApi.getSession({ signal: activeController.signal }),
+          refreshSession: () => supabase.auth.refreshSession()
+        }));
         if (mounted && requestId === currentRequestId) {
           setError('');
           applySession(payload);

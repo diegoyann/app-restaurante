@@ -35,9 +35,10 @@ Uma pessoa autenticada continua a navegar e alterar dados sem ser desconectada q
 ### Functional Requirements
 
 - **FR-001**: O sistema DEVE distinguir falhas temporárias de carregamento de uma sessão inválida.
-- **FR-002**: O sistema DEVE tentar recuperar uma sessão autenticada antes de exigir novo login.
+- **FR-002**: Ao receber `401` durante a validação, o sistema DEVE tentar uma renovação de credencial e repetir a validação uma única vez antes de exigir novo login.
 - **FR-003**: O sistema DEVE manter a pessoa na área autenticada após recuperação bem-sucedida.
-- **FR-004**: O sistema DEVE encerrar a sessão apenas após confirmação de que ela não pode ser recuperada.
+- **FR-004**: O sistema DEVE encerrar a sessão apenas quando a renovação não produzir sessão válida ou a nova validação ainda confirmar `401`.
+- **FR-007**: O sistema DEVE tratar `403` como erro de permissão do recurso, preservando uma sessão já validada.
 - **FR-005**: O sistema DEVE exibir uma mensagem acionável quando o novo login for realmente necessário.
 - **FR-006**: O sistema DEVE registrar contexto técnico seguro para diagnosticar falhas de recuperação, sem registrar tokens ou dados sensíveis.
 

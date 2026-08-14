@@ -10,7 +10,7 @@
 
 **Goal**: Preservar a sessão validada se a API de perfil falhar temporariamente.
 
-**Independent Test**: Uma falha de rede ou 5xx durante a validação não zera uma sessão anterior; 401/403 ainda a encerram.
+**Independent Test**: Uma falha de rede, 5xx ou 403 durante a validação não zera uma sessão anterior; 401 tenta refresh antes de encerrar.
 
 - [x] T002 [US1] Criar teste de regressão de classificação de falha em `front-end/app/mock/src/hooks/sessionRecovery.test.mjs`
 - [x] T003 [US1] Implementar classificação de erro e preservação de sessão em `front-end/app/mock/src/hooks/useAuthSession.js`
@@ -22,6 +22,12 @@
 - [x] T006 Executar a suíte frontend em `front-end/app/mock/src/**/*.test.mjs`
 - [x] T007 Executar lint em `front-end/app/mock`
 - [x] T008 Executar build de produção em `front-end/app/mock`
+
+## Phase 4: Regressão de renovação de token
+
+- [x] T009 [US1] Cobrir `403`, refresh bem-sucedido, refresh falho e erro não autenticado em `front-end/app/mock/src/hooks/sessionRecovery.test.mjs`.
+- [x] T010 [US1] Implementar refresh único seguido de nova validação em `front-end/app/mock/src/hooks/sessionRecovery.js` e `front-end/app/mock/src/hooks/useAuthSession.js`.
+- [x] T011 Executar testes, lint e build do frontend em `front-end/app/mock`.
 
 ## Dependencies & Execution Order
 
