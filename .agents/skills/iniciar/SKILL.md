@@ -41,6 +41,41 @@ Para **feature** ou **bug critico**, execute internamente, nesta ordem:
 7. `$speckit-implement`, execute os gates afetados e reporte o resultado.
 8. `$speckit-converge` para registrar desvios e pendencias pos-entrega.
 
+## Fechamento Git Obrigatorio
+
+1. Antes de iniciar, registre o estado de `git status --porcelain` como linha
+   de base e deixe o hook `speckit.git.feature` criar a branch
+   `codex/<numero>-<descricao>`.
+2. Depois de todos os gates passarem, execute `$speckit-git-validate` e revise
+   os arquivos alterados desde a linha de base.
+3. Nunca use `git add .` ou `git add -A`. Prepare somente os arquivos criados
+   ou alterados por esta solicitacao, incluindo `specs/<feature>/`.
+4. Se um arquivo da solicitacao ja estivesse alterado na linha de base, pare o
+   fechamento automatico; nao misture trabalho preexistente no commit.
+5. Valide o indice com `git diff --cached --check`, crie um unico commit
+   convencional (`fix:` para bug; `feat:` para feature) e inclua a atribuicao
+   exigida pelo projeto.
+6. Faca `git push -u origin HEAD`. Nunca envie diretamente para `main`; se a
+   branch atual for `main`, crie a branch de feature antes do desenvolvimento.
+7. Informe hash do commit, branch remota e qualquer arquivo nao enviado.
+
+## Publicacao Vercel
+
+1. Publique somente depois de commit, push e todos os gates locais passarem.
+2. Identifique os projetos afetados: `back-end` para API e
+   `front-end/app/mock` para a aplicacao web. Cada diretorio ja possui seu
+   proprio vinculo `.vercel`.
+3. Por padrao, publique em producao com `vercel --prod --yes` no diretorio
+   afetado. Capture a URL e confirme que o deploy terminou com sucesso antes de
+   concluir.
+4. Use `vercel --yes` somente quando o usuario pedir explicitamente preview ou
+   homologacao. Nunca finalize uma solicitacao validada sem publicar producao.
+5. Nao exponha tokens, variaveis de ambiente ou conteudo de arquivos `.env`.
+   Se a CLI nao estiver autenticada ou o deploy falhar, reporte o erro e nao
+   alegue publicacao.
+6. Alteracoes de schema Supabase exigem validacao propria; deploy na Vercel nao
+   executa nem substitui migration de banco de dados.
+
 ## Regras de Entrega
 
 - Leia e cumpra `.specify/memory/constitution.md` em todas as fases.
@@ -49,4 +84,4 @@ Para **feature** ou **bug critico**, execute internamente, nesta ordem:
 - Para mudancas diretas sem comportamento, informe que o fluxo foi dispensado e
   valide somente o escopo afetado.
 - Ao terminar, reporte classificacao, arquivos alterados, testes executados e
-  qualquer decisao ou risco pendente.
+  qualquer decisao ou risco pendente, alem do commit, push e URLs de deploy.

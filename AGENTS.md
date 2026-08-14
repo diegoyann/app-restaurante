@@ -23,6 +23,14 @@
   requirements. Never bypass an unresolved critical gate.
 - Follow `.specify/memory/constitution.md`; `specs/<feature>/` is the durable
   business-rule record. Do not overwrite a prior feature specification.
+- Let the Spec Kit git hook create `codex/<number>-<slug>` branches. After a
+  successful implementation, commit and push only the files created or changed
+  by that request. Never stage the full worktree; stop if a target file was
+  already modified before the request or if the current branch is `main`.
+- After a successful push, deploy each affected linked Vercel project with
+  `vercel --prod --yes` from `back-end` or `front-end/app/mock`. Use
+  `vercel --yes` only when the user explicitly requests preview or homologacao;
+  confirm deploy completion and report its URL.
 
 ## Package Manager
 
