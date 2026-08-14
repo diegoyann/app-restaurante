@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { selectPurchaseOrders } from "./purchaseOrderViewModel.js";
+import { purchaseOrderViews, selectPurchaseOrders } from "./purchaseOrderViewModel.js";
 import {
   AlertTriangle,
   Check,
@@ -840,10 +840,7 @@ export function PurchasesPage({
             role="tablist"
             aria-label="Visualização de pedidos de compra"
           >
-            {[
-              ["ACTIVE", "Ativos"],
-              ["HISTORY", "Histórico"],
-            ].map(([nextView, label]) => (
+            {purchaseOrderViews.map(([nextView, label]) => (
               <button
                 key={nextView}
                 type="button"
