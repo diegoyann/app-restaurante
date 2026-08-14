@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { selectPurchaseOrders } from "./purchaseOrderViewModel.js";
+import { purchaseOrderViews, selectPurchaseOrders } from "./purchaseOrderViewModel.js";
 
 const orders = [
   { id: "active-aug", orderDate: "2026-08-03", status: "ORDERED" },
@@ -9,6 +9,13 @@ const orders = [
   { id: "received-aug", orderDate: "2026-08-12", status: "RECEIVED" },
   { id: "active-jul", orderDate: "2026-07-30", status: "DRAFT" },
 ];
+
+test("expõe as abas Ativos e Cancelados", () => {
+  assert.deepEqual(purchaseOrderViews, [
+    ["ACTIVE", "Ativos"],
+    ["HISTORY", "Cancelados"],
+  ]);
+});
 
 test("Ativos exclui cancelados e respeita a competência selecionada", () => {
   assert.deepEqual(

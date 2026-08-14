@@ -1,3 +1,8 @@
+export const purchaseOrderViews = [
+  ["ACTIVE", "Ativos"],
+  ["HISTORY", "Cancelados"],
+];
+
 export function selectPurchaseOrders(orders, { month, view }) {
   const isHistory = view === "HISTORY";
 
