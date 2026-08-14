@@ -1,6 +1,7 @@
 import { env } from '../../src/lib/env.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { getTenantRowBySlug, supabaseAdmin } from '../../src/modules/shared/db.js';
+import { persistApplicationError } from '../../src/lib/errorLog.js';
 
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const IDEMPOTENCY_REPLAY_ATTEMPTS = 25;
@@ -300,7 +301,7 @@ export function badRequest(res, error) {
   });
 }
 
-export function sendError(res, error, fallbackStatus = 500) {
+export async function sendError(res, error, fallbackStatus = 500) {
   const context = res.req?.__mutationContext || startMutationLog(res.req);
   if (context && !context.errorLogged) {
     context.errorLogged = true;
@@ -309,6 +310,8 @@ export function sendError(res, error, fallbackStatus = 500) {
       error: error.message || 'Falha interna no servidor.'
     });
   }
+
+  await persistApplicationError(error, { req: res.req, context });
 
   sendJson(res, error.statusCode || fallbackStatus, {
     error: error.message || 'Falha interna no servidor.'

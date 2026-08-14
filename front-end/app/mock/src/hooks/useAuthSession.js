@@ -4,6 +4,7 @@ import { authApi } from '../services/api.js';
 import { normalizeSessionPayload } from '../features/session/sessionModel.js';
 import { isMockDataSource } from '../config/dataSource.js';
 import { onMockAuthStateChange } from '../services/mockAuth.js';
+import { shouldClearSessionAfterValidationError } from './sessionRecovery.js';
 
 export function useAuthSession() {
   const [loading, setLoading] = useState(true);
@@ -66,7 +67,9 @@ export function useAuthSession() {
 
         if (mounted && requestId === currentRequestId) {
           setError(apiError.message || 'Falha ao validar sessão.');
-          applySession(null);
+          if (shouldClearSessionAfterValidationError(apiError) || !sessionRef.current?.user) {
+            applySession(null);
+          }
         }
       } finally {
         if (mounted && requestId === currentRequestId) {
