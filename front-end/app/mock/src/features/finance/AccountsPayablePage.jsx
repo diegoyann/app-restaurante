@@ -14,6 +14,7 @@ import {
   summarizeObligations,
 } from "./financialViewModel.js";
 import {
+  buildExtraPayrollDetail,
   groupPayrollObligations,
   payrollGroupMatchesFilter,
 } from "./payrollGroupingModel.js";
@@ -346,9 +347,9 @@ export default function AccountsPayablePage({
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-black text-[#2A1E15]">
                         {group.title}
-                        {group.kind === "EXTRA"
-                          ? ` — ${dateBr(group.periodStart)} a ${dateBr(group.periodEnd)}`
-                          : ` — ${dateBr(group.dueDate)}`}
+                        {group.kind === "FIXED"
+                          ? ` — ${dateBr(group.dueDate)}`
+                          : ""}
                       </p>
                       <span
                         className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${statusClasses[group.status]}`}
@@ -357,10 +358,12 @@ export default function AccountsPayablePage({
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-bold text-[#6F6258]">
+                      {group.kind === "EXTRA"
+                        ? `${dateBr(group.periodStart)} a ${dateBr(group.periodEnd)} · Vencimento: ${dateBr(group.dueDate)}`
+                        : `${group.items.length} obrigação(ões) individual(is) · Competência ${monthBr(group.competenceMonth)}`}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-[#8A5A2B]">
                       {group.items.length} obrigação(ões) individual(is)
-                      {group.kind === "FIXED"
-                        ? ` · Competência ${monthBr(group.competenceMonth)}`
-                        : ""}
                     </p>
                   </div>
                 </button>
@@ -391,13 +394,19 @@ export default function AccountsPayablePage({
                   <Download size={15} />
                   {group.kind === "FIXED" && isPayrollDetailLoading
                     ? "Carregando cálculo..."
-                    : "Exportar Excel"}
+                    : group.kind === "EXTRA"
+                      ? `Exportar Excel — ${group.extraType === "DELIVERY" ? "Motoboy" : "Cozinha"}`
+                      : "Exportar Excel"}
                 </button>
               </div>
               {expandedGroup === group.id && (
                 <div className="space-y-3 border-t border-[#D4A373]/30 bg-white p-4">
                   {group.items.map((item) => {
                     const detail = item.payrollDetail || {};
+                    const extraDetail =
+                      group.kind === "EXTRA"
+                        ? buildExtraPayrollDetail(item, group.extraType)
+                        : null;
                     const isAdvance =
                       detail.installment === "ADVANCE" ||
                       group.installment === "ADVANCE";
@@ -418,39 +427,63 @@ export default function AccountsPayablePage({
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                           <div className="min-w-0">
                             <p className="font-black text-[#2A1E15]">
-                              {detail.employeeName || item.description}
+                              {extraDetail?.employeeName ||
+                                detail.employeeName ||
+                                item.description}
                             </p>
                             <p className="mt-1 text-xs font-bold text-[#6F6258]">
                               {group.kind === "EXTRA"
-                                ? `${detail.daysWorked || 0} dia(s) · ${detail.dailyRateCount || 0} diária(s) · Tipos: ${
-                                    (detail.workDays || [])
-                                      .flatMap((day) => day.rateTypes || [])
-                                      .map((type) => type.typeName)
-                                      .filter(
-                                        (value, index, all) =>
-                                          all.indexOf(value) === index,
-                                      )
-                                      .join(", ") || "Histórico legado"
-                                  } · Taxas ${money(detail.totalDeliveryFees)}`
+                                ? group.extraType === "DELIVERY"
+                                  ? `${extraDetail.daysWorked} dia(s) · Diárias ${money(extraDetail.totalDailyRates)} · Taxas de entrega ${money(extraDetail.totalDeliveryFees)}`
+                                  : `${extraDetail.daysWorked} dia(s) · ${extraDetail.dailyRateCount} diária(s) · Tipos: ${extraDetail.rateTypes.join(", ") || "Sem tipo informado"}`
                                 : `${installmentPercentage}% desta parcela`}
                             </p>
+                            {group.kind === "EXTRA" && (
+                              <span
+                                className={`mt-2 inline-flex rounded-full px-2 py-1 text-[9px] font-black uppercase ${statusClasses[item.status]}`}
+                              >
+                                {statusLabels[item.status]}
+                              </span>
+                            )}
                           </div>
                           {group.kind === "EXTRA" ? (
-                            <div className="grid grid-cols-3 gap-4 text-right text-xs">
+                            <div
+                              className={`grid gap-4 text-right text-xs ${group.extraType === "DELIVERY" ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-3"}`}
+                            >
+                              {group.extraType === "DELIVERY" && (
+                                <>
+                                  <div>
+                                    <p className="text-[#6F6258]">Diárias</p>
+                                    <strong>
+                                      {money(extraDetail.totalDailyRates)}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <p className="text-[#6F6258]">Taxas</p>
+                                    <strong>
+                                      {money(extraDetail.totalDeliveryFees)}
+                                    </strong>
+                                  </div>
+                                </>
+                              )}
                               <div>
-                                <p className="text-[#6F6258]">Previsto</p>
-                                <strong>{money(item.totalAmount)}</strong>
+                                <p className="text-[#6F6258]">
+                                  {group.extraType === "DELIVERY"
+                                    ? "Total previsto"
+                                    : "Valor total"}
+                                </p>
+                                <strong>{money(extraDetail.totalAmount)}</strong>
                               </div>
                               <div>
                                 <p className="text-[#6F6258]">Pago</p>
                                 <strong className="text-green-800">
-                                  {money(item.paidAmount)}
+                                  {money(extraDetail.paidAmount)}
                                 </strong>
                               </div>
                               <div>
                                 <p className="text-[#6F6258]">Aberto</p>
                                 <strong className="text-red-700">
-                                  {money(item.openAmount)}
+                                  {money(extraDetail.openAmount)}
                                 </strong>
                               </div>
                             </div>

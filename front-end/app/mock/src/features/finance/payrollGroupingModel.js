@@ -1,5 +1,18 @@
 const money = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
+const normalizeText = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+export function extraPayrollType(item) {
+  const role = normalizeText(item.payrollDetail?.role);
+  if (!role) return null;
+  return /moto|entrega/.test(role) ? "DELIVERY" : "KITCHEN";
+}
+
 const dateBrToIso = (value) => {
   const [day, month, year] = String(value || "").split("/");
   return day && month && year ? `${year}-${month}-${day}` : "";
@@ -60,6 +73,33 @@ export function summarizePayrollItems(items = []) {
   };
 }
 
+export function buildExtraPayrollDetail(item, extraType) {
+  const detail = item.payrollDetail || {};
+  const rateTypes = [
+    ...new Set(
+      (detail.workDays || [])
+        .flatMap((day) => day.rateTypes || [])
+        .map((type) => type.typeName)
+        .filter(Boolean),
+    ),
+  ];
+  return {
+    item,
+    employeeName: detail.employeeName || item.description,
+    daysWorked: Number(detail.daysWorked || 0),
+    dailyRateCount: Number(detail.dailyRateCount || 0),
+    rateTypes,
+    totalDailyRates: money(detail.totalDailyRates),
+    ...(extraType === "DELIVERY"
+      ? { totalDeliveryFees: money(detail.totalDeliveryFees) }
+      : {}),
+    totalAmount: money(item.totalAmount ?? item.forecastAmount),
+    paidAmount: money(item.paidAmount),
+    openAmount: money(item.openAmount),
+    status: item.status,
+  };
+}
+
 export function groupPayrollObligations(obligations = []) {
   const groups = [];
   const fixed = obligations.filter(
@@ -100,21 +140,28 @@ export function groupPayrollObligations(obligations = []) {
       ...item,
       payrollDetail: inferLegacyExtraDetail(item),
     }));
-  const byPeriod = extras.reduce((map, item) => {
+  const byTypeAndPeriod = extras.reduce((map, item) => {
+    const extraType = extraPayrollType(item);
+    if (!extraType) return map;
     const start = item.payrollDetail?.periodStart || item.competenceMonth;
     const end = item.payrollDetail?.periodEnd || "";
-    const key = `${start}:${end}`;
-    (map[key] ||= []).push(item);
+    const key = `${extraType}:${start}:${end}`;
+    (map[key] ||= { extraType, start, end, items: [] }).items.push(item);
     return map;
   }, {});
-  Object.entries(byPeriod).forEach(([key, items]) => {
-    const [periodStart, periodEnd] = key.split(":");
+  Object.entries(byTypeAndPeriod).forEach(([key, entry]) => {
+    const { extraType, start: periodStart, end: periodEnd, items } = entry;
     groups.push({
       id: `extra:${key}`,
       kind: "EXTRA",
-      title: "FOLHA EXTRA",
+      extraType,
+      title:
+        extraType === "DELIVERY"
+          ? "FOLHA EXTRA — MOTOBOY"
+          : "FOLHA EXTRA — COZINHA",
       periodStart,
       periodEnd,
+      dueDate: items[0]?.dueDate || "",
       items,
       ...summarizePayrollItems(items),
     });
