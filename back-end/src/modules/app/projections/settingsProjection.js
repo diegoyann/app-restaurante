@@ -21,10 +21,12 @@ export function mapAiBehaviorSettings(row) {
 }
 
 export async function readSettingsProjection(tenant) {
-  const [settings, aiSettings] = await Promise.all([
-    maybeSingle(await supabaseAdmin.from('tenant_settings').select('*').eq('tenant_id', tenant.id).maybeSingle(), 'Falha ao carregar settings.'),
-    maybeSingle(await supabaseAdmin.from('tenant_ai_settings').select('*').eq('tenant_id', tenant.id).maybeSingle(), 'Falha ao carregar IA.')
+  const [settingsResult, aiSettingsResult] = await Promise.all([
+    supabaseAdmin.from('tenant_settings').select('*').eq('tenant_id', tenant.id).maybeSingle(),
+    supabaseAdmin.from('tenant_ai_settings').select('*').eq('tenant_id', tenant.id).maybeSingle()
   ]);
+  const settings = maybeSingle(settingsResult, 'Falha ao carregar settings.');
+  const aiSettings = maybeSingle(aiSettingsResult, 'Falha ao carregar IA.');
 
   return {
     settings: settings

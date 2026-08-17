@@ -1,6 +1,7 @@
 import { ensureOk, getTenantRowBySlug, maybeSingle, supabaseAdmin } from '../shared/db.js';
 import { saveTransaction } from './repository.js';
 import { aggregateWeeklySettlements } from './settlementModel.js';
+import { measureBootstrapSpan } from '../../lib/bootstrapTrace.js';
 
 const map = (row) => {
   const today = new Date().toISOString().slice(0, 10);
@@ -22,10 +23,12 @@ export async function ensureChannelSettlementsForTenant(tenant) {
   }
 }
 
-export async function getChannelSettlements(tenantSlug) {
-  const tenant = await getTenantRowBySlug(tenantSlug);
-  await ensureChannelSettlementsForTenant(tenant);
-  const rows = ensureOk(await supabaseAdmin.from('channel_settlements').select('*,sales_channels(name)').eq('tenant_id', tenant.id).order('expected_date', { ascending: false }), 'Falha ao carregar repasses.');
+export async function getChannelSettlements(tenantOrSlug) {
+  const tenant = typeof tenantOrSlug === 'string'
+    ? await measureBootstrapSpan('finance.settlements.tenant', () => getTenantRowBySlug(tenantOrSlug))
+    : tenantOrSlug;
+  await measureBootstrapSpan('finance.settlements.generate', () => ensureChannelSettlementsForTenant(tenant));
+  const rows = await measureBootstrapSpan('finance.settlements.read', async () => ensureOk(await supabaseAdmin.from('channel_settlements').select('*,sales_channels(name)').eq('tenant_id', tenant.id).order('expected_date', { ascending: false }), 'Falha ao carregar repasses.'));
   return rows.map(map);
 }
 

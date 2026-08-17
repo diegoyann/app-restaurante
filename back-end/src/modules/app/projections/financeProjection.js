@@ -9,33 +9,46 @@ import {
 } from '../../shared/mappers.js';
 import { ensureFinancialObligationsForTenant, mapFinancialObligation } from '../../finance/obligationsService.js';
 import { getChannelSettlements } from '../../finance/settlementService.js';
+import { measureBootstrapSpan } from '../../../lib/bootstrapTrace.js';
 
 export async function readFinanceProjection(tenant) {
-  await ensureFinancialObligationsForTenant(tenant);
-  const channelSettlements = await getChannelSettlements(tenant.slug);
-  const [
-    recurringCosts,
-    salesChannels,
-    financeExpenseCategories,
-    transactions,
-    paymentMethods,
-    financialClosings,
-    financialObligations,
-    financialPayments,
-    cashReconciliations,
-    duplicateCandidates
-  ] = await Promise.all([
-    ensureOk(await supabaseAdmin.from('recurring_costs').select('*').eq('tenant_id', tenant.id).eq('active', true).is('merged_into_id', null).order('created_at', { ascending: true }), 'Falha ao carregar custos fixos.'),
-    ensureOk(await supabaseAdmin.from('sales_channels').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar canais.'),
-    ensureOk(await supabaseAdmin.from('finance_expense_categories').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar categorias financeiras.'),
-    ensureOk(await supabaseAdmin.from('transactions').select('*').eq('tenant_id', tenant.id).order('transaction_date', { ascending: false }), 'Falha ao carregar transações.'),
-    ensureOk(await supabaseAdmin.from('payment_methods').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar formas de pagamento.'),
-    ensureOk(await supabaseAdmin.from('financial_closings').select('*').eq('tenant_id', tenant.id).order('period_start', { ascending: false }).order('created_at', { ascending: false }), 'Falha ao carregar fechamentos financeiros.'),
-    ensureOk(await supabaseAdmin.from('financial_obligations').select('*').eq('tenant_id', tenant.id).order('due_date'), 'Falha ao carregar contas a pagar.'),
-    ensureOk(await supabaseAdmin.from('financial_payments').select('*').eq('tenant_id', tenant.id).order('payment_date', { ascending: false }), 'Falha ao carregar pagamentos.'),
-    ensureOk(await supabaseAdmin.from('daily_cash_reconciliations').select('*').eq('tenant_id', tenant.id).order('reconciliation_date', { ascending: false }), 'Falha ao carregar conferências físicas.'),
-    ensureOk(await supabaseAdmin.from('recurring_cost_duplicate_candidates').select('*,left:recurring_costs!recurring_cost_duplicate_candidates_left_cost_id_fkey(description),right:recurring_costs!recurring_cost_duplicate_candidates_right_cost_id_fkey(description)').eq('tenant_id', tenant.id).eq('status', 'PENDING'), 'Falha ao carregar possíveis duplicatas.')
+  const [, channelSettlements] = await Promise.all([
+    measureBootstrapSpan('finance.obligations.sync', () => ensureFinancialObligationsForTenant(tenant)),
+    measureBootstrapSpan('finance.settlements.sync', () => getChannelSettlements(tenant))
   ]);
+  const [
+    recurringCostsResult,
+    salesChannelsResult,
+    financeExpenseCategoriesResult,
+    transactionsResult,
+    paymentMethodsResult,
+    financialClosingsResult,
+    financialObligationsResult,
+    financialPaymentsResult,
+    cashReconciliationsResult,
+    duplicateCandidatesResult
+  ] = await Promise.all([
+    supabaseAdmin.from('recurring_costs').select('*').eq('tenant_id', tenant.id).eq('active', true).is('merged_into_id', null).order('created_at', { ascending: true }),
+    supabaseAdmin.from('sales_channels').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }),
+    supabaseAdmin.from('finance_expense_categories').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }),
+    supabaseAdmin.from('transactions').select('*').eq('tenant_id', tenant.id).order('transaction_date', { ascending: false }),
+    supabaseAdmin.from('payment_methods').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }),
+    supabaseAdmin.from('financial_closings').select('*').eq('tenant_id', tenant.id).order('period_start', { ascending: false }).order('created_at', { ascending: false }),
+    supabaseAdmin.from('financial_obligations').select('*').eq('tenant_id', tenant.id).order('due_date'),
+    supabaseAdmin.from('financial_payments').select('*').eq('tenant_id', tenant.id).order('payment_date', { ascending: false }),
+    supabaseAdmin.from('daily_cash_reconciliations').select('*').eq('tenant_id', tenant.id).order('reconciliation_date', { ascending: false }),
+    supabaseAdmin.from('recurring_cost_duplicate_candidates').select('*,left:recurring_costs!recurring_cost_duplicate_candidates_left_cost_id_fkey(description),right:recurring_costs!recurring_cost_duplicate_candidates_right_cost_id_fkey(description)').eq('tenant_id', tenant.id).eq('status', 'PENDING')
+  ]);
+  const recurringCosts = ensureOk(recurringCostsResult, 'Falha ao carregar custos fixos.');
+  const salesChannels = ensureOk(salesChannelsResult, 'Falha ao carregar canais.');
+  const financeExpenseCategories = ensureOk(financeExpenseCategoriesResult, 'Falha ao carregar categorias financeiras.');
+  const transactions = ensureOk(transactionsResult, 'Falha ao carregar transações.');
+  const paymentMethods = ensureOk(paymentMethodsResult, 'Falha ao carregar formas de pagamento.');
+  const financialClosings = ensureOk(financialClosingsResult, 'Falha ao carregar fechamentos financeiros.');
+  const financialObligations = ensureOk(financialObligationsResult, 'Falha ao carregar contas a pagar.');
+  const financialPayments = ensureOk(financialPaymentsResult, 'Falha ao carregar pagamentos.');
+  const cashReconciliations = ensureOk(cashReconciliationsResult, 'Falha ao carregar conferências físicas.');
+  const duplicateCandidates = ensureOk(duplicateCandidatesResult, 'Falha ao carregar possíveis duplicatas.');
 
   const mapCashReconciliation = (row) => {
     const dayOutflows = transactions.filter((transaction) => transaction.type === 'controle' && transaction.transaction_date === row.reconciliation_date && /saída de (dinheiro|conta)/i.test(String(transaction.category || '')));

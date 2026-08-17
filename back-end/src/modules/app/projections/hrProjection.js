@@ -102,19 +102,29 @@ function mapWeeklyClosing(row) {
 }
 
 export async function readHrProjection(tenant) {
-  const [payrollConfig, employees, discountsByEmployee, employeeRoles, discountCategories, workLogs, weeklyClosings, dailyRateTypes, workLogRateTypes, scheduledDaysOff, payrollAdjustments] = await Promise.all([
-    maybeSingle(await supabaseAdmin.from('payroll_configs').select('*').eq('tenant_id', tenant.id).maybeSingle(), 'Falha ao carregar folha.'),
-    ensureOk(await supabaseAdmin.from('employees').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar funcionários.'),
+  const [payrollConfigResult, employeesResult, discountsByEmployee, employeeRolesResult, discountCategoriesResult, workLogsResult, weeklyClosingsResult, dailyRateTypesResult, workLogRateTypesResult, scheduledDaysOffResult, payrollAdjustmentsResult] = await Promise.all([
+    supabaseAdmin.from('payroll_configs').select('*').eq('tenant_id', tenant.id).maybeSingle(),
+    supabaseAdmin.from('employees').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }),
     getDiscountsByEmployee(tenant.id),
-    ensureOk(await supabaseAdmin.from('employee_roles').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar cargos.'),
-    ensureOk(await supabaseAdmin.from('discount_categories').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }), 'Falha ao carregar categorias de desconto.'),
-    ensureOk(await supabaseAdmin.from('employee_work_logs').select('*').eq('tenant_id', tenant.id).order('work_date', { ascending: false }), 'Falha ao carregar conferências de trabalho.'),
-    ensureOk(await supabaseAdmin.from('extra_weekly_closings').select('*').eq('tenant_id', tenant.id).order('period_start', { ascending: false }), 'Falha ao carregar fechamentos de extras.'),
-    ensureOk(await supabaseAdmin.from('employee_daily_rate_types').select('*').eq('tenant_id', tenant.id).eq('active', true).order('created_at'), 'Falha ao carregar Tipos de Diária.'),
-    ensureOk(await supabaseAdmin.from('employee_work_log_rate_types').select('*').eq('tenant_id', tenant.id).order('created_at'), 'Falha ao carregar snapshots de diária.'),
-    ensureOk(await supabaseAdmin.from('employee_scheduled_days_off').select('*').eq('tenant_id', tenant.id).order('created_at'), 'Falha ao carregar folgas programadas.'),
-    ensureOk(await supabaseAdmin.from('payroll_adjustments').select('*').eq('tenant_id', tenant.id).order('adjustment_date', { ascending: false }), 'Falha ao carregar ajustes da folha.')
+    supabaseAdmin.from('employee_roles').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }),
+    supabaseAdmin.from('discount_categories').select('*').eq('tenant_id', tenant.id).order('created_at', { ascending: true }),
+    supabaseAdmin.from('employee_work_logs').select('*').eq('tenant_id', tenant.id).order('work_date', { ascending: false }),
+    supabaseAdmin.from('extra_weekly_closings').select('*').eq('tenant_id', tenant.id).order('period_start', { ascending: false }),
+    supabaseAdmin.from('employee_daily_rate_types').select('*').eq('tenant_id', tenant.id).eq('active', true).order('created_at'),
+    supabaseAdmin.from('employee_work_log_rate_types').select('*').eq('tenant_id', tenant.id).order('created_at'),
+    supabaseAdmin.from('employee_scheduled_days_off').select('*').eq('tenant_id', tenant.id).order('created_at'),
+    supabaseAdmin.from('payroll_adjustments').select('*').eq('tenant_id', tenant.id).order('adjustment_date', { ascending: false })
   ]);
+  const payrollConfig = maybeSingle(payrollConfigResult, 'Falha ao carregar folha.');
+  const employees = ensureOk(employeesResult, 'Falha ao carregar funcionários.');
+  const employeeRoles = ensureOk(employeeRolesResult, 'Falha ao carregar cargos.');
+  const discountCategories = ensureOk(discountCategoriesResult, 'Falha ao carregar categorias de desconto.');
+  const workLogs = ensureOk(workLogsResult, 'Falha ao carregar conferências de trabalho.');
+  const weeklyClosings = ensureOk(weeklyClosingsResult, 'Falha ao carregar fechamentos de extras.');
+  const dailyRateTypes = ensureOk(dailyRateTypesResult, 'Falha ao carregar Tipos de Diária.');
+  const workLogRateTypes = ensureOk(workLogRateTypesResult, 'Falha ao carregar snapshots de diária.');
+  const scheduledDaysOff = ensureOk(scheduledDaysOffResult, 'Falha ao carregar folgas programadas.');
+  const payrollAdjustments = ensureOk(payrollAdjustmentsResult, 'Falha ao carregar ajustes da folha.');
 
   const rateTypesByEmployee = dailyRateTypes.reduce((groups, row) => {
     (groups[row.employee_id] ||= []).push(mapDailyRateType(row));

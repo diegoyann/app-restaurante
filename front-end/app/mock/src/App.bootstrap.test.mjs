@@ -11,6 +11,24 @@ import { calculateMonthlyDre, classifyDreExpense } from './features/finance/dreM
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
+test('authenticated bootstrap hydrates every field required by the current frontend contract', async () => {
+  const appSource = await readFile(join(currentDir, 'App.jsx'), 'utf8');
+  const hydratedFields = [
+    'settings', 'aiBehaviorSettings', 'payrollConfig', 'employees', 'employeeRoles',
+    'recurringCosts', 'salesChannels', 'financeExpenseCategories', 'transactions',
+    'financialObligations', 'financialPayments', 'dailyCashReconciliations',
+    'channelSettlements', 'recurringCostDuplicateCandidates', 'currentUserPermissions',
+    'customers', 'paymentMethods', 'orders', 'deliveryDrivers', 'discountCategories',
+    'employeeWorkLogs', 'extraWeeklyClosings', 'ingredients', 'preparations', 'products',
+    'menuCategories', 'menuItems'
+  ];
+
+  for (const field of hydratedFields) {
+    assert.match(appSource, new RegExp(`payload\\.${field}\\b`), `campo não hidratado: ${field}`);
+  }
+  assert.match(appSource, /createDefaultIngredientUnits\(\)/);
+});
+
 test('tenant dashboard does not ship a seeded revenue chart mock', async () => {
   const appSource = await readFile(join(currentDir, 'App.jsx'), 'utf8');
 

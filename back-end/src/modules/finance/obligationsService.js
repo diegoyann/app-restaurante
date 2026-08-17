@@ -1,6 +1,8 @@
 import { ensureOk, getTenantRowBySlug, maybeSingle, normalizeMoney, supabaseAdmin } from '../shared/db.js';
+import { measureBootstrapSpan } from '../../lib/bootstrapTrace.js';
 import { recurringObligationRows } from './recurrenceSchedule.js';
 import { buildExtraObligationRow } from './extraObligationModel.js';
+import { planObligationBatch } from './bootstrapObligationBatch.js';
 import { calculatePaymentProgress, requirePaymentDate } from './paymentModel.js';
 import { loadFixedPayrollStatements } from '../hr/fixedPayrollService.js';
 import { assertCompetenceOpen, isCompetenceClosed } from './competenceProtection.js';
@@ -110,45 +112,25 @@ export function mapFinancialObligation(row, payments = [], payrollDetail = null)
   };
 }
 
-async function upsertObligation(row, { preserveExisting = false } = {}) {
-  const existing = maybeSingle(
-    await supabaseAdmin
-      .from('financial_obligations')
-      .select('*')
-      .eq('tenant_id', row.tenant_id)
-      .eq('source_type', row.source_type)
-      .eq('source_id', row.source_id)
-      .eq('competence_month', row.competence_month)
-      .maybeSingle(),
-    'Falha ao verificar obrigação financeira existente.',
-  );
-  const closed = await isCompetenceClosed(row.tenant_id, row.competence_month);
-  if (existing && (closed || preserveExisting)) return existing;
-  if (closed) return null;
-  return ensureOk(await supabaseAdmin.from('financial_obligations').upsert(row, {
-    onConflict: 'tenant_id,source_type,source_id,competence_month',
-    ignoreDuplicates: false
-  }).select('*').single(), 'Falha ao gerar obrigação financeira.');
-}
-
 async function generateRecurring(tenantId, months) {
   const costs = ensureOk(await supabaseAdmin.from('recurring_costs').select('*').eq('tenant_id', tenantId), 'Falha ao carregar cadastros de custos fixos.');
+  const rows = [];
   for (const cost of costs) {
     const { name } = normalizeRecurringCostName(cost.description);
     if (cost.last_paid_month) {
-      await upsertObligation({
+      rows.push({
         tenant_id: tenantId, recurring_cost_id: cost.merged_into_id || cost.id, description: name,
         economic_category: cost.category || 'CUSTO_FIXO', source_type: 'IMPORTED_SPREADSHEET', source_id: cost.id,
         original_import_label: cost.original_import_label || '', competence_month: cost.last_paid_month,
         forecast_type: cost.forecast_type || 'FIXED', forecast_amount: money(cost.amount), final_amount: money(cost.amount),
         due_date: dateForDay(cost.last_paid_month, cost.due_day), status: 'PAID', paid_amount: money(cost.amount),
-        note: 'Histórico preservado da importação original.'
-      }, { preserveExisting: true });
+        note: 'Histórico preservado da importação original.', preserveExisting: true
+      });
     }
     if (!cost.active || cost.merged_into_id || ['FOLHA_FIXA', 'FOLHA_EXTRA'].includes(cost.category)) continue;
     for (const month of months) {
       for (const occurrence of recurringObligationRows(cost, month)) {
-        await upsertObligation({
+        rows.push({
           tenant_id: tenantId, recurring_cost_id: cost.id,
           description: cost.recurrence === 'WEEKLY' ? `${name} — ${dateBr(occurrence.dueDate)}` : name,
           economic_category: cost.category || 'CUSTO_FIXO', source_type: 'RECURRING', source_id: occurrence.sourceId,
@@ -159,22 +141,24 @@ async function generateRecurring(tenantId, months) {
       }
     }
   }
+  return rows;
 }
 
 async function generatePayroll(tenantId, months) {
   const statements = await loadFixedPayrollStatements(tenantId, months);
+  const rows = [];
   for (const statement of statements) {
       const month = statement.month;
       const advancePercentage = Number(statement.advancePercentage || 40);
       const salaryPercentage = Number(statement.salaryPercentage || 60);
       const nextMonth = addMonths(month, 1);
-      await upsertObligation({
+      rows.push({
         tenant_id: tenantId, employee_id: statement.employeeId, description: `${statement.employeeName} — Primeiro pagamento ${advancePercentage}%`,
         economic_category: 'FOLHA_FIXA', source_type: 'RH', source_id: `${statement.employeeId}:ADVANCE`, competence_month: month,
         forecast_type: 'FIXED', forecast_amount: statement.advanceAmount, final_amount: statement.advanceAmount,
         due_date: dateForDay(month, statement.advanceFixedDay || 20), note: 'Competência da folha fixa; salário e regra preservados por vigência.'
       });
-      await upsertObligation({
+      rows.push({
         tenant_id: tenantId, employee_id: statement.employeeId, description: `${statement.employeeName} — Pagamento final ${salaryPercentage}%`,
         economic_category: 'FOLHA_FIXA', source_type: 'RH', source_id: `${statement.employeeId}:SALARY`, competence_month: month,
         forecast_type: 'ESTIMATED', forecast_amount: statement.baseSalaryPayment, final_amount: statement.finalSalaryPayment,
@@ -182,37 +166,95 @@ async function generatePayroll(tenantId, months) {
         note: `${statement.absenceCount} falta(s): R$ ${statement.absenceAmount.toFixed(2)}. Outros descontos: R$ ${statement.otherDiscountAmount.toFixed(2)}. Pagamento no mês seguinte; competência preservada.`
       });
   }
+  return rows;
+}
+
+function extraClosingCandidate(tenantId, closing) {
+  return {
+    ...buildExtraObligationRow(tenantId, closing),
+    paid_amount: money(closing.paid_amount),
+    status: closing.status === 'paid'
+      ? 'PAID'
+      : closing.status === 'partial'
+        ? 'PARTIAL'
+        : 'EXPECTED'
+  };
+}
+
+async function synchronizeObligationCandidates(tenantId, candidates) {
+  if (candidates.length === 0) return [];
+
+  const months = [...new Set(candidates.map((row) => row.competence_month))];
+  const [existing, closingRows] = await Promise.all([
+    ensureOk(
+      await supabaseAdmin
+        .from('financial_obligations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .in('competence_month', months),
+      'Falha ao carregar obrigações financeiras existentes.'
+    ),
+    ensureOk(
+      await supabaseAdmin
+        .from('financial_closings')
+        .select('period_start,status')
+        .eq('tenant_id', tenantId)
+        .eq('period_type', 'monthly')
+        .in('period_start', months.map((month) => `${month}-01`)),
+      'Falha ao verificar competências fechadas.'
+    )
+  ]);
+  const closedMonths = new Set(
+    closingRows
+      .filter((row) => row.status === 'closed')
+      .map((row) => String(row.period_start).slice(0, 7))
+  );
+  const rows = planObligationBatch({ candidates, existing, closedMonths });
+
+  if (rows.length === 0) return existing;
+
+  return ensureOk(
+    await supabaseAdmin
+      .from('financial_obligations')
+      .upsert(rows, {
+        onConflict: 'tenant_id,source_type,source_id,competence_month',
+        ignoreDuplicates: false,
+        defaultToNull: false
+      })
+      .select('*'),
+    'Falha ao sincronizar obrigações financeiras.'
+  );
 }
 
 export async function synchronizeFixedPayrollMonth(tenantId, month) {
   if (await isCompetenceClosed(tenantId, month)) return [];
-  await generatePayroll(tenantId, [month]);
+  return synchronizeObligationCandidates(tenantId, await generatePayroll(tenantId, [month]));
 }
 
 export async function synchronizeExtraClosingObligation(tenantId, closingId) {
   const closing = maybeSingle(await supabaseAdmin.from('extra_weekly_closings').select('*,employees(full_name,role)').eq('tenant_id', tenantId).eq('id', closingId).maybeSingle(), 'Falha ao carregar fechamento semanal para sincronização.');
   if (!closing) throw new Error('Fechamento semanal não encontrado para sincronização.');
-  const existing = maybeSingle(await supabaseAdmin.from('financial_obligations').select('*').eq('tenant_id', tenantId).eq('source_type', 'EXTRA').eq('source_id', closing.id).eq('competence_month', String(closing.period_start).slice(0, 7)).maybeSingle(), 'Falha ao verificar obrigação de extra.');
-  const row = buildExtraObligationRow(tenantId, closing);
-  return upsertObligation({
-    ...row,
-    ...(!existing ? { paid_amount: money(closing.paid_amount), status: closing.status === 'paid' ? 'PAID' : closing.status === 'partial' ? 'PARTIAL' : 'EXPECTED' } : {})
-  });
+  return synchronizeObligationCandidates(tenantId, [extraClosingCandidate(tenantId, closing)]);
 }
 
 async function generateExtras(tenantId) {
   const closings = ensureOk(await supabaseAdmin.from('extra_weekly_closings').select('*,employees(full_name,role)').eq('tenant_id', tenantId), 'Falha ao carregar extras.');
-  for (const closing of closings) {
-    await synchronizeExtraClosingObligation(tenantId, closing.id);
-  }
+  return closings.map((closing) => extraClosingCandidate(tenantId, closing));
 }
 
 export async function ensureFinancialObligationsForTenant(tenant) {
   const currentMonth = todayIso().slice(0, 7);
   const months = [currentMonth, addMonths(currentMonth, 1), addMonths(currentMonth, 2)];
-  await generateRecurring(tenant.id, months);
-  await generatePayroll(tenant.id, months);
-  await generateExtras(tenant.id);
+  const [recurringRows, payrollRows, extraRows] = await Promise.all([
+    measureBootstrapSpan('finance.obligations.recurring', () => generateRecurring(tenant.id, months)),
+    measureBootstrapSpan('finance.obligations.payroll', () => generatePayroll(tenant.id, months)),
+    measureBootstrapSpan('finance.obligations.extras', () => generateExtras(tenant.id))
+  ]);
+  return synchronizeObligationCandidates(tenant.id, [
+    ...recurringRows,
+    ...payrollRows,
+    ...extraRows
+  ]);
 }
 
 export async function getFinancialObligations(tenantSlug) {
