@@ -1,13 +1,17 @@
 <!--
 Sync Impact Report
-- Version change: template → 1.0.0
-- Modified principles: template placeholders → five project principles below
-- Added sections: Technical Constraints; Development Workflow and Quality Gates
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: II. Test the Rule Before Changing It;
+                       V. Reproducible Quality Gates
+- Added sections: none
 - Removed sections: none
-- Templates updated: ✅ .specify/templates/spec-template.md
-                     ✅ .specify/templates/plan-template.md
-                     ✅ .specify/templates/tasks-template.md
-- Follow-up TODOs: none
+- Templates reviewed: ✅ .specify/templates/spec-template.md (compatible)
+                      ⚠ .specify/templates/plan-template.md (must add the
+                        deployed browser-navigation gate)
+                      ⚠ .specify/templates/tasks-template.md (must add a
+                        mandatory post-deployment browser task)
+- Follow-up TODOs: synchronize plan-template.md and tasks-template.md in a
+  separate Spec Kit template-maintenance change
 -->
 
 # Rei Das Esfihas Constitution
@@ -25,9 +29,13 @@ authentication, or data retention blocks implementation until clarified.
 Any behavior change MUST add or update an automated test at the narrowest useful
 level before implementation. Business rules require unit tests; API contract or
 integration changes require integration tests; critical customer or operator
-flows require an end-to-end acceptance test. A defect fix MUST contain a
-regression test that fails on the prior behavior. Pure documentation and
-non-behavioral formatting changes are the only exceptions.
+flows require an end-to-end acceptance test driven through browser navigation.
+Any change that crosses the frontend/backend boundary MUST be exercised from the
+real browser origin against the deployed environment so that routing, CORS,
+authentication, environment variables, and request/response compatibility are
+verified together. A defect fix MUST contain a regression test that fails on the
+prior behavior. Pure documentation and non-behavioral formatting changes are the
+only exceptions.
 
 ### III. Financial, HR, and Data Integrity Are Non-Negotiable
 Changes affecting money, payroll, attendance, orders, inventory, or tenant data
@@ -48,8 +56,13 @@ committed, logged, exposed to the client, or added to specifications.
 No feature is complete until its declared acceptance criteria pass and affected
 quality gates run successfully. Backend changes MUST pass the Node test suite;
 frontend changes MUST pass lint and production build; changes to critical flows
-MUST include and pass their acceptance test. CI is the source of merge truth;
-local success is supporting evidence only.
+MUST include and pass their acceptance test. After deployment, every affected
+web application MUST pass a browser-navigation smoke test against its published
+URL. The test MUST confirm that the page loads, the affected journey completes,
+and frontend requests reach the deployed backend without browser console, CORS,
+network, or server errors. A direct health check, command-line HTTP request,
+unit test, or successful build MUST NOT substitute for this browser gate. CI is
+the source of merge truth; local success is supporting evidence only.
 
 ## Technical Constraints
 
@@ -61,6 +74,9 @@ local success is supporting evidence only.
   an already-applied migration to change production behavior.
 - Cross-boundary changes MUST document the frontend, API handler, domain rule,
   migration, and rollout impact, including intentionally unaffected boundaries.
+- Browser acceptance and smoke tests MUST use the project-declared browser
+  automation runner with user-visible locators and automatic readiness waits;
+  fixed sleeps MUST NOT be used to conceal loading or synchronization defects.
 
 ## Development Workflow and Quality Gates
 
@@ -73,7 +89,12 @@ local success is supporting evidence only.
 6. Use `$speckit-analyze`; resolve every critical inconsistency before coding.
 7. Use `$speckit-implement`; run the affected automated gates and record their
    results in the feature quickstart or pull request.
-8. Use `$speckit-converge` after release or acceptance to reconcile intentional
+8. Deploy every affected web application, then navigate its published URL with
+   browser automation and execute the affected user journey. Record the URL,
+   journey, result, and any console or network failure evidence. A failed browser
+   gate fails the deployment and blocks completion even when `/health`, tests,
+   lint, and build have passed.
+9. Use `$speckit-converge` after release or acceptance to reconcile intentional
    deviations and create follow-up work for unresolved items.
 
 ## Governance
@@ -87,4 +108,4 @@ principle changes, MINOR for new or materially expanded controls, and PATCH for
 clarifications. Security or data-integrity exceptions require explicit owner,
 expiry date, and compensating control.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-14 | **Last Amended**: 2026-08-14
+**Version**: 1.1.0 | **Ratified**: 2026-08-14 | **Last Amended**: 2026-08-17
