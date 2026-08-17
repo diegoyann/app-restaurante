@@ -124,3 +124,47 @@ Executados em 2026-08-17 no estado final anterior ao commit:
 - frontend `npm run build`: aprovado; permanece apenas o aviso preexistente de chunk > 500 kB;
 - E2E autenticado: arquivo criado e carregado pelo Playwright; execução CLI local ficou skip
   sem `E2E_STORAGE_STATE`. A aceitação efetiva será feita na sessão autenticada do Chrome.
+
+## Publicação e aceitação oficial
+
+- Commit: `84cf5b1` (`fix: otimizar bootstrap autenticado`).
+- Branch publicada: `codex/010-optimize-bootstrap`.
+- Deployment backend: `dpl_3Q9dBKVeFn7zKqPAgYB7XB9vRYJG`, estado `READY`.
+- URL do deployment: `https://rei-das-esfihas-backend-mgb9vkpl1-diegoyanns-projects.vercel.app`.
+- Alias oficial: `https://rei-das-esfihas-backend.vercel.app`.
+- Frontend oficial navegado: `https://rei-das-esfihas-frontend.vercel.app/app/teste-02`.
+
+### Navegação autenticada
+
+| Recarga | Dashboard utilizável | Falha backend | Perda de sessão |
+|---|---:|---:|---:|
+| 1 | 2.561 ms | não | não |
+| 2 | 2.070 ms | não | não |
+| 3 | 2.339 ms | não | não |
+
+- Telas validadas: Dashboard, Cardápio, CMV, Lançamentos, Contas a Pagar, RH e Configurações.
+- Console da origem oficial: 0 erros. Foram vistos 6 warnings de extensão do Chrome,
+  fora da origem da aplicação.
+- E2E de produção: smoke do cardápio público aprovado; cenário autenticado CLI ficou skip
+  sem storage state, substituído pela navegação autenticada real acima.
+
+### Logs Vercel depois
+
+Sete traces correlacionados do deployment foram consolidados:
+
+- chamadas quentes: 633,37–925,74 ms;
+- chamadas marcadas como cold start: 965,77–1.331,06 ms;
+- status: 200 em 100% das amostras;
+- payload: 13.828 bytes em 100% das amostras;
+- queries: 55 por chamada publicada (inclui autenticação, contra 94 no diagnóstico anterior);
+- autenticação: 89,55–179,74 ms;
+- tenant: 25,86–186,26 ms;
+- permissões: 0,03–0,07 ms;
+- financeiro: 446,19–1.092,23 ms;
+- montagem: 0,00–0,04 ms;
+- serialização: 0,08–0,14 ms;
+- HTTP 500 no deployment: 0; HTTP 504: 0.
+
+Um warning de depreciação de `url.parse()` emitido por dependência/runtime foi classificado
+pela Vercel como log de nível error em uma invocação, mas o trace da própria chamada terminou
+HTTP 200 em 641,29 ms. Não houve erro funcional correspondente.

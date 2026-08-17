@@ -92,10 +92,10 @@
 
 - [X] T028 [US3] Executar suites completas, lint e build e registrar resultados em `specs/010-optimize-bootstrap/baseline.md`
 - [X] T029 [US3] Executar `$speckit-converge` e registrar desvios/riscos conhecidos antes do fechamento em `specs/010-optimize-bootstrap/convergence.md`
-- [ ] T030 [US3] Executar validação Git, revisar somente arquivos da solicitação, criar commit convencional com coautoria e fazer push da branch `codex/010-optimize-bootstrap`
-- [ ] T031 [US3] Publicar produção com `vercel --prod --yes` em `back-end` e no frontend somente se afetado, seguindo `specs/010-optimize-bootstrap/quickstart.md`
-- [ ] T032 [US3] Executar navegação autenticada oficial, três reloads e telas principais, preservando a evidência para o relatório final conforme `specs/010-optimize-bootstrap/quickstart.md`
-- [ ] T033 [US3] Consultar logs Vercel correlacionados e preservar duração/status/erros e comparação antes/depois para o relatório final conforme `specs/010-optimize-bootstrap/quickstart.md`
+- [X] T030 [US3] Executar validação Git, revisar somente arquivos da solicitação, criar commit convencional com coautoria e fazer push da branch `codex/010-optimize-bootstrap`
+- [X] T031 [US3] Publicar produção com `vercel --prod --yes` em `back-end` e no frontend somente se afetado, seguindo `specs/010-optimize-bootstrap/quickstart.md`
+- [X] T032 [US3] Executar navegação autenticada oficial, três reloads e telas principais, preservando a evidência para o relatório final conforme `specs/010-optimize-bootstrap/quickstart.md`
+- [X] T033 [US3] Consultar logs Vercel correlacionados e preservar duração/status/erros e comparação antes/depois para o relatório final conforme `specs/010-optimize-bootstrap/quickstart.md`
 
 ---
 
