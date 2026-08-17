@@ -27,4 +27,13 @@
   `readMenuProjection` foi cancelada pelo timeout de statement do banco.
 - 2026-08-17 — consulta relacional profunda do menu substituída por quatro
   leituras simples em paralelo e montagem em memória; regressão e gates: PASS.
-- Deploy final e nova navegação autenticada: pendentes.
+- 2026-08-17 — deploy final:
+  `https://rei-das-esfihas-backend-4e3l0mz3q-diegoyanns-projects.vercel.app`,
+  alias `https://rei-das-esfihas-backend.vercel.app`.
+- 2026-08-17 — smoke Playwright publicado: PASS em 16,8 s, sem falha de
+  CORS, rede ou servidor.
+- 2026-08-17 — navegação autenticada no dashboard: duas recargas aprovadas em
+  12,161 s e 11,873 s; dashboard visível, tela de falha ausente e nenhum erro
+  relevante no console.
+- 2026-08-17 — logs do deployment `dpl_8tMemvLKg6ohtrftKuNMsmvodQ7y`:
+  bootstrap respondeu somente 200/204 nas chamadas do gate; nenhum 500 ou 504.

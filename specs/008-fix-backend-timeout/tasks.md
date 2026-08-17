@@ -15,9 +15,9 @@
 ## Phase 3: Validation and Release
 
 - [x] T005 Executar todos os gates locais descritos em `specs/008-fix-backend-timeout/quickstart.md`
-- [ ] T006 Publicar o backend com `vercel --prod --yes` a partir de `back-end`
-- [ ] T007 Recarregar duas vezes a tela autenticada por automação no navegador integrado e registrar o resultado em `specs/008-fix-backend-timeout/quickstart.md`
-- [ ] T008 Consultar logs desde o deploy, confirmar ausência de novos 504 do bootstrap e registrar em `specs/008-fix-backend-timeout/quickstart.md`
+- [x] T006 Publicar o backend com `vercel --prod --yes` a partir de `back-end`
+- [x] T007 Recarregar duas vezes a tela autenticada por automação no navegador integrado e registrar o resultado em `specs/008-fix-backend-timeout/quickstart.md`
+- [x] T008 Consultar logs desde o deploy, confirmar ausência de novos 504 do bootstrap e registrar em `specs/008-fix-backend-timeout/quickstart.md`
 
 ## Dependencies
 
@@ -27,4 +27,4 @@
 
 - [x] T009 [US1] Adicionar regressão da montagem separada de itens, grupos e opções em `back-end/src/modules/app/projections/menuProjection.test.js` per FR-002 (partial)
 - [x] T010 [US1] Substituir a consulta relacional aninhada por leituras simples e montagem em memória em `back-end/src/modules/app/projections/menuProjection.js` per SC-003 (contradicts)
-- [ ] T011 Reexecutar gates, publicar o backend e repetir navegação autenticada e auditoria de logs em `specs/008-fix-backend-timeout/quickstart.md` per FR-005–FR-006 (partial)
+- [x] T011 Reexecutar gates, publicar o backend e repetir navegação autenticada e auditoria de logs em `specs/008-fix-backend-timeout/quickstart.md` per FR-005–FR-006 (partial)
