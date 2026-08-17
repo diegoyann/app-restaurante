@@ -7,7 +7,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed:supabase": "node ./scripts/bootstrap-supabase.mjs",
-    "test": "node --test ./src/modules/app/projections/*.test.js ./src/modules/supply-chain/*.test.js ./src/modules/hr/*.test.js ./src/modules/finance/*.test.js",
+    "test": "node --test ./src/lib/*.test.js ./src/modules/app/projections/*.test.js ./src/modules/supply-chain/*.test.js ./src/modules/hr/*.test.js ./src/modules/finance/*.test.js",
     "test:duplicate-posts": "node ./scripts/duplicate-post-repro.mjs",
     "test:supply-chain": "node ./scripts/supply-chain-acceptance.mjs"
   },
