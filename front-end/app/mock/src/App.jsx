@@ -96,6 +96,11 @@ import {
   filterObligationsByMonth,
   filterTransactionsByMonth,
 } from "./features/finance/financialViewModel.js";
+import {
+  formatDateOnlyBr,
+  localDateIso,
+} from "./features/finance/transactionDateModel.js";
+import { deletePersistedTransaction } from "./features/finance/transactionActions.js";
 import AiBehaviorSettingsPage from "./features/settings/AiBehaviorSettings.jsx";
 import {
   createDefaultAiBehaviorSettings,
@@ -5741,6 +5746,28 @@ export default function App({ tenantSlug = "default" }) {
     }
   };
 
+  const handleDeleteTransaction = async (transactionId) => {
+    setFinanceError("");
+    setFinanceSuccess("");
+    setIsFinanceSubmitting(true);
+    try {
+      await deletePersistedTransaction({
+        tenantSlug,
+        transactionId,
+        deleteTransaction: (slug, id) =>
+          financeApi.deleteTransaction(slug, id),
+        updateTransactions: setTransactions,
+      });
+      setFinanceSuccess("Lançamento excluído definitivamente.");
+    } catch (apiError) {
+      setFinanceError(
+        apiError.message || "Não foi possível excluir o lançamento agora.",
+      );
+    } finally {
+      setIsFinanceSubmitting(false);
+    }
+  };
+
   const handleCreateRecurringCost = async (payload) => {
     setIsFinanceSubmitting(true);
     try {
@@ -10379,7 +10406,7 @@ export default function App({ tenantSlug = "default" }) {
                       label="Data"
                       name="date"
                       type="date"
-                      defaultValue={new Date().toISOString().split("T")[0]}
+                      defaultValue={localDateIso()}
                       required
                     />
                     <CustomInput label="Observação" name="note" />
@@ -10443,7 +10470,7 @@ export default function App({ tenantSlug = "default" }) {
                               {presentation.label} - {t.category}
                             </p>
                             <p className="text-[9px] font-bold text-gray-400 font-mono uppercase">
-                              {formatDateBr(new Date(`${t.date}T00:00:00`))} |{" "}
+                              {formatDateOnlyBr(t.date)} |{" "}
                               {presentation.tone === "income"
                                 ? `${t.platform} | ${t.payment}`
                                 : `${t.payment || "sem forma"} | ${t.category}`}
@@ -10471,12 +10498,10 @@ export default function App({ tenantSlug = "default" }) {
                           </p>
                           <button
                             type="button"
-                            onClick={() =>
-                              setTransactions((prev) =>
-                                prev.filter((x) => x.id !== t.id),
-                              )
-                            }
+                            disabled={isFinanceSubmitting}
+                            onClick={() => handleDeleteTransaction(t.id)}
                             className="text-gray-200 hover:text-red-500 transition-colors"
+                            aria-label={`Excluir lançamento ${t.note || t.category || t.id}`}
                           >
                             <Trash2 size={16} />
                           </button>

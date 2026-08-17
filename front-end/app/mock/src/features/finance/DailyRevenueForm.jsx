@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
+import { localDateIso } from './transactionDateModel.js';
 
 const money = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
 
 export default function DailyRevenueForm({ channels = [], onSave, onSwitchExpense, busy }) {
   const activeChannels = channels.filter((channel) => channel.active !== false);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => localDateIso());
   const [note, setNote] = useState('');
   const [values, setValues] = useState({});
   const [error, setError] = useState('');
