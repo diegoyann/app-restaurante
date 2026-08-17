@@ -23,4 +23,8 @@
 - 2026-08-17 — frontend Node tests: PASS.
 - 2026-08-17 — frontend lint: PASS.
 - 2026-08-17 — frontend production build: PASS.
-- Deploy e navegação autenticada: pendentes.
+- 2026-08-17 — primeiro deploy removeu 504, mas revelou um 500 isolado:
+  `readMenuProjection` foi cancelada pelo timeout de statement do banco.
+- 2026-08-17 — consulta relacional profunda do menu substituída por quatro
+  leituras simples em paralelo e montagem em memória; regressão e gates: PASS.
+- Deploy final e nova navegação autenticada: pendentes.

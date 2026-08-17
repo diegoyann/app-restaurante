@@ -22,3 +22,9 @@
 ## Dependencies
 
 - T002 deve falhar antes de T004. T005 precede T006; T006 precede T007 e T008.
+
+## Phase 4: Convergence
+
+- [x] T009 [US1] Adicionar regressão da montagem separada de itens, grupos e opções em `back-end/src/modules/app/projections/menuProjection.test.js` per FR-002 (partial)
+- [x] T010 [US1] Substituir a consulta relacional aninhada por leituras simples e montagem em memória em `back-end/src/modules/app/projections/menuProjection.js` per SC-003 (contradicts)
+- [ ] T011 Reexecutar gates, publicar o backend e repetir navegação autenticada e auditoria de logs em `specs/008-fix-backend-timeout/quickstart.md` per FR-005–FR-006 (partial)
