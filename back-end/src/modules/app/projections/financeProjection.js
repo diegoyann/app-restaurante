@@ -11,6 +11,21 @@ import { ensureFinancialObligationsForTenant, mapFinancialObligation } from '../
 import { getChannelSettlements } from '../../finance/settlementService.js';
 import { measureBootstrapSpan } from '../../../lib/bootstrapTrace.js';
 
+export const DEFAULT_FINANCE_EXPENSE_CATEGORIES = Object.freeze([
+  Object.freeze({ id: 'default-expense-supplies', name: 'Compra de Insumos' }),
+  Object.freeze({ id: 'default-expense-supplier', name: 'Fornecedor' }),
+  Object.freeze({ id: 'default-expense-maintenance', name: 'Manutenção' }),
+  Object.freeze({ id: 'default-expense-marketing', name: 'Marketing' }),
+  Object.freeze({ id: 'default-expense-tax', name: 'Imposto' }),
+  Object.freeze({ id: 'default-expense-withdrawal', name: 'Retirada' }),
+  Object.freeze({ id: 'default-expense-other', name: 'Outras Saídas' })
+]);
+
+export function resolveFinanceExpenseCategories(rows) {
+  if (rows.length > 0) return rows.map(mapSimpleName);
+  return DEFAULT_FINANCE_EXPENSE_CATEGORIES.map((category) => ({ ...category }));
+}
+
 export async function readFinanceProjection(tenant) {
   const [, channelSettlements] = await Promise.all([
     measureBootstrapSpan('finance.obligations.sync', () => ensureFinancialObligationsForTenant(tenant)),
@@ -41,7 +56,9 @@ export async function readFinanceProjection(tenant) {
   ]);
   const recurringCosts = ensureOk(recurringCostsResult, 'Falha ao carregar custos fixos.');
   const salesChannels = ensureOk(salesChannelsResult, 'Falha ao carregar canais.');
-  const financeExpenseCategories = ensureOk(financeExpenseCategoriesResult, 'Falha ao carregar categorias financeiras.');
+  const financeExpenseCategories = resolveFinanceExpenseCategories(
+    ensureOk(financeExpenseCategoriesResult, 'Falha ao carregar categorias financeiras.')
+  );
   const transactions = ensureOk(transactionsResult, 'Falha ao carregar transações.');
   const paymentMethods = ensureOk(paymentMethodsResult, 'Falha ao carregar formas de pagamento.');
   const financialClosings = ensureOk(financialClosingsResult, 'Falha ao carregar fechamentos financeiros.');
@@ -69,7 +86,7 @@ export async function readFinanceProjection(tenant) {
   return {
     recurringCosts: recurringCosts.map(mapRecurringCost),
     salesChannels: salesChannels.map(mapSalesChannel),
-    financeExpenseCategories: financeExpenseCategories.map(mapSimpleName),
+    financeExpenseCategories,
     transactions: transactions.map(mapTransaction),
     paymentMethods: paymentMethods.map(mapPaymentMethod),
     financialClosings: financialClosings.map(mapFinancialClosing),
