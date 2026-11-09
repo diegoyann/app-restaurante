@@ -9,9 +9,11 @@ const rowsOf = (result) =>
     raw: true,
   });
 
-test("Excel da folha extra espelha diárias, taxas e saldo individual", () => {
+test("Excel da cozinha contém somente colunas e identificação da cozinha", () => {
   const result = buildPayrollWorkbook({
     kind: "EXTRA",
+    extraType: "KITCHEN",
+    title: "FOLHA EXTRA — COZINHA",
     periodStart: "2026-08-10",
     periodEnd: "2026-08-16",
     items: [
@@ -40,20 +42,76 @@ test("Excel da folha extra espelha diárias, taxas e saldo individual", () => {
     ],
   });
   const rows = rowsOf(result);
-  assert.equal(result.filename, "folha-extra-2026-08-10_2026-08-16.xlsx");
-  assert.deepEqual(rows[2].slice(0, 4), [
+  assert.equal(
+    result.filename,
+    "folha-extra-cozinha-2026-08-10_2026-08-16.xlsx",
+  );
+  assert.equal(result.sheetName, "Folha Extra Cozinha");
+  assert.deepEqual(rows[2], [
     "Funcionário",
     "Período",
     "Dias trabalhados",
-    "Datas trabalhadas",
+    "Tipos de diária",
+    "Quantidade de diárias",
+    "Valor das diárias",
+    "Total previsto",
+    "Pago",
+    "Aberto",
+    "Status",
   ]);
   assert.equal(rows[3][0], "Douglas");
-  assert.equal(rows[3][6], 70);
-  assert.equal(rows[3][7], 46);
-  assert.equal(rows[3][8], 116);
-  assert.equal(rows[3][9], 16);
-  assert.equal(rows[3][10], 100);
-  assert.equal(rows[3][11], "Parcial");
+  assert.equal(rows[3][5], 70);
+  assert.equal(rows[3][6], 116);
+  assert.equal(rows[3][7], 16);
+  assert.equal(rows[3][8], 100);
+  assert.equal(rows[3][9], "Parcial");
+});
+
+test("Excel do motoboy separa diárias e taxas sem refeição", () => {
+  const result = buildPayrollWorkbook({
+    kind: "EXTRA",
+    extraType: "DELIVERY",
+    title: "FOLHA EXTRA — MOTOBOY",
+    periodStart: "2026-08-10",
+    periodEnd: "2026-08-16",
+    items: [
+      {
+        description: "William",
+        totalAmount: 160,
+        paidAmount: 60,
+        openAmount: 100,
+        status: "PARTIAL",
+        payrollDetail: {
+          employeeName: "William",
+          periodStart: "2026-08-10",
+          periodEnd: "2026-08-16",
+          daysWorked: 1,
+          totalDailyRates: 60,
+          totalDeliveryFees: 100,
+          totalMeals: 15,
+        },
+      },
+    ],
+  });
+  const rows = rowsOf(result);
+  assert.equal(
+    result.filename,
+    "folha-extra-motoboy-2026-08-10_2026-08-16.xlsx",
+  );
+  assert.equal(result.sheetName, "Folha Extra Motoboy");
+  assert.deepEqual(rows[2], [
+    "Funcionário",
+    "Período",
+    "Dias trabalhados",
+    "Diárias",
+    "Taxas de entrega",
+    "Total previsto",
+    "Pago",
+    "Aberto",
+    "Status",
+  ]);
+  assert.deepEqual(rows[3].slice(3), [60, 100, 160, 60, 100, "Parcial"]);
+  assert.equal(rows.flat().includes(15), false);
 });
 
 test("Excel do pagamento final respeita percentual individual e demonstra o líquido", () => {

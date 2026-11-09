@@ -1,6 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mapMenuItem } from '../../shared/mappers.js';
+import { assembleMenuItemRows } from './menuProjection.js';
+
+test('assembles combo groups and options from separate query rows', () => {
+  const items = assembleMenuItemRows(
+    [
+      { id: 'item-1', category_id: 'category-1', name: 'Combo' },
+      { id: 'item-2', category_id: null, name: 'Avulso' }
+    ],
+    [{ id: 'group-2', menu_item_id: 'item-1' }, { id: 'group-1', menu_item_id: 'item-1' }],
+    [{ id: 'option-2', combo_group_id: 'group-1' }, { id: 'option-1', combo_group_id: 'group-1' }],
+    [{ id: 'category-1', name: 'Combos' }]
+  );
+
+  assert.deepEqual(items, [
+    {
+      id: 'item-1',
+      category_id: 'category-1',
+      name: 'Combo',
+      menu_categories: { name: 'Combos' },
+      combo_groups: [
+        { id: 'group-2', menu_item_id: 'item-1', combo_options: [] },
+        {
+          id: 'group-1',
+          menu_item_id: 'item-1',
+          combo_options: [
+            { id: 'option-2', combo_group_id: 'group-1' },
+            { id: 'option-1', combo_group_id: 'group-1' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'item-2',
+      category_id: null,
+      name: 'Avulso',
+      menu_categories: null,
+      combo_groups: []
+    }
+  ]);
+});
 
 test('mapMenuItem returns combo option category names and component refs', () => {
   const mapped = mapMenuItem({
@@ -50,4 +90,3 @@ test('mapMenuItem returns combo option category names and component refs', () =>
     linkedComponentRefs: ['menu-item:123']
   });
 });
-

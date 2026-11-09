@@ -1993,19 +1993,19 @@ export async function deleteTenantRoleProfile({ tenantSlug, profileId }) {
   return getAdminTenantSnapshot(tenantSlug);
 }
 
-export async function getEffectivePermissionsForIdentity(identity, tenantSlug) {
+export function resolveEffectivePermissionsFromBootstrap(identity, tenant, roleProfiles) {
   if (identity.isSuperAdmin) {
     return defaultPermissionMap("tenant_admin");
   }
 
-  const tenant = await getTenantRowBySlug(tenantSlug);
-  const roleProfiles = await ensureTenantRoleProfiles(tenant);
+  const tenantSlug = tenant.slug;
+  const companyId = tenant.companyId || tenant.company_id;
   const membership =
     identity.memberships.find((item) => item.tenant?.slug === tenantSlug) ||
     identity.memberships.find(
       (item) =>
-        item.companyId === tenant.company_id ||
-        item.company?.id === tenant.company_id,
+        item.companyId === companyId ||
+        item.company?.id === companyId,
     );
   const roleProfile =
     roleProfiles.find((profile) => profile.id === membership?.roleProfileId) ||
@@ -2016,6 +2016,16 @@ export async function getEffectivePermissionsForIdentity(identity, tenantSlug) {
     roleProfile?.permissions,
     roleProfile?.baseRole || membership?.role || "tenant_staff",
   );
+}
+
+export async function getEffectivePermissionsForIdentity(identity, tenantSlug, bootstrapContext) {
+  if (identity.isSuperAdmin) {
+    return defaultPermissionMap("tenant_admin");
+  }
+
+  const tenant = bootstrapContext?.tenant || await getTenantRowBySlug(tenantSlug);
+  const roleProfiles = bootstrapContext?.roleProfiles || await ensureTenantRoleProfiles(tenant);
+  return resolveEffectivePermissionsFromBootstrap(identity, tenant, roleProfiles);
 }
 
 export async function saveSettings(tenantSlug, payload) {

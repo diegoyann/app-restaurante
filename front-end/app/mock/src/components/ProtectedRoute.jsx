@@ -8,7 +8,7 @@ import MfaChallenge from './MfaChallenge.jsx';
 
 export default function ProtectedRoute({ mode = 'authenticated', children }) {
   const params = useParams();
-  const { loading, session } = useAuthSession();
+  const { loading, session, error: sessionError } = useAuthSession();
   const [mfaLoading, setMfaLoading] = useState(true);
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaRefreshKey, setMfaRefreshKey] = useState(0);
@@ -65,7 +65,7 @@ export default function ProtectedRoute({ mode = 'authenticated', children }) {
   }
 
   if (!session?.user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ sessionError }} />;
   }
 
   if (mfaRequired) {

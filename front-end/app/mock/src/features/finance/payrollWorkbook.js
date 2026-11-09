@@ -31,21 +31,32 @@ function statusFromTotals(total, paid) {
 
 export function buildPayrollWorkbook(group) {
   const isExtra = group.kind === "EXTRA";
+  const isDelivery = isExtra && group.extraType === "DELIVERY";
   const headers = isExtra
-    ? [
-        "Funcionário",
-        "Período",
-        "Dias trabalhados",
-        "Datas trabalhadas",
-        "Tipos de diária",
-        "Quantidade de diárias",
-        "Valor das diárias",
-        "Taxas de entrega",
-        "Total previsto",
-        "Pago",
-        "Aberto",
-        "Status",
-      ]
+    ? isDelivery
+      ? [
+          "Funcionário",
+          "Período",
+          "Dias trabalhados",
+          "Diárias",
+          "Taxas de entrega",
+          "Total previsto",
+          "Pago",
+          "Aberto",
+          "Status",
+        ]
+      : [
+          "Funcionário",
+          "Período",
+          "Dias trabalhados",
+          "Tipos de diária",
+          "Quantidade de diárias",
+          "Valor das diárias",
+          "Total previsto",
+          "Pago",
+          "Aberto",
+          "Status",
+        ]
     : [
         "Funcionário",
         "Competência",
@@ -70,23 +81,34 @@ export function buildPayrollWorkbook(group) {
     dataRows = group.items.map((item) => {
       const detail = item.payrollDetail || {};
       const workDays = detail.workDays || [];
-      return [
+      const common = [
         detail.employeeName || item.description,
         `${dateBr(detail.periodStart)} a ${dateBr(detail.periodEnd)}`,
         detail.daysWorked || 0,
-        workDays.map((day) => dateBr(day.date)).join(", "),
-        workDays
+      ];
+      return isDelivery
+        ? [
+            ...common,
+            Number(detail.totalDailyRates || 0),
+            Number(detail.totalDeliveryFees || 0),
+            Number(item.totalAmount || 0),
+            Number(item.paidAmount || 0),
+            Number(item.openAmount || 0),
+            statusLabels[item.status] || item.status,
+          ]
+        : [
+            ...common,
+            workDays
           .flatMap((day) => day.rateTypes || [])
           .map((type) => `${type.typeName} (${money(type.amountSnapshot)})`)
           .join(", "),
-        detail.dailyRateCount || 0,
-        Number(detail.totalDailyRates || 0),
-        Number(detail.totalDeliveryFees || 0),
-        Number(item.totalAmount || 0),
-        Number(item.paidAmount || 0),
-        Number(item.openAmount || 0),
-        statusLabels[item.status] || item.status,
-      ];
+            detail.dailyRateCount || 0,
+            Number(detail.totalDailyRates || 0),
+            Number(item.totalAmount || 0),
+            Number(item.paidAmount || 0),
+            Number(item.openAmount || 0),
+            statusLabels[item.status] || item.status,
+          ];
     });
   } else {
     dataRows = group.items.map((item) => {
@@ -137,7 +159,7 @@ export function buildPayrollWorkbook(group) {
   }
 
   const title = isExtra
-    ? `FOLHA EXTRA — ${dateBr(group.periodStart)} a ${dateBr(group.periodEnd)}`
+    ? `${group.title} — ${dateBr(group.periodStart)} a ${dateBr(group.periodEnd)}`
     : `${group.title || "FOLHA FIXA"} — ${dateBr(group.dueDate)}`;
   const sheet = XLSX.utils.aoa_to_sheet([[title], [], headers, ...dataRows]);
   sheet["!merges"] = [
@@ -153,7 +175,9 @@ export function buildPayrollWorkbook(group) {
     }),
   };
   const currencyColumns = isExtra
-    ? [6, 7, 8, 9, 10]
+    ? isDelivery
+      ? [3, 4, 5, 6, 7]
+      : [5, 6, 7, 8]
     : [3, 5, 8, 9, 10, 11, 13, 14];
   for (let row = 3; row < 3 + dataRows.length; row += 1) {
     for (const column of currencyColumns) {
@@ -164,13 +188,15 @@ export function buildPayrollWorkbook(group) {
 
   const workbook = XLSX.utils.book_new();
   const sheetName = isExtra
-    ? "Folha Extra"
+    ? isDelivery
+      ? "Folha Extra Motoboy"
+      : "Folha Extra Cozinha"
     : group.installment === "ADVANCE"
       ? "Primeiro Pagamento"
       : "Pagamento Final";
   XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
   const suffix = isExtra
-    ? `${group.periodStart}_${group.periodEnd}`
+    ? `${isDelivery ? "motoboy" : "cozinha"}-${group.periodStart}_${group.periodEnd}`
     : `${group.installment === "ADVANCE" ? "primeiro-pagamento" : "pagamento-final"}-${group.items[0]?.competenceMonth}`;
   return {
     workbook,

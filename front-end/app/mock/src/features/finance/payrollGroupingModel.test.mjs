@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { groupPayrollObligations } from "./payrollGroupingModel.js";
+import {
+  buildExtraPayrollDetail,
+  groupPayrollObligations,
+} from "./payrollGroupingModel.js";
 
-test("agrupa extras por período sem fundir as obrigações individuais", () => {
+test("separa extras de cozinha e motoboy por período e vencimento sem fundir obrigações", () => {
   const obligations = [
     {
       id: "maria",
@@ -11,7 +14,12 @@ test("agrupa extras por período sem fundir as obrigações individuais", () => 
       totalAmount: 210,
       paidAmount: 0,
       status: "EXPECTED",
-      payrollDetail: { periodStart: "2026-08-10", periodEnd: "2026-08-16" },
+      dueDate: "2026-08-17",
+      payrollDetail: {
+        role: "Cozinha",
+        periodStart: "2026-08-10",
+        periodEnd: "2026-08-16",
+      },
     },
     {
       id: "william",
@@ -20,16 +28,32 @@ test("agrupa extras por período sem fundir as obrigações individuais", () => 
       totalAmount: 116,
       paidAmount: 16,
       status: "PARTIAL",
-      payrollDetail: { periodStart: "2026-08-10", periodEnd: "2026-08-16" },
+      dueDate: "2026-08-20",
+      payrollDetail: {
+        role: "Motoboy",
+        periodStart: "2026-08-10",
+        periodEnd: "2026-08-16",
+      },
     },
   ];
-  const [group] = groupPayrollObligations(obligations);
-  assert.equal(group.kind, "EXTRA");
-  assert.equal(group.items.length, 2);
-  assert.equal(group.forecast, 326);
-  assert.equal(group.paid, 16);
-  assert.equal(group.open, 310);
-  assert.equal(group.status, "PARTIAL");
+  const groups = groupPayrollObligations(obligations);
+  const kitchen = groups.find((group) => group.extraType === "KITCHEN");
+  const delivery = groups.find((group) => group.extraType === "DELIVERY");
+
+  assert.equal(kitchen.title, "FOLHA EXTRA — COZINHA");
+  assert.equal(kitchen.dueDate, "2026-08-17");
+  assert.deepEqual(kitchen.items.map((item) => item.id), ["maria"]);
+  assert.deepEqual(
+    [kitchen.forecast, kitchen.paid, kitchen.open, kitchen.status],
+    [210, 0, 210, "EXPECTED"],
+  );
+  assert.equal(delivery.title, "FOLHA EXTRA — MOTOBOY");
+  assert.equal(delivery.dueDate, "2026-08-20");
+  assert.deepEqual(delivery.items.map((item) => item.id), ["william"]);
+  assert.deepEqual(
+    [delivery.forecast, delivery.paid, delivery.open, delivery.status],
+    [116, 16, 100, "PARTIAL"],
+  );
 });
 
 test("separa primeiro pagamento e pagamento final preservando cada obrigação", () => {
@@ -99,7 +123,7 @@ test("mistura percentuais individuais somente dentro do mesmo vencimento", () =>
   );
 });
 
-test("recupera o período semanal de uma obrigação extra importada do histórico", () => {
+test("mantém extra histórico sem cargo fora dos grupos para não contaminar totais", () => {
   const groups = groupPayrollObligations([
     {
       id: "legacy-extra",
@@ -111,7 +135,42 @@ test("recupera o período semanal de uma obrigação extra importada do históri
       status: "EXPECTED",
     },
   ]);
-  assert.equal(groups[0].periodStart, "2026-08-10");
-  assert.equal(groups[0].periodEnd, "2026-08-16");
-  assert.equal(groups[0].items[0].payrollDetail.employeeName, "Douglas");
+  assert.deepEqual(groups, []);
+});
+
+test("deriva detalhes específicos sem incluir refeição no total do motoboy", () => {
+  const item = {
+    id: "douglas",
+    description: "Douglas",
+    totalAmount: 116,
+    paidAmount: 16,
+    openAmount: 100,
+    status: "PARTIAL",
+    payrollDetail: {
+      employeeName: "Douglas",
+      daysWorked: 1,
+      dailyRateCount: 2,
+      totalDailyRates: 70,
+      totalDeliveryFees: 46,
+      totalMeals: 15,
+      workDays: [
+        {
+          rateTypes: [
+            { typeName: "Cozinha", amountSnapshot: 50 },
+            { typeName: "Apoio", amountSnapshot: 20 },
+          ],
+        },
+      ],
+    },
+  };
+
+  const kitchen = buildExtraPayrollDetail(item, "KITCHEN");
+  const delivery = buildExtraPayrollDetail(item, "DELIVERY");
+  assert.deepEqual(kitchen.rateTypes, ["Cozinha", "Apoio"]);
+  assert.equal(kitchen.dailyRateCount, 2);
+  assert.equal(delivery.totalDailyRates, 70);
+  assert.equal(delivery.totalDeliveryFees, 46);
+  assert.equal(delivery.totalAmount, 116);
+  assert.equal("totalMeals" in delivery, false);
+  assert.equal(delivery.item, item);
 });

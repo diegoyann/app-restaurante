@@ -1,4 +1,5 @@
 import { getTenantRowBySlug } from '../shared/db.js';
+import { jsonByteLength, measureBootstrapSpan } from '../../lib/bootstrapTrace.js';
 import { readCatalogProjection } from './projections/catalogProjection.js';
 import { readCustomersProjection } from './projections/customersProjection.js';
 import { readDeliveryProjection } from './projections/deliveryProjection.js';
@@ -11,7 +12,12 @@ import { readSettingsProjection } from './projections/settingsProjection.js';
 import { readTenantProjection } from './projections/tenantProjection.js';
 
 export async function getTenantBootstrap(tenantSlug) {
-  const tenant = await getTenantRowBySlug(tenantSlug);
+  const tenant = await measureBootstrapSpan('tenant.resolution', () => getTenantRowBySlug(tenantSlug));
+  const measureProjection = (name, action) => measureBootstrapSpan(
+    `projection.${name}`,
+    action,
+    (result) => ({ payloadBytes: jsonByteLength(result) })
+  );
   const [
     tenantProjection,
     settingsProjection,
@@ -24,19 +30,19 @@ export async function getTenantBootstrap(tenantSlug) {
     menuProjection,
     reviewsProjection
   ] = await Promise.all([
-    readTenantProjection(tenant),
-    readSettingsProjection(tenant),
-    readHrProjection(tenant),
-    readFinanceProjection(tenant),
-    readCustomersProjection(tenant),
-    readOrdersProjection(tenant),
-    readDeliveryProjection(tenant),
-    readCatalogProjection(tenant),
-    readMenuProjection(tenant),
-    readReviewsProjection(tenant)
+    measureProjection('tenant', () => readTenantProjection(tenant)),
+    measureProjection('settings', () => readSettingsProjection(tenant)),
+    measureProjection('hr', () => readHrProjection(tenant)),
+    measureProjection('finance', () => readFinanceProjection(tenant)),
+    measureProjection('customers', () => readCustomersProjection(tenant)),
+    measureProjection('orders', () => readOrdersProjection(tenant)),
+    measureProjection('delivery', () => readDeliveryProjection(tenant)),
+    measureProjection('catalog', () => readCatalogProjection(tenant)),
+    measureProjection('menu', () => readMenuProjection(tenant)),
+    measureProjection('reviews', () => readReviewsProjection(tenant))
   ]);
 
-  return {
+  return measureBootstrapSpan('response.assembly.projections', async () => ({
     ...tenantProjection,
     ...settingsProjection,
     ...hrProjection,
@@ -47,5 +53,5 @@ export async function getTenantBootstrap(tenantSlug) {
     ...catalogProjection,
     ...menuProjection,
     ...reviewsProjection
-  };
+  }));
 }

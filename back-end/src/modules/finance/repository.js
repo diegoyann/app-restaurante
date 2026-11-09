@@ -16,10 +16,12 @@ import { normalizeRecurringCostName } from './obligationsService.js';
 import { randomUUID } from 'node:crypto';
 import { buildDailyRevenue } from './dailyRevenueModel.js';
 import { assertCompetenceOpen } from './competenceProtection.js';
+import { requireTransactionDate } from './transactionDateModel.js';
 
 export async function saveTransaction(tenantSlug, payload) {
   const tenant = await getTenantRowBySlug(tenantSlug);
-  await assertCompetenceOpen(tenant.id, String(payload.date || '').slice(0, 7));
+  const transactionDate = requireTransactionDate(payload.date);
+  await assertCompetenceOpen(tenant.id, transactionDate.slice(0, 7));
   const sourceType = String(payload.sourceType || 'manual').trim() || 'manual';
   const sourceId = String(payload.sourceId || '').trim();
   const existingSource = sourceId
@@ -41,7 +43,7 @@ export async function saveTransaction(tenantSlug, payload) {
       .upsert({
         id: payload.id || existingSource?.id || undefined,
         tenant_id: tenant.id,
-        transaction_date: payload.date,
+        transaction_date: transactionDate,
         platform: payload.platform,
         payment: payload.payment,
         amount: payload.amount,
@@ -72,7 +74,7 @@ export async function deleteTransactionById(tenantSlug, transactionId) {
     await supabaseAdmin.from('transactions').select('transaction_date').eq('tenant_id', tenant.id).eq('id', transactionId).maybeSingle(),
     'Falha ao carregar lançamento.'
   );
-  if (!current) throw new Error('Lançamento não encontrado.');
+  if (!current) return true;
   await assertCompetenceOpen(tenant.id, String(current.transaction_date).slice(0, 7));
 
   ensureOk(

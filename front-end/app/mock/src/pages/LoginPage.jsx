@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
     UtensilsCrossed,
     Mail,
@@ -33,6 +33,7 @@ function getLoginErrorMessage(error, stage) {
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { loading: sessionLoading, session } = useAuthSession();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -221,10 +222,10 @@ export default function LoginPage() {
                         </div>
 
                         {/* Erro */}
-                        {error && (
+                        {(error || location.state?.sessionError) && (
                             <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
                                 <AlertCircle size={14} className="text-red-400 shrink-0" />
-                                <p className="text-xs font-bold text-red-400">{error}</p>
+                                <p className="text-xs font-bold text-red-400">{error || location.state.sessionError}</p>
                             </div>
                         )}
 
