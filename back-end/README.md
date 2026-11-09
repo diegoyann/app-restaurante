@@ -1,109 +1,45 @@
-# Backend de Regras de Folha para Vercel
+# Backend
 
-Base mínima para começar a regra de:
+API Node.js ESM para o sistema Rei das Esfihas. Os handlers HTTP ficam em `api-handlers/`, são encaminhados por `api/index.js` para execução como Vercel Functions e usam os módulos de `src/modules/` para regras de negócio. A persistência e autenticação usam Supabase.
 
-- vale salarial
-- pagamento final
-- percentual do vale
-- dias de pagamento
-- ajuste automático para dia útil
+Para visão geral, requisitos, configuração do frontend e validações do repositório, consulte o [README principal](../README.md).
 
-## Stack correta para Vercel
+## Requisitos
 
-- linguagem: `JavaScript / Node.js`
-- arquitetura: `Vercel Functions`
-- formato: endpoints em `/api`
-
-Node é aceito no Vercel. O que não faz sentido lá é depender de servidor Express rodando fixo como se fosse VPS.
+- Node.js e npm compatíveis com as dependências deste projeto.
+- Projeto Supabase configurado.
 
 ## Rodar localmente
 
-Você precisa do Vercel CLI:
+```powershell
+Copy-Item .env.example .env
+npm ci
+npm run dev
+```
+
+Configure no `.env`:
+
+| Variável | Uso |
+| --- | --- |
+| `SUPABASE_URL` | URL do projeto Supabase |
+| `SUPABASE_PUBLISHABLE_KEY` | Chave pública para operações que a usam |
+| `SUPABASE_SECRET_KEY` | Chave privilegiada usada somente no backend |
+| `CORS_ALLOWED_ORIGINS` | Origens frontend permitidas, separadas por vírgula |
+
+O servidor local inicia em `http://localhost:3000`. Verifique a disponibilidade em `/health`; as rotas de negócio ficam sob `/api/`.
+
+## Testes
 
 ```bash
-npm install -g vercel
+npm test
 ```
 
-Depois:
+## Publicação na Vercel
+
+O projeto Vercel do backend está vinculado a esta pasta. Configure as variáveis no ambiente do projeto Vercel e publique com:
 
 ```bash
-vercel dev
+vercel --prod --yes
 ```
 
-Servidor local padrão do Vercel CLI:
-
-```text
-http://localhost:3000
-```
-
-## Endpoints
-
-### Health
-
-```http
-GET /health
-```
-
-### Configuração da folha
-
-```http
-GET /api/payroll/config
-PUT /api/payroll/config
-```
-
-Exemplo de payload:
-
-```json
-{
-  "advancePercentage": 40,
-  "advanceDay": 15,
-  "advanceBusinessDayPolicy": "previous",
-  "finalPaymentDay": 5,
-  "finalPaymentMonthOffset": 1,
-  "finalPaymentBusinessDayPolicy": "previous",
-  "holidays": ["2026-05-01", "2026-05-21"]
-}
-```
-
-### Funcionários
-
-```http
-GET /api/payroll/employees
-```
-
-### Simulação da folha
-
-```http
-GET /api/payroll/preview?month=2026-04
-```
-
-## Regras implementadas
-
-- `advancePercentage`: percentual do salário pago no vale
-- `advanceDay`: dia base do vale
-- `finalPaymentDay`: dia base do pagamento final
-- `finalPaymentMonthOffset`: se o pagamento final cai no mesmo mês (`0`) ou no mês seguinte (`1`)
-- `advanceBusinessDayPolicy` e `finalPaymentBusinessDayPolicy`:
-  - `none`
-  - `previous`
-  - `next`
-- `holidays`: lista opcional de feriados em `YYYY-MM-DD`
-
-## Estrutura
-
-```text
-api/
-  health.js
-  payroll/
-    config.js
-    employees.js
-    preview.js
-src/
-  data/
-  services/
-  utils/
-```
-
-## Observação importante
-
-Ainda é backend inicial com armazenamento em memória. Em ambiente serverless isso é ainda mais frágil, porque a instância pode ser reciclada a qualquer momento. Então isso serve para validar regra, não para produção.
+Não versione `.env` nem coloque `SUPABASE_SECRET_KEY`, tokens ou senhas no frontend. Arquivos `.env.example` devem conter apenas valores de exemplo.
